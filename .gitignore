@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Local
+*.bak
+*.bak.*
