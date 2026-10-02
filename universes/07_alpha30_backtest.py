@@ -87,34 +87,12 @@ Rates as of 2025-26 (delivery / CNC):
 """
 
 
-def nse_equity_delivery_cost(side: OrderSide, quantity: float, price: float) -> float:
-    notional = abs(quantity * price)
-    if notional <= 0:
-        return 0.0
-
-    # --- statutory ---
-    stt = 0.0010 * notional if side is OrderSide.SELL else 0.0
-    stamp = 0.00015 * notional if side is OrderSide.BUY else 0.0
-
-    # --- exchange / regulator ---
-    exch = 0.0000297 * notional
-    sebi = 0.000001 * notional
-    ipft = 0.000001 * notional
-
-    # --- brokerage (discount) ---
-    brokerage = min(0.0003 * notional, 20.0)
-
-    # --- GST on brokerage + exchange + sebi + ipft ---
-    taxable = brokerage + exch + sebi + ipft
-    gst = 0.18 * taxable
-
-    return stt + stamp + exch + sebi + ipft + brokerage + gst
 # ---------------------------------------------------------------------------
 # Simulated exchange (unchanged)
 # ---------------------------------------------------------------------------
 from honba.entities.order import OrderIntent, OrderSide
 from honba.entities.trade import Trade
-# paste nse_equity_delivery_cost above (or import from honba.india.costs once it lands)
+from honba.markets.india.costs import nse_equity_delivery_cost
 
 class SimulatedExchange:
     def __init__(self) -> None:
