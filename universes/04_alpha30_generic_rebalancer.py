@@ -25,7 +25,11 @@ from honba.markets.india.universes import resolve_universe
 from honba.strategies.base import Strategy
 from honba.strategies.sizing import whole_shares
 
-import alpha30_constituents
+try:
+    import alpha30_constituents
+except ImportError:
+    from universes import alpha30_constituents  # type: ignore[import-not-found]
+
 
 load_alpha30 = alpha30_constituents.load_alpha30
 UNIVERSE_NAME: str = alpha30_constituents.UNIVERSE_NAME
