@@ -11,17 +11,16 @@ import math
 from collections import defaultdict
 from typing import Any
 
-from honba.entities.bar import Bar
-from honba.entities.instrument import InstrumentId
-from honba.entities.order import OrderIntent
-from honba.entities.trade import Trade
+from honba.domain.bar import Bar
+from honba.domain.instrument import InstrumentId
+from honba.domain.order import OrderIntent, OrderSide
+from honba.domain.trade import Trade
 from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore
 from honba.strategies.config import StrategyConfig
 from honba.strategies.context import LedgerContext
 from honba.strategies.runner import StrategyRunner
-from honba.domain.order import OrderSide  # or entities.order
 
 
 
@@ -90,8 +89,8 @@ Rates as of 2025-26 (delivery / CNC):
 # ---------------------------------------------------------------------------
 # Simulated exchange (unchanged)
 # ---------------------------------------------------------------------------
-from honba.entities.order import OrderIntent, OrderSide
-from honba.entities.trade import Trade
+from honba.domain.order import OrderIntent, OrderSide
+from honba.domain.trade import Trade
 from honba.markets.india.costs import nse_equity_delivery_cost
 
 class SimulatedExchange:
@@ -210,8 +209,6 @@ def run_session(
     max_dd = _max_drawdown(equity)
     sharpe = _sharpe(daily_rets)
     cagr = _cagr(initial_capital, final_equity, n_calendar_days)
-    turnover = _turnover(res.fills if (res := type("R", (), {"fills": runner.fills})()) else [], avg_equity)
-    # runner.fills is populated by StrategyRunner
     fills = runner.fills
     turnover = _turnover(fills, avg_equity)
     total_fees = sum(getattr(f, "costs", 0.0) for f in fills)
@@ -281,8 +278,9 @@ def main() -> None:
     strategy_path = (
         Path(__file__).resolve().parent.parent.parent
         / "honba-strategies"
-        / "alpha_universe"
-        / "alpha30_equal_weight"      # ← correct directory
+        / "universe"
+        / "alpha"
+        / "equal_weight"
         / "strategy.py"
     )
     spec = importlib.util.spec_from_file_location("strategy", strategy_path)

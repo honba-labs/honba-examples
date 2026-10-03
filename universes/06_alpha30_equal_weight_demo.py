@@ -1,4 +1,4 @@
-"""06_alpha30_equal_weight_rebalance
+"""06_alpha30_equal_weight_demo
 
 Equal-weight Nifty200 Alpha 30, rebalanced every 15 trading days.
 
@@ -15,8 +15,8 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from honba.entities.bar import Bar
-from honba.entities.instrument import InstrumentId
+from honba.domain.bar import Bar
+from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 from honba.strategies.base import Strategy
 from honba.strategies.sizing import whole_shares

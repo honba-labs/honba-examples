@@ -14,7 +14,7 @@ Catalog counterpart: honba.markets.india.universes
 
 from __future__ import annotations
 
-from honba.entities.instrument import InstrumentId
+from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe, UNIVERSES
 
 # ---------------------------------------------------------------------------

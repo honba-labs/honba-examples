@@ -1,4 +1,4 @@
-"""04_universe_rebalance
+"""04_alpha30_generic_rebalancer
 
 Generic equal-weight rebalancer that works with *any* named universe.
 
@@ -11,7 +11,7 @@ Demonstrates the three actions required on every rebalance day:
 
 Default universe = Nifty200 Alpha 30, rebalance every 15 trading days.
 Reuse the same class for Nifty 50, Bank Nifty, custom lists, etc. by
-passing a different ``universe`` name.
+passing a different ``universe`` name (see 05_alpha30_custom_universe.py).
 """
 
 from __future__ import annotations
@@ -19,26 +19,16 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from honba.entities.bar import Bar
-from honba.entities.instrument import InstrumentId
+from honba.domain.bar import Bar
+from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 from honba.strategies.base import Strategy
 from honba.strategies.sizing import whole_shares
 
-# Re-use the helper from 03 so the seed is registered if needed
-from universes import load_alpha30  # relative import when run as package
-# fallback for standalone execution:
-try:
-    from .03_alpha30_constituents import load_alpha30, UNIVERSE_NAME
-except ImportError:
-    from importlib.util import spec_from_file_location, module_from_spec
-    import pathlib
-    _p = pathlib.Path(__file__).with_name("03_alpha30_constituents.py")
-    _spec = spec_from_file_location("alpha30", _p)
-    _mod = module_from_spec(_spec)
-    _spec.loader.exec_module(_mod)
-    load_alpha30 = _mod.load_alpha30
-    UNIVERSE_NAME = _mod.UNIVERSE_NAME
+import alpha30_constituents
+
+load_alpha30 = alpha30_constituents.load_alpha30
+UNIVERSE_NAME: str = alpha30_constituents.UNIVERSE_NAME
 
 
 class UniverseEqualWeightRebalance(Strategy):
@@ -90,16 +80,19 @@ class UniverseEqualWeightRebalance(Strategy):
         self._last_prices[bar.instrument_id] = float(bar.close)
 
         day = _bar_day(bar, self.ctx.now())
+        day_changed = False
         if self._last_day is None:
             self._last_day = day
         if day > self._last_day:
             self._days_since_rebalance += 1
             self._last_day = day
+            day_changed = True
 
         if not self._initial_done:
-            self._rebalance("initial")
-            self._initial_done = True
-            self._days_since_rebalance = 0
+            if len(self._last_prices) >= len(self._universe) or day_changed:
+                self._rebalance("initial")
+                self._initial_done = True
+                self._days_since_rebalance = 0
             return
 
         if self._days_since_rebalance >= self.rebalance_days:
