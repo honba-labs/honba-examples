@@ -213,24 +213,48 @@ def run_session(
     turnover = _turnover(fills, avg_equity)
     total_fees = sum(getattr(f, "costs", 0.0) for f in fills)
 
-    # --- print Jesse-style table ---
-    print("=" * 60)
-    print(f"  {label}")
-    print("=" * 60)
-    print(f"Total Bars Processed : {len(bars):,}")
-    print(f"Total Fills / Trades : {len(fills):,}")
-    print(f"Initial Capital      : INR {initial_capital:,.2f}")
-    print(f"Final Cash           : INR {final_cash:,.2f}")
-    print(f"Open Positions Value : INR {pos_val:,.2f}")
-    print(f"Total Equity         : INR {final_equity:,.2f}")
-    print(f"Net Return           : {ret_pct:+.2f}%")
-    print(f"CAGR                 : {cagr:+.2f}%")
-    print(f"Max Drawdown         : {max_dd:.2f}%")
-    print(f"Sharpe (ann.)        : {sharpe:.2f}")
-    print(f"Turnover             : {turnover:.2f}x")
-    print(f"Avg Cash             : {avg_cash_pct:.1f}%")
-    print(f"Total Fees           : INR {total_fees:,.2f}")
-    print("=" * 60 + "\n")
+    # --- print with TUI report ---
+    try:
+        from honba import report, session
+        from honba.domain.instrument import InstrumentId
+
+        # Create a BacktestResult for TUI display
+        # We use the first fill's instrument if available
+        sym = "ALPHA30"
+        venue = "NSE"
+        if fills:
+            iid = fills[0].instrument_id
+            sym = iid.symbol
+            venue = iid.venue
+
+        r = session.BacktestResult(
+            strategy_name=label,
+            config=session.BacktestConfig(
+                symbol=sym,
+                venue=venue,
+                start="2022-01-01",
+                end="2026-10-03",
+                timeframe="1d",
+                cash=initial_capital,
+            ),
+            fills=fills,
+            metrics={
+                "total_return_pct": ret_pct,
+                "max_drawdown_pct": max_dd,
+                "n_trades": len(fills),
+                "n_fills": len(fills),
+                "final_equity": final_equity,
+                "final_cash": final_cash,
+                "sharpe": sharpe,
+                "cagr_pct": cagr,
+                "turnover": turnover,
+                "total_fees": total_fees,
+            },
+            notes=[f"Bars processed: {len(bars):,}"],
+        )
+        report.print_backtest_report(r, format="tui")
+    except Exception as e:
+        print(f"Error printing TUI report: {e}")
 
     return {
         "label": label,
