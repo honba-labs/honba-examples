@@ -5,7 +5,7 @@ Equal-weight Nifty200 Alpha 30, rebalanced every 15 trading days.
 Membership is resolved only through the Honba universe API:
 
     from honba.markets.india.universes import resolve_universe
-    ids = resolve_universe("nifty200_alpha_30", venue="NSE")
+    ids = resolve_universe("nifty200_alpha_30", exchange="NSE")
 
 Re-fetched on every rebalance so index joiners / leavers are applied.
 """
@@ -31,13 +31,13 @@ class Alpha30EqualWeightRebalance(Strategy):
         capital: float = 1_000_000.0,
         allocation: float = 0.98,
         rebalance_days: int = 15,
-        venue: str = "NSE",
+        exchange: str = "NSE",
         universe: str = UNIVERSE,
     ) -> None:
         self.capital = capital
         self.allocation = allocation
         self.rebalance_days = rebalance_days
-        self.venue = venue
+        self.exchange = exchange
         self.universe_name = universe
 
         self._universe: set[InstrumentId] = set()
@@ -47,7 +47,7 @@ class Alpha30EqualWeightRebalance(Strategy):
         self._initial_done = False
 
     def on_start(self) -> None:
-        self._universe = set(resolve_universe(self.universe_name, venue=self.venue))
+        self._universe = set(resolve_universe(self.universe_name, exchange=self.exchange))
         print(f"[start] {self.universe_name} size={len(self._universe)}")
 
     def on_bar(self, bar: Bar) -> None:
@@ -73,7 +73,7 @@ class Alpha30EqualWeightRebalance(Strategy):
     def _rebalance(self, reason: str) -> None:
         previous = set(self._universe)
         # Engine API — always re-resolve
-        self._universe = set(resolve_universe(self.universe_name, venue=self.venue))
+        self._universe = set(resolve_universe(self.universe_name, exchange=self.exchange))
         if not self._universe:
             print(f"[rebalance:{reason}] empty — skip")
             return

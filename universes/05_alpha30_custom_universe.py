@@ -25,7 +25,7 @@ from honba.markets.india.universes import UNIVERSES, resolve_universe
 # Define your custom basket
 # ---------------------------------------------------------------------------
 CUSTOM_UNIVERSE_NAME = "custom_infra_basket"
-VENUE = "NSE"
+EXCHANGE = "NSE"
 
 CUSTOM_SYMBOLS: tuple[str, ...] = (
     "LT",           # Larsen & Toubro
@@ -41,27 +41,27 @@ CUSTOM_SYMBOLS: tuple[str, ...] = (
 )
 
 
-def register_custom_universe(venue: str = VENUE) -> list[InstrumentId]:
+def register_custom_universe(exchange: str = EXCHANGE) -> list[InstrumentId]:
     """Register CUSTOM_SYMBOLS under CUSTOM_UNIVERSE_NAME and return the list."""
     norm = CUSTOM_UNIVERSE_NAME.lower().replace("-", "_").replace(" ", "_")
     if norm not in UNIVERSES:
         UNIVERSES[norm] = CUSTOM_SYMBOLS
         print(f"[register] '{norm}' → {len(CUSTOM_SYMBOLS)} symbols")
-    return [InstrumentId(sym, venue) for sym in CUSTOM_SYMBOLS]
+    return [InstrumentId(sym, exchange) for sym in CUSTOM_SYMBOLS]
 
 
 def main() -> None:
     members = register_custom_universe()
 
     # Verify round-trip through the engine API
-    resolved = resolve_universe(CUSTOM_UNIVERSE_NAME, venue=VENUE)
+    resolved = resolve_universe(CUSTOM_UNIVERSE_NAME, exchange=EXCHANGE)
 
     print(f"\nCustom universe : {CUSTOM_UNIVERSE_NAME}")
-    print(f"Venue           : {VENUE}")
+    print(f"Exchange           : {EXCHANGE}")
     print(f"Members         : {len(resolved)}")
     print("-" * 36)
     for iid in sorted(resolved, key=lambda x: x.symbol):
-        print(f"  {iid.symbol:15s}  {iid.venue}")
+        print(f"  {iid.symbol:15s}  {iid.exchange}")
 
     print(
         "\nPass universe_name=CUSTOM_UNIVERSE_NAME to UniverseEqualWeightRebalance "

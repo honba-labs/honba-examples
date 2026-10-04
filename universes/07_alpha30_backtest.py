@@ -221,17 +221,17 @@ def run_session(
         # Create a BacktestResult for TUI display
         # We use the first fill's instrument if available
         sym = "ALPHA30"
-        venue = "NSE"
+        exchange = "NSE"
         if fills:
             iid = fills[0].instrument_id
             sym = iid.symbol
-            venue = iid.venue
+            exchange = iid.exchange
 
         r = session.BacktestResult(
             strategy_name=label,
             config=session.BacktestConfig(
                 symbol=sym,
-                venue=venue,
+                exchange=exchange,
                 start="2022-01-01",
                 end="2026-10-03",
                 timeframe="1d",
@@ -276,7 +276,7 @@ def run_session(
 def main() -> None:
     # 1. Resolve Universe
     universe_name = "nifty200_alpha_30"
-    universe = resolve_universe(universe_name, venue="NSE")
+    universe = resolve_universe(universe_name, exchange="NSE")
     print(f"[Universe] Resolved '{universe_name}': {len(universe)} equities")
 
     # 2. Configure Data Fetcher / Parquet Store

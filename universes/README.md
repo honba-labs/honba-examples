@@ -8,7 +8,7 @@ with a production-ready catalog strategy.
 | 01 | `01_nifty50_constituents.py`                  | Resolve a static named universe; print an InstrumentId table   |
 | 02 | `02_banknifty_constituents.py`                | Sector / thematic universes — same API, different name          |
 | 03 | `alpha30_constituents.py`                     | Nifty200 Alpha 30 seed + `load_alpha30()` helper                |
-| 04 | `04_alpha30_generic_rebalancer.py`            | Generic equal-weight rebalancer (any universe, any venue)       |
+| 04 | `04_alpha30_generic_rebalancer.py`            | Generic equal-weight rebalancer (any universe, any exchange)       |
 | 05 | `05_alpha30_custom_universe.py`               | Build and register your own InstrumentId list as a universe     |
 | 06 | `06_alpha30_equal_weight_demo.py`             | Runnable end-to-end demo of the Alpha 30 equal-weight strategy  |
 | 07 | `07_alpha30_backtest.py`                      | In-sample training & out-of-sample backtest pipeline            |
@@ -17,7 +17,7 @@ with a production-ready catalog strategy.
 
 | File | Key idea |
 |------|----------|
-| 01   | `resolve_universe("nifty50", venue="NSE")` returns `list[InstrumentId]` |
+| 01   | `resolve_universe("nifty50", exchange="NSE")` returns `list[InstrumentId]` |
 | 02   | Sector universes use the same call — just swap the name |
 | 03   | When a universe isn't registered yet, fall back to a seed list via `load_alpha30()` |
 

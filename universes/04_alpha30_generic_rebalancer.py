@@ -45,13 +45,13 @@ class UniverseEqualWeightRebalance(Strategy):
         capital: float = 1_000_000.0,
         allocation: float = 0.98,
         rebalance_days: int = 15,
-        venue: str = "NSE",
+        exchange: str = "NSE",
         universe: str = UNIVERSE_NAME,
     ) -> None:
         self.capital = capital
         self.allocation = allocation
         self.rebalance_days = rebalance_days
-        self.venue = venue
+        self.exchange = exchange
         self.universe_name = universe
 
         self._universe: set[InstrumentId] = set()
@@ -66,11 +66,11 @@ class UniverseEqualWeightRebalance(Strategy):
     def _resolve(self) -> set[InstrumentId]:
         """Always go through the engine API (or the 03 fallback)."""
         try:
-            return set(resolve_universe(self.universe_name, venue=self.venue))
+            return set(resolve_universe(self.universe_name, exchange=self.exchange))
         except ValueError:
             # Engine does not know the name yet → use the Alpha-30 helper
             if self.universe_name in ("nifty200_alpha_30", "alpha30"):
-                return set(load_alpha30(self.venue))
+                return set(load_alpha30(self.exchange))
             raise
 
     # ------------------------------------------------------------------

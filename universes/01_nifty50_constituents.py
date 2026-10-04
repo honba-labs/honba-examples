@@ -16,17 +16,17 @@ from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 
 UNIVERSE_NAME = "nifty50"
-VENUE = "NSE"
+EXCHANGE = "NSE"
 
 
 def main() -> None:
-    members: list[InstrumentId] = resolve_universe(UNIVERSE_NAME, venue=VENUE)
+    members: list[InstrumentId] = resolve_universe(UNIVERSE_NAME, exchange=EXCHANGE)
     print(f"Universe : {UNIVERSE_NAME}")
-    print(f"Venue    : {VENUE}")
+    print(f"Exchange    : {EXCHANGE}")
     print(f"Members  : {len(members)}")
     print("-" * 36)
     for iid in sorted(members, key=lambda x: x.symbol):
-        print(f"  {iid.symbol:15s}  {iid.venue}")
+        print(f"  {iid.symbol:15s}  {iid.exchange}")
 
 
 if __name__ == "__main__":
