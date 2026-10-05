@@ -50,6 +50,7 @@ import argparse
 import csv
 import datetime as dt
 import math
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,7 +60,11 @@ from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import DateInterval
 
-from honba_examples.base import HonbaExample, ts_to_date
+try:
+    from honba_examples.base import HonbaExample, ts_to_date
+except ModuleNotFoundError:  # plain checkout without `pip install -e .`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from honba_examples.base import HonbaExample, ts_to_date
 
 # ---------------------------------------------------------------------------
 # Basket, matched to the symbols present in Jesse's trades.csv
