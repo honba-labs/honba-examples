@@ -11,7 +11,8 @@ with a production-ready catalog strategy.
 | 04 | `04_alpha30_generic_rebalancer.py`            | Generic equal-weight rebalancer (any universe, any exchange)       |
 | 05 | `05_alpha30_custom_universe.py`               | Build and register your own InstrumentId list as a universe     |
 | 06 | `06_alpha30_equal_weight_demo.py`             | Runnable end-to-end demo of the Alpha 30 equal-weight strategy  |
-| 07 | `07_alpha30_backtest.py`                      | In-sample training & out-of-sample backtest pipeline            |
+| 07 | `07_alpha30_backtest.py`                      | Honba-native backtest: next-open fills, T+2, paise, run.json    |
+| 08 | `08_alpha30_union_ewr_backtest.py`            | Jesse-parity port of the same rebalance, for engine comparison  |
 
 ## 01 – 03  Core concepts
 
@@ -33,7 +34,7 @@ runnable backtest:
         ↓
 06  Alpha 30 demo               (wires 03 + 04 into a runnable strategy)
         ↓
-07  backtest pipeline           (in-sample training + OOS evaluation)
+07  backtest pipeline           (Honba-native reference backtest)
 ```
 
 ### 04 — Generic equal-weight rebalancer
@@ -68,25 +69,33 @@ API so index joiners/leavers are applied automatically.
 
 ### 07 — Backtest pipeline
 
-`07_alpha30_backtest.py`
+`07_alpha30_backtest.py` is the Honba-native reference backtest of the
+`alpha30_equal_weight` catalog strategy:
 
-Full evaluation:
+- Strategy loaded from `honba-strategies` by registry name
+  (`--strategies-dir`, `$HONBA_STRATEGIES_DIR`, or the sibling checkout).
+- Universe resolved once from the universe the strategy trades; members with
+  no bars in the test window are reported (`--require-full-coverage` fails).
+- Orders fill at the **next session's open**, sells before buys, NSE delivery
+  costs per leg in paise, and the engine's settlement cycle (T+2 on NSE): buys
+  wait for sale proceeds and are cut to the cash available.
+- `--warmup-days` bars feed indicators only; warm-up cannot trade, and only
+  test-window fills, fees and turnover are counted. Alpha-30 has no indicators,
+  so its default warm-up is 0.
+- Writes `--out-dir/run.json`: config, universe, data coverage, metrics, fills,
+  order events, equity curve (integer paise) and input/result/run hashes.
 
-- **In-sample training** : 2022-01-01 → 2025-12-30
-- **Out-of-sample test** : 2026-01-01 → today
-
-Reports CAGR, Sharpe, max drawdown, turnover, and total fees (NSE
-delivery cost model).
-
-**Catalog destination**
-
-```text
-honba-strategies/alpha_universe/alpha30_equal_weight/
-├── strategy.py      ← production version of 06
-├── config.toml
-└── README.md
+```bash
+python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \
+    --out-dir /tmp/alpha30
 ```
 
-Once the engine registers a real point-in-time Nifty200 Alpha 30 provider,
-delete the seed fallback in 03; every file above continues to work unchanged
-because they all call `resolve_universe("nifty200_alpha_30")` first.
+`--test-end` defaults to the latest bar in the store, resolved at run time and
+recorded as `test_end_source` in run.json.
+
+### 08 — Jesse parity
+
+`08_alpha30_union_ewr_backtest.py` ports Jesse's portfolio rebalance (fills at
+the session close, flat fee) so the two engines can be diffed session by
+session. Use 07 for Honba results; 08 only for the comparison
+(`--jesse-trades PATH` points at Jesse's `trades.csv`).

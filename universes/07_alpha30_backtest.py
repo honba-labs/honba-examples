@@ -1,339 +1,302 @@
-"""Example: Run backtest and training for Alpha 30 Factor Strategy.
+"""Example 07: Honba-native backtest of the Alpha-30 equal-weight catalog strategy.
 
-Configures data-fetcher / Parquet store, gets data for 30 equities from NSE NIFTY200 ALPHA 30,
-runs in-sample training (2022-01-01 to 2025-12-30) and out-of-sample backtesting (2026-01-01 to today).
+This is the reference way to backtest a catalog strategy over a universe in Honba.
+(08 is the separate Jesse-parity port, kept for engine-to-engine comparison.)
+
+Pipeline
+--------
+1. **Strategy** - ``alpha30_equal_weight`` is loaded from the ``honba-strategies``
+   catalog by registry name (``--strategies-dir`` / ``$HONBA_STRATEGIES_DIR`` /
+   sibling checkout) with its ``config.toml``.
+2. **Universe** - resolved once, from the universe the strategy trades
+   (``nifty200_alpha_30``). The same list is loaded from the Parquet store; members
+   with no bars in the test window are reported (``--require-full-coverage`` makes
+   that fatal). The strategy sizes over the whole universe, so a missing member's
+   share simply stays in cash.
+3. **Run** - the core ``StrategyRunner`` and ``LedgerContext`` drive the strategy.
+   Orders fill at the *next session's open* (never the close that produced them),
+   sells before buys, with NSE delivery costs (``nse_equity_delivery_cost`` legs,
+   each rounded to paise) and the exchange's settlement cycle from the engine
+   (``settlement_days_for``: T+2 on NSE): a buy waits for sale proceeds to settle
+   and is cut to the cash available.
+4. **Warm-up** - ``--warmup-days`` of bars before ``--test-start`` are fed to the
+   strategy for its indicators but cannot trade; only test-window fills, fees and
+   turnover count. Alpha-30 has no indicators and keeps a 15-session rebalance
+   clock that warm-up would advance, so its default warm-up is 0.
+5. **Output** - money is integer paise (ADR 0011). ``--out-dir/run.json`` holds the
+   config, universe, data coverage, metrics, fills, order events, equity curve and
+   hashes of the inputs and results; a summary prints to stdout.
+
+The test window is explicit: ``--test-start`` defaults to 2026-01-01 and
+``--test-end`` defaults to the latest bar in the store at run time (recorded in
+run.json as ``test_end_source``).
+
+Run::
+
+    python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \\
+        --out-dir /tmp/alpha30
 """
+
 from __future__ import annotations
 
+import argparse
 import datetime as dt
+import hashlib
+import json
+import sys
 from pathlib import Path
-import math
-from collections import defaultdict
 from typing import Any
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
-from honba.domain.order import OrderIntent, OrderSide
-from honba.domain.trade import Trade
+from honba.markets.india.settlement import settlement_days_for
 from honba.markets.india.universes import resolve_universe
-from honba.screener.coverage import DateInterval
-from honba.screener.store import ParquetBarStore
-from honba.strategies.config import StrategyConfig
-from honba.strategies.context import LedgerContext
-from honba.strategies.runner import StrategyRunner
+
+try:
+    import honba_examples  # noqa: F401
+except ModuleNotFoundError:  # plain checkout without `pip install -e .`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from honba_examples.backtest import BacktestRun, canonical_hash, run_portfolio_backtest
+from honba_examples.base import HonbaExample, ts_to_date
+from honba_examples.catalog import CatalogError, find_catalog, load_catalog_strategy
+from honba_examples.money import paise_to_rupees, to_paise
+
+SCHEMA = "honba-examples/07-alpha30-backtest/v1"
+DEFAULT_STRATEGY = "alpha30_equal_weight"
 
 
+def _date(text: str) -> dt.date:
+    return dt.date.fromisoformat(text)
 
 
-
-# ---------------------------------------------------------------------------
-# Metrics helpers
-# ---------------------------------------------------------------------------
-def _ts_to_date(ts: int) -> dt.date:
-    """Unix-ns → calendar date (UTC)."""
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).date()
-
-
-def _max_drawdown(equity: list[float]) -> float:
-    peak = equity[0]
-    max_dd = 0.0
-    for v in equity:
-        if v > peak:
-            peak = v
-        dd = (peak - v) / peak if peak > 0 else 0.0
-        if dd > max_dd:
-            max_dd = dd
-    return max_dd * 100.0  # percent
-
-
-def _sharpe(daily_returns: list[float], rf: float = 0.0) -> float:
-    if len(daily_returns) < 2:
-        return 0.0
-    mean = sum(daily_returns) / len(daily_returns)
-    var = sum((r - mean) ** 2 for r in daily_returns) / (len(daily_returns) - 1)
-    std = math.sqrt(var)
-    if std < 1e-12:
-        return 0.0
-    # annualise (252 trading days)
-    return ((mean - rf / 252) / std) * math.sqrt(252)
-
-
-def _cagr(initial: float, final: float, n_days: int) -> float:
-    if initial <= 0 or n_days <= 0:
-        return 0.0
-    years = n_days / 365.25
-    return ((final / initial) ** (1 / years) - 1) * 100.0
-
-
-def _turnover(fills: list[Trade], avg_equity: float) -> float:
-    """Sum of absolute traded notional / average equity."""
-    if avg_equity <= 0:
-        return 0.0
-    notional = sum(abs(f.quantity * f.price) for f in fills)
-    return notional / avg_equity
-
-
-"""NSE cash-equity delivery costs (Zerodha-style / discount broker).
-
-Rates as of 2025-26 (delivery / CNC):
-  STT            0.10 %  on sell notional only
-  Stamp duty     0.015%  on buy notional only
-  Exchange txn   0.00297% both sides (NSE)
-  SEBI charges   0.0001% both sides
-  IPFT           0.0001% both sides (approx)
-  Brokerage      min(0.03% of notional, ₹20) both sides
-  GST            18% on (brokerage + exchange + SEBI + IPFT)
-"""
-
-
-# ---------------------------------------------------------------------------
-# Simulated exchange (unchanged)
-# ---------------------------------------------------------------------------
-from honba.domain.order import OrderIntent, OrderSide
-from honba.domain.trade import Trade
-from honba.markets.india.costs import nse_equity_delivery_cost
-
-class SimulatedExchange:
-    def __init__(self) -> None:
-        self.last_prices: dict[InstrumentId, float] = {}
-        self.fills: list[Trade] = []
-        self._next_ts = 0
-        self.total_fees: float = 0.0          # convenience accumulator
-
-    def on_event(self, event: object, ts: int) -> None:
-        if isinstance(event, Bar):
-            self.last_prices[event.instrument_id] = event.close
-
-    def submit(self, order_id: str, intent: OrderIntent, ts: int) -> None:
-        px = self.last_prices.get(intent.instrument_id)
-        if px is None or px <= 0:
-            return
-        fill_ts = max(self._next_ts, ts)
-        self._next_ts = fill_ts + 1
-
-        cost = nse_equity_delivery_cost(intent.side, intent.quantity, px)
-        self.total_fees += cost
-
-        self.fills.append(
-            Trade(
-                intent.instrument_id,
-                intent.side,
-                intent.quantity,
-                px,
-                fill_ts,
-                order_id,
-                costs=cost,          # ← LedgerContext.apply_fill will debit this
-            )
+def bars_digest(bars: list[Bar]) -> str:
+    """sha256 over every loaded bar, so a run hash changes when the data does."""
+    h = hashlib.sha256()
+    for b in sorted(bars, key=lambda b: (b.instrument_id.symbol, b.ts)):
+        h.update(
+            f"{b.instrument_id.symbol}|{b.instrument_id.exchange}|{b.ts}|{b.open!r}|{b.high!r}|"
+            f"{b.low!r}|{b.close!r}|{b.volume!r}\n".encode()
         )
-
-    def drain_fills(self) -> list[Trade]:
-        f, self.fills = self.fills, []
-        return f
+    return h.hexdigest()
 
 
-# ---------------------------------------------------------------------------
-# Session runner with full metrics
-# ---------------------------------------------------------------------------
-def run_session(
-    strategy_cls: type,
-    config: StrategyConfig,
-    bars: list[Bar],
-    initial_capital: float,
-    label: str,
+def data_coverage(
+    universe: list[InstrumentId], bars: list[Bar], test_start: dt.date
 ) -> dict[str, Any]:
-    strat = strategy_cls(config)
-    sim = SimulatedExchange()
-    ctx = LedgerContext(cash=initial_capital)
-    strat.bind(ctx)
-    runner = StrategyRunner(strat, sim, ctx=ctx)
-
-    # --- daily equity curve ---
-    equity_by_day: dict[dt.date, float] = {}
-    cash_by_day: dict[dt.date, float] = {}
-    last_day: dt.date | None = None
-
-    events = [(b, b.ts) for b in bars]
-    # Manual event loop so we can snapshot equity at each day-end
-    runner.start()
-    for event, ts in events:
-        # let the sim see the bar first (same order as StrategyRunner.run)
-        if hasattr(sim, "on_event"):
-            sim.on_event(event, ts)
-        runner.on_event(event, ts)
-
-        day = _ts_to_date(ts)
-        if last_day is not None and day != last_day:
-            # previous day is complete – record its closing equity
-            pos_val = sum(
-                qty * sim.last_prices.get(iid, 0.0)
-                for iid, qty in ctx.positions().items()
-                if qty != 0
-            )
-            equity_by_day[last_day] = ctx.cash() + pos_val
-            cash_by_day[last_day] = ctx.cash()
-        last_day = day
-
-    runner.stop()
-
-    # final day
-    if last_day is not None:
-        pos_val = sum(
-            qty * sim.last_prices.get(iid, 0.0)
-            for iid, qty in ctx.positions().items()
-            if qty != 0
-        )
-        equity_by_day[last_day] = ctx.cash() + pos_val
-        cash_by_day[last_day] = ctx.cash()
-
-    # --- derive metrics ---
-    days = sorted(equity_by_day)
-    equity = [equity_by_day[d] for d in days]
-    cash_series = [cash_by_day[d] for d in days]
-
-    final_equity = equity[-1] if equity else initial_capital
-    final_cash = cash_series[-1] if cash_series else initial_capital
-    pos_val = final_equity - final_cash
-    ret_pct = ((final_equity - initial_capital) / initial_capital) * 100.0
-
-    daily_rets = [
-        (equity[i] - equity[i - 1]) / equity[i - 1]
-        for i in range(1, len(equity))
-        if equity[i - 1] > 0
-    ]
-    n_calendar_days = (days[-1] - days[0]).days if len(days) > 1 else 1
-    avg_equity = sum(equity) / len(equity) if equity else initial_capital
-    avg_cash_pct = (
-        (sum(cash_series) / len(cash_series)) / avg_equity * 100.0 if avg_equity > 0 else 0.0
-    )
-
-    max_dd = _max_drawdown(equity)
-    sharpe = _sharpe(daily_rets)
-    cagr = _cagr(initial_capital, final_equity, n_calendar_days)
-    fills = runner.fills
-    turnover = _turnover(fills, avg_equity)
-    total_fees = sum(getattr(f, "costs", 0.0) for f in fills)
-
-    # --- print with TUI report ---
-    try:
-        from honba import report, session
-        from honba.domain.instrument import InstrumentId
-
-        # Create a BacktestResult for TUI display
-        # We use the first fill's instrument if available
-        sym = "ALPHA30"
-        exchange = "NSE"
-        if fills:
-            iid = fills[0].instrument_id
-            sym = iid.symbol
-            exchange = iid.exchange
-
-        r = session.BacktestResult(
-            strategy_name=label,
-            config=session.BacktestConfig(
-                symbol=sym,
-                exchange=exchange,
-                start="2022-01-01",
-                end="2026-10-03",
-                timeframe="1d",
-                cash=initial_capital,
-            ),
-            fills=fills,
-            metrics={
-                "total_return_pct": ret_pct,
-                "max_drawdown_pct": max_dd,
-                "n_trades": len(fills),
-                "n_fills": len(fills),
-                "final_equity": final_equity,
-                "final_cash": final_cash,
-                "sharpe": sharpe,
-                "cagr_pct": cagr,
-                "turnover": turnover,
-                "total_fees": total_fees,
-            },
-            notes=[f"Bars processed: {len(bars):,}"],
-        )
-        report.print_backtest_report(r, format="tui")
-    except Exception as e:
-        print(f"Error printing TUI report: {e}")
-
-    return {
-        "label": label,
-        "initial_capital": initial_capital,
-        "final_cash": final_cash,
-        "positions_value": pos_val,
-        "final_equity": final_equity,
-        "total_return_pct": ret_pct,
-        "cagr_pct": cagr,
-        "max_drawdown_pct": max_dd,
-        "sharpe": sharpe,
-        "turnover": turnover,
-        "avg_cash_pct": avg_cash_pct,
-        "total_fees": total_fees,
-        "fills_count": len(fills),
-        "equity_curve": [{"date": d.isoformat(), "value": equity_by_day[d], "cash": cash_by_day[d]} for d in days],
+    """Per-member bar counts (warm-up / test window) and the members with no test bars."""
+    per: dict[str, dict[str, Any]] = {
+        iid.symbol: {"bars_warmup": 0, "bars_test": 0, "first": None, "last": None}
+        for iid in universe
     }
+    for b in bars:
+        row = per[b.instrument_id.symbol]
+        day = ts_to_date(b.ts).isoformat()
+        row["bars_test" if day >= test_start.isoformat() else "bars_warmup"] += 1
+        row["first"] = min(row["first"] or day, day)
+        row["last"] = max(row["last"] or day, day)
+    missing = sorted(s for s, row in per.items() if row["bars_test"] == 0)
+    return {"members": per, "missing": missing, "n_members": len(per), "n_missing": len(missing)}
 
-def main() -> None:
-    # 1. Resolve Universe
-    universe_name = "nifty200_alpha_30"
-    universe = resolve_universe(universe_name, exchange="NSE")
-    print(f"[Universe] Resolved '{universe_name}': {len(universe)} equities")
 
-    # 2. Configure Data Fetcher / Parquet Store
-    store = ParquetBarStore()
+class Alpha30BacktestExample(HonbaExample):
+    """Honba-native Alpha-30 equal-weight backtest (next-open fills, T+2, paise ledger)."""
 
-    # 3. Load In-Sample Training Data: 2022-01-01 to 2025-12-30
-    train_interval = DateInterval(dt.date(2022, 1, 1), dt.date(2025, 12, 31))
-    train_bars: list[Bar] = []
-    for inst in universe:
-        train_bars.extend(store.read(inst, "1D", train_interval))
-    train_bars.sort(key=lambda x: (x.ts, x.instrument_id.symbol))
+    universe_name: str = "nifty200_alpha_30"
+    initial_capital: float | None = None  # None: the strategy config's `capital`
+    warmup_days: int = 0
+    out_dir: Path = Path("output") / "07_alpha30"
+    date_range_args = False  # the window is --test-start/--test-end
 
-    # 4. Load Out-of-Sample Backtesting Data: 2026-01-01 to today
-    today = dt.date.today()
-    test_interval = DateInterval(dt.date(2026, 1, 1), today + dt.timedelta(days=1))
-    test_bars: list[Bar] = []
-    for inst in universe:
-        test_bars.extend(store.read(inst, "1D", test_interval))
-    test_bars.sort(key=lambda x: (x.ts, x.instrument_id.symbol))
+    test_start: dt.date = dt.date(2026, 1, 1)
+    test_end: dt.date | None = None  # None: latest bar in the store, resolved at run time
+    strategy: str = DEFAULT_STRATEGY
+    strategies_dir: Path | None = None
+    settlement_days: int | None = None
+    require_full_coverage: bool = False
 
-    # 5. Load Strategy
-    import importlib.util
-    strategy_path = (
-        Path(__file__).resolve().parent.parent.parent
-        / "honba-strategies"
-        / "universe"
-        / "alpha"
-        / "equal_weight"
-        / "strategy.py"
+    def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--test-start", type=_date, default=self.test_start)
+        parser.add_argument(
+            "--test-end",
+            type=_date,
+            default=None,
+            help="Last test session (default: latest bar in the store, recorded in run.json)",
+        )
+        parser.add_argument("--strategy", default=self.strategy, help="Catalog registry name")
+        parser.add_argument(
+            "--strategies-dir",
+            type=Path,
+            default=None,
+            help="honba-strategies checkout (default: $HONBA_STRATEGIES_DIR, then sibling repo)",
+        )
+        parser.add_argument(
+            "--settlement-days",
+            type=int,
+            default=None,
+            help="Sessions until sale proceeds are spendable (default: engine value for the "
+            "exchange, T+2 on NSE)",
+        )
+        parser.add_argument(
+            "--require-full-coverage",
+            action="store_true",
+            help="Fail if any universe member has no bars in the test window",
+        )
+
+    # -- steps -------------------------------------------------------------------
+    def resolve(self, universe_key: str | None) -> list[InstrumentId]:
+        if universe_key and universe_key != self.universe_name:
+            raise SystemExit(
+                f"--universe {self.universe_name!r} differs from the universe the strategy "
+                f"trades ({universe_key!r}); the loader and the strategy must agree"
+            )
+        universe = resolve_universe(self.universe_name, exchange=self.exchange)
+        return sorted(set(universe), key=lambda i: (i.symbol, i.exchange))
+
+    def load(self, universe: list[InstrumentId], start: dt.date, end: dt.date) -> list[Bar]:
+        bars: list[Bar] = []
+        for iid in universe:
+            bars.extend(self.load_bars([iid], start, end))
+        return sorted(bars, key=lambda b: (b.ts, b.instrument_id.symbol))
+
+    def run(self) -> dict[str, Any]:
+        try:
+            catalog = find_catalog(self.strategies_dir)
+            loaded = load_catalog_strategy(self.strategy, catalog)
+        except CatalogError as exc:
+            raise SystemExit(str(exc)) from exc
+        cfg = loaded.config
+
+        universe = self.resolve(getattr(loaded.module, "UNIVERSE_KEY", None))
+        capital = (
+            self.initial_capital
+            if self.initial_capital is not None
+            else float(cfg.params.get("capital", 1_000_000))
+        )
+        if capital <= 0:
+            raise SystemExit("--capital must be positive")
+        if self.settlement_days is not None:
+            settlement, settlement_source = self.settlement_days, "cli"
+        elif cfg.settlement_days is not None:
+            settlement, settlement_source = int(cfg.settlement_days), "strategy_config"
+        else:
+            settlement = settlement_days_for(self.exchange)
+            settlement_source = f"engine:settlement_days_for({self.exchange})"
+
+        # Window: explicit start; end explicit or the latest bar on/before today.
+        warmup_start = self.test_start - dt.timedelta(days=self.warmup_days)
+        if self.test_end is not None:
+            test_end, end_source = self.test_end, "cli"
+            bars = self.load(universe, warmup_start, test_end)
+        else:
+            today = dt.datetime.now(dt.timezone.utc).date()  # resolved at run time, recorded
+            bars = self.load(universe, warmup_start, today)
+            if not bars:
+                raise SystemExit(f"no bars on or after {warmup_start} in {self.store.data_dir}")
+            test_end, end_source = ts_to_date(bars[-1].ts), "latest_bar"
+        if test_end < self.test_start:
+            raise SystemExit(f"--test-end {test_end} is before --test-start {self.test_start}")
+
+        coverage = data_coverage(universe, bars, self.test_start)
+        if coverage["n_missing"] == len(universe):
+            raise SystemExit(
+                f"no bars for any of {len(universe)} members between {self.test_start} and "
+                f"{test_end} in {self.store.data_dir}"
+            )
+        if coverage["missing"]:
+            msg = (
+                f"{coverage['n_missing']}/{len(universe)} members have no bars in the test "
+                f"window: {', '.join(coverage['missing'])}"
+            )
+            if self.require_full_coverage:
+                raise SystemExit(msg)
+            print(f"[Data] WARNING {msg}; their equal-weight share stays in cash")
+
+        strategy = loaded.cls(cfg)
+        result = run_portfolio_backtest(
+            strategy,
+            bars,
+            test_start=self.test_start,
+            test_end=test_end,
+            capital_paise=to_paise(capital),
+            settlement_days=settlement,
+        )
+
+        config = {
+            "strategy": loaded.name,
+            "strategy_source_sha256": loaded.source_sha256,
+            "strategy_params": dict(sorted(cfg.params.items())),
+            "universe_name": self.universe_name,
+            "exchange": self.exchange,
+            "timeframe": self.timeframe,
+            "test_start": self.test_start.isoformat(),
+            "test_end": test_end.isoformat(),
+            "test_end_source": end_source,
+            "warmup_days": self.warmup_days,
+            "warmup_start": warmup_start.isoformat(),
+            "capital_paise": to_paise(capital),
+            "settlement_days": settlement,
+            "settlement_source": settlement_source,
+            "fill_model": "next_session_open",
+            "cost_model": "nse_equity_delivery, per-leg rounded to paise",
+        }
+        input_hash = canonical_hash(
+            {"config": config, "universe": [i.symbol for i in universe], "bars": bars_digest(bars)}
+        )
+        body = result.to_dict()
+        result_hash = canonical_hash(body)
+        out = {
+            "schema": SCHEMA,
+            "config": config,
+            "universe": [i.symbol for i in universe],
+            "data_coverage": coverage,
+            "result": body,
+            "input_hash": input_hash,
+            "result_hash": result_hash,
+            "run_hash": canonical_hash([input_hash, result_hash]),
+            # Paths are provenance only and stay out of every hash.
+            "paths": {"data_dir": str(self.store.data_dir), "strategy_dir": str(loaded.path)},
+        }
+        path = self.ensure_out_dir() / "run.json"
+        path.write_text(json.dumps(out, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+        print_summary(out, result)
+        print(f"[Out] {path}")
+        return out
+
+
+def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
+    cfg, m = out["config"], out["result"]["metrics"]
+    rupees = paise_to_rupees
+    print("=" * 64)
+    print(f"Alpha-30 equal weight  {cfg['test_start']} -> {cfg['test_end']}  ({cfg['exchange']})")
+    print(
+        f"sessions: {result.test_sessions} test, {result.warmup_sessions} warm-up  |  "
+        f"fills at next open, T+{cfg['settlement_days']}"
     )
-    spec = importlib.util.spec_from_file_location("strategy", strategy_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load strategy from {strategy_path}")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    strategy_cls = getattr(mod, "Alpha30EqualWeight")
+    print("-" * 64)
+    rows = [
+        ("Capital", f"{rupees(cfg['capital_paise']):,.2f}"),
+        ("Final equity", f"{rupees(m['final_equity_paise']):,.2f}"),
+        ("Final cash", f"{rupees(m['final_cash_paise']):,.2f}"),
+        ("Total return %", f"{m['total_return_pct']:.2f}"),
+        ("CAGR %", f"{m['cagr_pct']:.2f}"),
+        ("Max drawdown %", f"{m['max_drawdown_pct']:.2f}"),
+        ("Sharpe", f"{m['sharpe']:.3f}"),
+        ("Turnover", f"{m['turnover']:.3f}"),
+        ("Avg cash %", f"{m['avg_cash_pct']:.2f}"),
+        ("Total fees", f"{rupees(m['total_fees_paise']):,.2f}"),
+        ("Fills", f"{m['n_fills']}"),
+        ("Buys cut for cash", f"{m['n_released_unfunded']}"),
+        ("Orders unfilled at end", f"{m['n_unfilled_at_end']}"),
+    ]
+    for label, value in rows:
+        print(f"{label:<26}{value:>38}")
+    print("=" * 64)
+    print(f"run_hash {out['run_hash']}")
 
-    config_path = strategy_path.parent / "config.toml"
-    cfg = StrategyConfig.from_toml(config_path)
 
-    # 6. Run Training / In-Sample
-    run_session(
-        strategy_cls,
-        cfg,
-        train_bars,
-        initial_capital=cfg.params.get("capital", 1_000_000.0),
-        label="Training / In-Sample (2022-01-01 to 2025-12-30)",
-    )
-
-    # 7. Run Backtesting / Out-of-Sample
-    run_session(
-        strategy_cls,
-        cfg,
-        test_bars,
-        initial_capital=cfg.params.get("capital", 1_000_000.0),
-        label=f"Backtesting / Out-of-Sample (2026-01-01 to {today})",
-    )
+def main(argv: list[str] | None = None) -> dict[str, Any]:
+    return Alpha30BacktestExample().main(argv)
 
 
 if __name__ == "__main__":

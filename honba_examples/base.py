@@ -11,7 +11,10 @@ from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import DateInterval
-from honba.screener.store import ParquetBarStore
+from honba.screener.store import ParquetBarStore, find_data_root
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+"""Root of this checkout; the default data root is searched from here, not from the cwd."""
 
 
 class HonbaExample:
@@ -38,6 +41,9 @@ class HonbaExample:
     warmup_days: int = 0
     out_dir: Path = Path("output")
     data_dir: Path | None = None
+    # Examples with their own window flags (e.g. --test-start/--test-end) turn this off
+    # so a --start/--end that would do nothing is not offered.
+    date_range_args: bool = True
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize with optional overrides. Touches no files: the store and the
@@ -49,11 +55,11 @@ class HonbaExample:
 
     @property
     def store(self) -> ParquetBarStore:
-        """Parquet bar store rooted at ``data_dir`` (resolved lazily so ``--data-dir`` applies)."""
-        if self._store is None or (
-            self.data_dir is not None and self._store.data_dir != Path(self.data_dir).resolve()
-        ):
-            self._store = ParquetBarStore(self.data_dir)
+        """Parquet bar store at ``data_dir``, else the workspace data root found from this repo
+        (``honba/data`` in the honba-labs checkout), independent of the working directory."""
+        root = Path(self.data_dir) if self.data_dir is not None else find_data_root(REPO_ROOT)
+        if self._store is None or self._store.data_dir != root.resolve():
+            self._store = ParquetBarStore(root)
         return self._store
 
     def ensure_out_dir(self) -> Path:
@@ -72,6 +78,23 @@ class HonbaExample:
         )
         parser.add_argument("--exchange", default=cls.exchange, help="Exchange code")
         parser.add_argument("--timeframe", default=cls.timeframe, help="Bar timeframe")
+        if cls.date_range_args:
+            cls._add_date_range_args(parser)
+        parser.add_argument(
+            "--capital",
+            dest="initial_capital",
+            type=float,
+            default=cls.initial_capital,
+            help="Initial capital (INR)",
+        )
+        parser.add_argument(
+            "--warmup-days", type=int, default=cls.warmup_days, help="Warmup period in days"
+        )
+        parser.add_argument("--out-dir", type=Path, default=cls.out_dir, help="Output directory")
+        parser.add_argument("--data-dir", type=Path, default=cls.data_dir, help="Data directory")
+
+    @classmethod
+    def _add_date_range_args(cls, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--start",
             dest="start_date",
@@ -86,18 +109,6 @@ class HonbaExample:
             default=cls.end_date,
             help="End date (YYYY-MM-DD)",
         )
-        parser.add_argument(
-            "--capital",
-            dest="initial_capital",
-            type=float,
-            default=cls.initial_capital,
-            help="Initial capital (INR)",
-        )
-        parser.add_argument(
-            "--warmup-days", type=int, default=cls.warmup_days, help="Warmup period in days"
-        )
-        parser.add_argument("--out-dir", type=Path, default=cls.out_dir, help="Output directory")
-        parser.add_argument("--data-dir", type=Path, default=cls.data_dir, help="Data directory")
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         """Parse command-line arguments."""

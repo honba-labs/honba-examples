@@ -48,3 +48,14 @@ def test_construction_has_no_filesystem_side_effects(tmp_path: Path, monkeypatch
     monkeypatch.chdir(tmp_path)
     _Probe()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_default_data_root_does_not_depend_on_cwd(tmp_path: Path, monkeypatch) -> None:
+    from honba.screener.store import find_data_root
+
+    from honba_examples.base import REPO_ROOT
+
+    monkeypatch.chdir(tmp_path)
+    ex = _Probe()
+    ex.parse_args([])
+    assert ex.store.data_dir == find_data_root(REPO_ROOT)
