@@ -41,7 +41,8 @@ Honba-side differences, all deliberate:
 Run::
 
     python 08_alpha30_union_ewr_backtest.py
-    python 08_alpha30_union_ewr_backtest.py --start 2026-01-01 --finish 2026-09-23
+    python 08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
+    python 08_alpha30_union_ewr_backtest.py --jesse-trades /path/to/ewr-500000/trades.csv
 """
 
 from __future__ import annotations
@@ -61,10 +62,12 @@ from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import DateInterval
 
 try:
-    from honba_examples.base import HonbaExample, ts_to_date
+    import honba_examples  # noqa: F401
 except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from honba_examples.base import HonbaExample, ts_to_date
+
+from honba_examples.base import HonbaExample, ts_to_date
+from honba_examples.metrics import curve_metrics, exposure_metrics
 
 # ---------------------------------------------------------------------------
 # Basket, matched to the symbols present in Jesse's trades.csv
@@ -105,7 +108,6 @@ BASKET: tuple[str, ...] = (
 STARTING_CAPITAL = 1_000_000.0
 FEE_RATE = 0.001
 REBALANCE_DAYS = 15
-SESSIONS_PER_YEAR = 252
 
 JESSE_TRADES_CSV = (
     Path(__file__).resolve().parents[3]
@@ -276,7 +278,9 @@ def _trade(symbol: str, side: str, n: int, price: float, fee: float) -> dict[str
     }
 
 
-def rebalance_sessions(calendar: list[dt.date], start: dt.date, rebalance_days: int) -> set[dt.date]:
+def rebalance_sessions(
+    calendar: list[dt.date], start: dt.date, rebalance_days: int
+) -> set[dt.date]:
     """Map each ``start + k*rebalance_days`` (k >= 1) to the first session on/after it.
 
     Port of ``portfolio_rebalance._rebalance_sessions``. Several scheduled dates
@@ -292,44 +296,6 @@ def rebalance_sessions(calendar: list[dt.date], start: dt.date, rebalance_days: 
             sessions.add(calendar[i])
         scheduled += dt.timedelta(days=rebalance_days)
     return sessions
-
-
-def curve_metrics(curve: list[dict[str, Any]], capital: float) -> dict[str, float]:
-    """Return / CAGR / max drawdown / Sharpe for an equity curve.
-
-    Mirrors ``portfolio_rebalance._curve_metrics``, including the 252-session
-    annualisation and the >= 1 day floor that keeps CAGR finite on a 1-session run.
-    """
-    values = [p["value"] for p in curve]
-    first = dt.date.fromisoformat(curve[0]["date"])
-    last = dt.date.fromisoformat(curve[-1]["date"])
-    years = max((last - first).days, 1) / 365.25
-
-    rets = [(values[i] - values[i - 1]) / values[i - 1] for i in range(1, len(values))
-            if values[i - 1] != 0]
-    n = len(rets)
-    if n > 1:
-        mean = sum(rets) / n
-        var = sum((r - mean) ** 2 for r in rets) / (n - 1)
-        std = math.sqrt(var)
-        sharpe = (mean / std) * math.sqrt(SESSIONS_PER_YEAR) if std > 0 else 0.0
-    else:
-        sharpe = 0.0
-
-    peak = values[0]
-    max_dd = 0.0
-    for v in values:
-        peak = max(peak, v)
-        if peak:
-            max_dd = min(max_dd, v / peak - 1.0)
-
-    return {
-        "final_value": values[-1],
-        "total_return_pct": 100 * (values[-1] / capital - 1),
-        "cagr_pct": 100 * ((values[-1] / capital) ** (1 / years) - 1),
-        "max_drawdown_pct": 100 * max_dd,
-        "sharpe": sharpe,
-    }
 
 
 def simulate(
@@ -409,13 +375,15 @@ def simulate(
         if settlement_days and pending_buys.pop(idx - settlement_days, False) and today:
             cash, buys = buy_shortfall(qty, today, cash, fee)
             if buys:
-                result.rebalances.append({
-                    "date": session.isoformat(),
-                    "value_before": None,
-                    "trades": buys,
-                    "cash_after": cash,
-                    "leg": "buy",
-                })
+                result.rebalances.append(
+                    {
+                        "date": session.isoformat(),
+                        "value_before": None,
+                        "trades": buys,
+                        "cash_after": cash,
+                        "leg": "buy",
+                    }
+                )
 
         if session == day0 or session in sessions:
             value_before = cash + sum(qty[s] * last_close[s] for s in qty if s in last_close)
@@ -429,13 +397,15 @@ def simulate(
             else:
                 cash, trades = rebalance_orders(qty, today, cash, fee)
                 leg = "both"
-            result.rebalances.append({
-                "date": session.isoformat(),
-                "value_before": value_before,
-                "trades": trades,
-                "cash_after": cash,
-                "leg": leg,
-            })
+            result.rebalances.append(
+                {
+                    "date": session.isoformat(),
+                    "value_before": value_before,
+                    "trades": trades,
+                    "cash_after": cash,
+                    "leg": leg,
+                }
+            )
 
         ever_held.update(s for s, q in qty.items() if q > 0)
         value = cash + sum(q * last_close[s] for s, q in qty.items() if q)
@@ -443,16 +413,15 @@ def simulate(
 
     traded_notional = sum(t["notional"] for r in result.rebalances for t in r["trades"])
     total_fees = sum(t["fee"] for r in result.rebalances for t in r["trades"])
-    mean_value = sum(p["value"] for p in result.equity_curve) / len(result.equity_curve)
 
     n_rebalances = len({r["date"] for r in result.rebalances if r.get("leg") != "buy"}) - 1
+    exposure = exposure_metrics(result.equity_curve, traded_notional)
     result.metrics = {
         **curve_metrics(result.equity_curve, capital),
         "n_rebalances": n_rebalances,
         "total_fees": total_fees,
-        "turnover": traded_notional / mean_value,
-        "avg_cash_pct": 100 * sum(p["cash"] / p["value"] for p in result.equity_curve)
-        / len(result.equity_curve),
+        "turnover": exposure["turnover"],
+        "avg_cash_pct": exposure["avg_cash_pct"],
         "n_fills": sum(len(r["trades"]) for r in result.rebalances),
     }
     result.final_holdings = {s: q for s, q in qty.items() if q}
@@ -515,8 +484,7 @@ def print_comparison(result: SimResult, jesse_path: Path) -> None:
     row("Fills", float(m["n_fills"]), float(jesse["n_fills"]) if jesse else None)
     # jesse["n_sessions"] counts every trading date in trades.csv, which includes
     # the day-0 opening purchase; n_rebalances excludes it, so drop one to compare.
-    row("Rebalances", float(m["n_rebalances"]),
-        float(jesse["n_sessions"] - 1) if jesse else None)
+    row("Rebalances", float(m["n_rebalances"]), float(jesse["n_sessions"] - 1) if jesse else None)
     print("=" * 74)
 
     if result.missing_data:
@@ -561,16 +529,29 @@ class JesseParityExample(HonbaExample):
     jesse_trades: Path = JESSE_TRADES_CSV
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--fee", type=float, default=self.fee,
-                            help="Fraction of traded notional, per side")
-        parser.add_argument("--rebalance-days", type=int, default=self.rebalance_days,
-                            help="Calendar days between rebalances")
-        parser.add_argument("--settlement-days", type=int, default=None,
-                            help="Sessions between a sell and the buys it funds. Omit to use "
-                                 "the engine default (India T+2 via honba-market); pass 0 for "
-                                 "Jesse's same-session model")
-        parser.add_argument("--jesse-trades", type=Path, default=self.jesse_trades,
-                            help="Jesse trades.csv to diff against")
+        parser.add_argument(
+            "--fee", type=float, default=self.fee, help="Fraction of traded notional, per side"
+        )
+        parser.add_argument(
+            "--rebalance-days",
+            type=int,
+            default=self.rebalance_days,
+            help="Calendar days between rebalances",
+        )
+        parser.add_argument(
+            "--settlement-days",
+            type=int,
+            default=None,
+            help="Sessions between a sell and the buys it funds. Omit to use "
+            "the engine default (India T+2 via honba-market); pass 0 for "
+            "Jesse's same-session model",
+        )
+        parser.add_argument(
+            "--jesse-trades",
+            type=Path,
+            default=self.jesse_trades,
+            help="Jesse trades.csv to diff against",
+        )
 
     @staticmethod
     def engine_settlement_days(exchange: str) -> int:
@@ -581,6 +562,7 @@ class JesseParityExample(HonbaExample):
         the Rust tests pin. ``--settlement-days`` overrides it for what-if runs.
         """
         from honba.markets.india.settlement import settlement_days_for
+
         return settlement_days_for(exchange)
 
     def run(self) -> SimResult:
@@ -597,8 +579,10 @@ class JesseParityExample(HonbaExample):
 
         bars.sort(key=lambda b: (b.ts, b.instrument_id.symbol))
         missing = [s for s in BASKET if s not in available]
-        print(f"[Bars] {len(bars):,} bars across {len(available)}/{len(BASKET)} symbols, "
-              f"{self.start_date} → {self.end_date}")
+        print(
+            f"[Bars] {len(bars):,} bars across {len(available)}/{len(BASKET)} symbols, "
+            f"{self.start_date} → {self.end_date}"
+        )
         if missing:
             print(f"[Data] missing bars for {len(missing)}: {', '.join(missing)}")
 
@@ -617,11 +601,16 @@ class JesseParityExample(HonbaExample):
             settlement_days=settlement_days,
         )
         result.missing_data = missing
-        print(f"[Model] settlement T+{settlement_days} "
-              + (f"(engine default for {self.exchange})"
-                 if self.settlement_days is None
-                 else "(sells fund buys two sessions later)"
-                 if settlement_days else "(Jesse parity: sell and buy same session)"))
+        print(
+            f"[Model] settlement T+{settlement_days} "
+            + (
+                f"(engine default for {self.exchange})"
+                if self.settlement_days is None
+                else "(sells fund buys two sessions later)"
+                if settlement_days
+                else "(Jesse parity: sell and buy same session)"
+            )
+        )
         print_comparison(result, self.jesse_trades)
         return result
 
