@@ -30,6 +30,7 @@ from typing import Any
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
+from honba.domain.order import OrderIntent, OrderSide
 from honba.strategies.base import Strategy
 from honba.strategies.context import LedgerContext
 from honba.strategies.runner import StrategyRunner
@@ -39,7 +40,28 @@ from honba_examples.execution import CostFn, FillRecord, NextOpenExecution, Orde
 from honba_examples.metrics import curve_metrics, exposure_metrics
 from honba_examples.money import delivery_cost_paise, notional_paise, paise_to_rupees
 
-__all__ = ["BacktestRun", "canonical_hash", "run_portfolio_backtest"]
+__all__ = ["BacktestRun", "CanonicalOrderLedger", "canonical_hash", "run_portfolio_backtest"]
+
+
+class CanonicalOrderLedger(LedgerContext):
+    """``LedgerContext`` that hands the runner one event's intents in a canonical order.
+
+    A strategy that loops over a ``set`` (Alpha-30 does) emits the same intents in an
+    order that depends on ``PYTHONHASHSEED``, which would change order ids, fill order
+    and, when cash is short, which buy gets cut. Intents raised by one event are one
+    decision, so ordering them (sells first, then by instrument) changes no meaning
+    and makes every run reproducible.
+    """
+
+    def drain_intents(self) -> list[OrderIntent]:
+        return sorted(
+            super().drain_intents(),
+            key=lambda i: (
+                i.side is not OrderSide.SELL,
+                i.instrument_id.symbol,
+                i.instrument_id.exchange,
+            ),
+        )
 
 
 def canonical_hash(payload: Any) -> str:
@@ -136,7 +158,7 @@ def run_portfolio_backtest(
     if not any(day >= test_start for day, _ in sessions):
         raise ValueError(f"no bars between {test_start} and {test_end}")
 
-    ctx = LedgerContext(cash=paise_to_rupees(capital_paise))
+    ctx = CanonicalOrderLedger(cash=paise_to_rupees(capital_paise))
     port = NextOpenExecution(
         cash_paise=capital_paise,
         settlement_days=settlement_days,

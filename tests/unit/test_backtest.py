@@ -117,3 +117,25 @@ def test_runs_are_deterministic() -> None:
     a = run(BuyEveryBar())
     b = run(BuyEveryBar())
     assert a.to_dict() == b.to_dict()
+
+
+class BuyAllOnFirstBar(Strategy):
+    """Submits one buy per symbol in a caller-chosen order, like iterating a set."""
+
+    name = "buy_all"
+
+    def __init__(self, order: tuple[str, ...]) -> None:
+        self.order = order
+        self.done = False
+
+    def on_bar(self, bar: Bar) -> None:
+        if not self.done and bar.instrument_id.symbol == SYMS[-1]:
+            self.done = True
+            for s in self.order:
+                self.buy(type(bar.instrument_id)(s, "NSE"), 1)
+
+
+def test_intent_order_within_an_event_does_not_change_the_run() -> None:
+    a = run(BuyAllOnFirstBar(SYMS), warmup=0)
+    b = run(BuyAllOnFirstBar(tuple(reversed(SYMS))), warmup=0)
+    assert a.to_dict() == b.to_dict()

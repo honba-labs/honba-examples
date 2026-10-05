@@ -142,3 +142,39 @@ def test_same_inputs_give_the_same_run_hash(store_dir: Path, tmp_path: Path) -> 
 def test_require_full_coverage_fails_on_missing_members(store_dir: Path, tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match=MISSING):
         _run(store_dir, tmp_path / "out", "--require-full-coverage")
+
+
+@pytest.mark.parametrize("seeds", [("0", "12345")])
+def test_run_hash_does_not_depend_on_pythonhashseed(
+    store_dir: Path, tmp_path: Path, seeds: tuple[str, str]
+) -> None:
+    import os
+    import subprocess
+    import sys
+
+    catalog = _catalog_or_skip()
+    hashes = []
+    for seed in seeds:
+        out = tmp_path / f"seed{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--data-dir",
+                str(store_dir),
+                "--out-dir",
+                str(out),
+                "--strategies-dir",
+                str(catalog),
+                "--test-start",
+                TEST_START.isoformat(),
+                "--test-end",
+                TEST_END.isoformat(),
+            ],
+            check=True,
+            env=env,
+            capture_output=True,
+        )
+        hashes.append(json.loads((out / "run.json").read_text())["run_hash"])
+    assert hashes[0] == hashes[1]
