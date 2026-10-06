@@ -27,15 +27,14 @@ try:
 except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.bar import Bar
-from honba.domain.instrument import InstrumentId, Instrument, InstrumentKind
-from honba.session import BacktestConfig, BacktestSession, DataProvider
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar as synth_bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from honba_examples.jsonable import jsonable
+from tests.synthetic import bar as synth_bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class SmaBacktest(Strategy):
@@ -63,24 +62,6 @@ class SmaBacktest(Strategy):
             self.sell(bar.instrument_id, position)
 
 
-class SyntheticDataProvider(DataProvider):
-    """In-memory DataProvider for a fixed list of bars."""
-
-    def __init__(self, bars: list[Bar], iid: InstrumentId) -> None:
-        self._bars = bars
-        self._iid = iid
-        self._inst = Instrument(iid, InstrumentKind.EQUITY, lot_size=1.0, tick_size=0.05)
-
-    def bars(
-        self, instrument_id: InstrumentId, *, timeframe: str, start: dt.datetime, end: dt.datetime
-    ) -> list[Bar]:
-        # Filter by window and instrument; timeframe is ignored for synthetic data
-        return [b for b in self._bars if b.instrument_id == instrument_id and start.timestamp() * 1e9 <= b.ts < end.timestamp() * 1e9]
-
-    def instrument(self, instrument_id: InstrumentId) -> Instrument:
-        return self._inst
-
-
 def run(
     bars: int = 60,
     fast: int = 10,
@@ -91,17 +72,6 @@ def run(
     bars_list = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
 
     strat = SmaBacktest(fast=fast, slow=slow)
-    DataProvider = SyntheticDataProvider(bars_list, bars_list[0].instrument_id)
-    config = BacktestConfig(
-        symbol="RELIANCE",
-        exchange="NSE",
-        start=start.isoformat(),
-        end=(dt.date(2026, 12, 31)).isoformat(),
-        timeframe="1d",
-        cash=capital,
-        costs="india.equity",
-        fill="next_open",
-    )
 
     # Note: BacktestSession requires a real DataProvider; for this learning-path example
     # we use the honba.strategies.testing.replay harness instead (same fill semantics

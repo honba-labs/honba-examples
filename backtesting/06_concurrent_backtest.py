@@ -28,11 +28,12 @@ except ModuleNotFoundError:
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
-from honba_examples.jsonable import jsonable
-from honba_examples.metrics import curve_metrics
-from tests.synthetic import bar as synth_bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from honba_examples.metrics import curve_metrics
+from tests.synthetic import bar as synth_bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class SmaSweep(Strategy):

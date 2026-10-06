@@ -26,7 +26,6 @@ import numpy as np
 from scipy.optimize import minimize
 
 from honba_examples.amfi import AmfiNavLoader
-from honba_examples.jsonable import jsonable
 
 __all__ = ["main", "run"]
 
@@ -57,7 +56,7 @@ def _returns(series: list[float]) -> list[float]:
 
 
 def run(
-    schemes: list[str] = None,
+    schemes: list[str] | None = None,
     start: dt.date | None = None,
     end: dt.date | None = None,
     max_weight: float = 0.5,

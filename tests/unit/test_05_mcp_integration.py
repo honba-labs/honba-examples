@@ -22,7 +22,7 @@ def example():
 def test_run_loads_the_mcp_schema(example):
     result = example.run()
     assert set(result) == {"schema_path", "comment", "tool_count", "tools"}
-    assert result["tool_count"] == 6
+    assert result["tool_count"] == 8
     assert result["comment"] is not None and "honba-codegen" in result["comment"]
 
 
@@ -43,6 +43,8 @@ def test_tool_names_match_the_six_design_tools(example):
         "backtest",
         "sweep",
         "verify_strategy",
+        "compile_strategy",
+        "list_strategies",
         "screen",
         "get_instruments",
         "get_bars",
@@ -65,7 +67,7 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
     file_json = json.loads(out.read_text())
     stdout_json = json.loads(stdout)
     assert file_json == stdout_json
-    assert file_json["tool_count"] == 6
+    assert file_json["tool_count"] == 8
 
 
 def test_main_happy_path_returns_zero(example, capsys):

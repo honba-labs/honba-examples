@@ -11,9 +11,9 @@ Run::
 from __future__ import annotations
 
 import argparse
+import calendar
 import datetime as dt
 import json
-import calendar
 import sys
 from pathlib import Path
 from typing import Any
@@ -24,7 +24,6 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba_examples.amfi import AmfiNavLoader
-from honba_examples.jsonable import jsonable
 
 __all__ = ["main", "run"]
 

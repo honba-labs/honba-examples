@@ -11,7 +11,6 @@ Run::
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -22,9 +21,8 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.option import OptionKind
 from honba.analytics.greeks import bs_greeks
-from honba_examples.jsonable import jsonable
+from honba.domain.option import OptionKind
 
 __all__ = ["main", "run"]
 

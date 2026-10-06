@@ -25,14 +25,14 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba.domain.bar import Bar
-from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar as synth_bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from tests.synthetic import bar as synth_bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class SmaLatency(Strategy):

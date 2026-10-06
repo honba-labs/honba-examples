@@ -13,9 +13,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import signal
 import sys
-import time
 from pathlib import Path
 from typing import Any
 
@@ -24,14 +22,12 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.adapters.registry import AdapterRegistry
 from honba.domain.instrument import InstrumentId, InstrumentKind
-from honba.domain.order import OrderIntent, OrderSide, OrderType
-from honba.session import Session, SessionConfig
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar as synth_bar, weekdays as weekdays_func
+
+from tests.synthetic import bar as synth_bar
+from tests.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 
@@ -114,11 +110,9 @@ def run(
     peak = capital
     max_dd = 0.0
     for eq in equity_curve:
-        if eq > peak:
-            peak = eq
+        peak = max(peak, eq)
         dd = (peak - eq) / peak * 100
-        if dd > max_dd:
-            max_dd = dd
+        max_dd = max(max_dd, dd)
 
     return {
         "config": {

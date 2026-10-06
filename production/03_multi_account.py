@@ -26,8 +26,9 @@ except ModuleNotFoundError:
 from honba.domain.instrument import InstrumentId, InstrumentKind
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar as synth_bar, weekdays as weekdays_func
+
+from tests.synthetic import bar as synth_bar
+from tests.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 

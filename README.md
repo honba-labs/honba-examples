@@ -25,13 +25,17 @@ ruff check . && ruff format --check honba_examples tests
 
 ## Examples
 
-1. [`basic/`](basic/) — minimal backtest
-2. [`candles/`](candles/) — bar construction
-3. [`storage/`](storage/) — persistence
-4. [`universes/`](universes/) — instrument universes
-5. [`strategies/`](strategies/) — reference strategies
-6. [`backtesting/`](backtesting/) — end-to-end runs
-7. [`mutual_funds/`](mutual_funds/) — NAV / MF handling
-8. [`options/`](options/) — options chain
-9. [`ai_research/`](ai_research/) — research loop
-10. [`production/`](production/) — deployment
+1. [`basic/`](basic/) — broker adapters (01–05) + README
+2. [`candles/`](candles/) — bar construction (01–04) + README
+3. [`storage/`](storage/) — persistence (01–04) + README
+4. [`universes/`](universes/) — instrument universes (01–08) + README
+5. [`strategies/`](strategies/) — reference strategies (01–05) + README
+6. [`backtesting/`](backtesting/) — end-to-end runs (01–06) + README
+7. [`mutual_funds/`](mutual_funds/) — NAV / MF handling (01–04) + README
+8. [`options/`](options/) — options chain (01–05) + README
+9. [`ai_research/`](ai_research/) — research loop (01, 05 runnable) + README
+10. [`production/`](production/) — deployment (01–05) + README
+
+All examples use the `fake` adapter by default (offline, deterministic). Swap
+`--adapter dhan` (or any registered adapter) with real credentials for live
+broker connectivity.

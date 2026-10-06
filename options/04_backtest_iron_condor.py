@@ -22,10 +22,8 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.option import OptionKind, OptionStyle
-from honba.domain.instrument import InstrumentId, InstrumentKind
 from honba.analytics.greeks import bs_price
-from honba_examples.jsonable import jsonable
+from honba.domain.option import OptionKind
 
 __all__ = ["main", "run"]
 

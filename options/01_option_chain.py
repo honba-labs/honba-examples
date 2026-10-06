@@ -22,9 +22,8 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.option import OptionChain, OptionContract, OptionKind, OptionStyle
 from honba.domain.instrument import InstrumentId, InstrumentKind
-from honba_examples.jsonable import jsonable
+from honba.domain.option import OptionChain, OptionContract, OptionKind, OptionStyle
 
 __all__ = ["main", "run"]
 
@@ -91,7 +90,7 @@ def run(
         contracts = [c for c in contracts if _moneyness(c.kind, c.strike, spot) == filter_moneyness]
 
     # Summary by strike
-    strikes = sorted(set(c.strike for c in contracts))
+    strikes = sorted({c.strike for c in contracts})
     summary = []
     for strike in strikes:
         call = next((c for c in contracts if c.kind == OptionKind.CALL and c.strike == strike), None)

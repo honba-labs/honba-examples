@@ -12,19 +12,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import time
-import random
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 try:
     import honba_examples  # noqa: F401
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba_examples.jsonable import jsonable
 
 __all__ = ["main", "run"]
 

@@ -24,8 +24,7 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba_examples.amfi import AmfiNavLoader
-from honba_examples.jsonable import jsonable
-from honba_examples.metrics import cagr, max_drawdown, sharpe_ratio
+from honba_examples.metrics import max_drawdown, sharpe_ratio
 
 __all__ = ["main", "run"]
 

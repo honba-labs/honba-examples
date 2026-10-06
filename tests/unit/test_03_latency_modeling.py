@@ -27,7 +27,7 @@ def test_run_returns_three_models(example):
 
 def test_each_model_has_fill_counts(example):
     result = example.run(bars=60)
-    for name, model in result["models"].items():
+    for model in result["models"].values():
         assert "fills" in model
         assert "first_fill_price" in model
 
