@@ -104,3 +104,16 @@ core next-open port; use 07 for Honba results. `--settlement-days` defaults to
 the core market pack's cycle as of `--start` (NSE: T+2 before 2023-01-27, T+1
 from then); pass `--settlement-days 2` for the old fixed T+2 and `0` for
 same-session sell and buy.
+
+At every rebalance it prints the net shares bought and sold per symbol, taken
+from the simulated fills (symbols sorted, `[]` when empty):
+
+```
+Changes per rebalance (net shares from the fills):
+  2026-01-01  adds [ABCAPITAL+120, ..., ZYDUSLIFE+9]  sells []
+  2026-01-16  adds [IDEA+40]  sells [BSE-3, PGHH-1]
+```
+
+A buy leg delayed by settlement is folded into the rebalance whose sale funded
+it. The same data is on the result as `rebalance_changes`:
+`[{"date", "adds": {symbol: qty}, "sells": {symbol: qty}}, ...]`.
