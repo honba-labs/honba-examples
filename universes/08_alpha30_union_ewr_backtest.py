@@ -463,22 +463,28 @@ class Alpha30EWRExample(HonbaExample):
             "--settlement-days",
             type=int,
             default=None,
-            help="Sessions between a sell and the buys it funds. Omit to use "
-            "the engine default (India T+2 via honba-market); pass 0 for "
-            "same-session model",
+            help="Sessions between a sell and the buys it funds. Omit to use the core "
+            "market pack's cycle as of --start (NSE: T+2 before 2023-01-27, T+1 from then); "
+            "an explicit value always wins (pass 2 for the old fixed T+2, 0 for the "
+            "same-session model)",
         )
 
     @staticmethod
-    def engine_settlement_days(exchange: str) -> int:
-        """Settlement days for the exchange, sourced from the engine's market pack.
+    def engine_settlement_days(exchange: str, as_of: dt.date | None = None) -> int:
+        """Settlement days for the exchange on ``as_of``, from the core market pack.
 
-        Country+exchange is the driver: ``honba.markets.india.settlement`` resolves
-        the cycle from ``honba-market`` (currently T+2 for NSE equities), whose value
-        the Rust tests pin. ``--settlement-days`` overrides it for what-if runs.
+        ``honba.markets.india.settlement`` is date-aware: NSE/BSE equities settle T+2
+        before 2023-01-27 and T+1 from then. ``--settlement-days`` overrides it.
         """
         from honba.markets.india.settlement import settlement_days_for
 
-        return settlement_days_for(exchange)
+        return settlement_days_for(exchange, as_of=as_of)
+
+    def resolve_settlement_days(self) -> int:
+        """The explicit ``--settlement-days`` if given, else the cycle as of ``start_date``."""
+        if self.settlement_days is not None:
+            return self.settlement_days
+        return self.engine_settlement_days(self.exchange, as_of=self.start_date)
 
     def run(self) -> SimResult:
         instruments = [InstrumentId(sym, self.exchange) for sym in BASKET]
@@ -501,11 +507,7 @@ class Alpha30EWRExample(HonbaExample):
         if missing:
             print(f"[Data] missing bars for {len(missing)}: {', '.join(missing)}")
 
-        settlement_days = (
-            self.engine_settlement_days(self.exchange)
-            if self.settlement_days is None
-            else self.settlement_days
-        )
+        settlement_days = self.resolve_settlement_days()
         result = simulate(
             bars,
             list(BASKET),
@@ -519,9 +521,9 @@ class Alpha30EWRExample(HonbaExample):
         print(
             f"[Model] settlement T+{settlement_days} "
             + (
-                f"(engine default for {self.exchange})"
+                f"(core default for {self.exchange} as of {self.start_date})"
                 if self.settlement_days is None
-                else "(sells fund buys two sessions later)"
+                else f"(sells fund buys {settlement_days} sessions later)"
                 if settlement_days
                 else "(same-session sell and buy)"
             )

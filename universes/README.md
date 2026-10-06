@@ -11,8 +11,8 @@ with a production-ready catalog strategy.
 | 04 | `04_alpha30_generic_rebalancer.py`            | Generic equal-weight rebalancer (any universe, any exchange)       |
 | 05 | `05_alpha30_custom_universe.py`               | Build and register your own InstrumentId list as a universe     |
 | 06 | `06_alpha30_equal_weight_demo.py`             | Runnable end-to-end demo of the Alpha 30 equal-weight strategy  |
-| 07 | `07_alpha30_backtest.py`                      | Honba-native backtest: next-open fills, T+2, paise, run.json    |
-| 08 | `08_alpha30_union_ewr_backtest.py`            | Jesse-parity port of the same rebalance, for engine comparison  |
+| 07 | `07_alpha30_backtest.py`                      | Honba-native backtest: next-open fills, date-aware T+N, run.json |
+| 08 | `08_alpha30_union_ewr_backtest.py`            | Hand-rolled equal-weight rebalancer (close fills, flat fee)      |
 
 ## 01 – 03  Core concepts
 
@@ -77,13 +77,15 @@ API so index joiners/leavers are applied automatically.
 - Universe resolved once from the universe the strategy trades; members with
   no bars in the test window are reported (`--require-full-coverage` fails).
 - Orders fill at the **next session's open**, sells before buys, NSE delivery
-  costs per leg in paise, and the engine's settlement cycle (T+2 on NSE): buys
-  wait for sale proceeds and are cut to the cash available.
+  costs per leg in paise, and the core market pack's settlement cycle
+  (date-aware: NSE is T+2 before 2023-01-27 and T+1 from then, as of
+  `--test-start`; `--settlement-days N` overrides): buys wait for sale proceeds
+  and are cut to the cash available.
 - `--warmup-days` bars feed indicators only; warm-up cannot trade, and only
   test-window fills, fees and turnover are counted. Alpha-30 has no indicators,
   so its default warm-up is 0.
 - Writes `--out-dir/run.json`: config, universe, data coverage, metrics, fills,
-  order events, equity curve (integer paise) and input/result/run hashes.
+  order events, equity curve (integer minor units) and input/result/run hashes.
 
 ```bash
 python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \
@@ -93,9 +95,12 @@ python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-
 `--test-end` defaults to the latest bar in the store, resolved at run time and
 recorded as `test_end_source` in run.json.
 
-### 08 — Jesse parity
+### 08 — Hand-rolled equal-weight rebalancer
 
-`08_alpha30_union_ewr_backtest.py` ports Jesse's portfolio rebalance (fills at
-the session close, flat fee) so the two engines can be diffed session by
-session. Use 07 for Honba results; 08 only for the comparison
-(`--jesse-trades PATH` points at Jesse's `trades.csv`).
+`08_alpha30_union_ewr_backtest.py` is a self-contained equal-weight rebalance of
+the Alpha-30 basket on a calendar schedule (fills at the session close, flat
+fee, illustrative costs). It has its own small simulator and does not use the
+core next-open port; use 07 for Honba results. `--settlement-days` defaults to
+the core market pack's cycle as of `--start` (NSE: T+2 before 2023-01-27, T+1
+from then); pass `--settlement-days 2` for the old fixed T+2 and `0` for
+same-session sell and buy.
