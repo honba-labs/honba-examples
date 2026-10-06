@@ -6,6 +6,7 @@ import datetime as dt
 
 import pytest
 from honba.domain.instrument import InstrumentId
+from honba.domain.money import Currency, Money
 from honba.domain.order import OrderIntent, OrderSide
 
 from honba_examples.execution import NextOpenExecution
@@ -77,7 +78,8 @@ def test_costs_are_integer_paise_and_debited() -> None:
     (record,) = port.fill_records
     assert record.cost_paise == cost
     assert record.notional_paise == notional_paise(17, 186.10)
-    assert fill.costs == cost / 100
+    # Trade.costs is integer-paise Money (ADR 0011), not a major-unit float.
+    assert fill.costs == Money.from_minor(cost, Currency.INR)
     assert port.cash_paise == 10_000 * 100 - record.notional_paise - cost
     assert port.fees_paise == cost
 

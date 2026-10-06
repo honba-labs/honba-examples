@@ -130,7 +130,7 @@ def _bar_day(bar: Bar, now_ns: int) -> date:
         return datetime.fromtimestamp(v, tz=timezone.utc).date()
     if now_ns > 0:
         return datetime.fromtimestamp(now_ns / 1e9, tz=timezone.utc).date()
-    return date.today()
+    return datetime.now(tz=timezone.utc).date()
 
 
 if __name__ == "__main__":

@@ -35,10 +35,11 @@ from dataclasses import dataclass
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
+from honba.domain.money import Currency, Money
 from honba.domain.order import OrderIntent, OrderSide
 from honba.domain.trade import Trade
 
-from honba_examples.money import delivery_cost_paise, notional_paise, paise_to_rupees
+from honba_examples.money import delivery_cost_paise, notional_paise
 
 __all__ = ["CostFn", "FillRecord", "NextOpenExecution", "OrderEvent"]
 
@@ -233,9 +234,9 @@ class NextOpenExecution:
                 bar.open,
                 bar.ts,
                 p.order_id,
-                # LedgerContext books costs as a float in rupees; the paise ledger above
-                # is the authority, this is its exact two-decimal image.
-                costs=paise_to_rupees(cost),
+                # LedgerContext books costs as Money (ADR 0011); this is the exact
+                # integer-paise image of the paise ledger above, with no float detour.
+                costs=Money.from_minor(cost, Currency.INR),
             )
         )
         self.fill_records.append(

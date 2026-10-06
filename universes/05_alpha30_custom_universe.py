@@ -51,7 +51,7 @@ def register_custom_universe(exchange: str = EXCHANGE) -> list[InstrumentId]:
 
 
 def main() -> None:
-    members = register_custom_universe()
+    register_custom_universe()
 
     # Verify round-trip through the engine API
     resolved = resolve_universe(CUSTOM_UNIVERSE_NAME, exchange=EXCHANGE)

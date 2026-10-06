@@ -15,7 +15,7 @@ Catalog counterpart: honba.markets.india.universes
 from __future__ import annotations
 
 from honba.domain.instrument import InstrumentId
-from honba.markets.india.universes import resolve_universe, UNIVERSES
+from honba.markets.india.universes import UNIVERSES, resolve_universe
 
 # ---------------------------------------------------------------------------
 # Seed list (snapshot of Nifty200 Alpha 30 – replace with live feed later)

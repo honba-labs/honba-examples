@@ -145,12 +145,17 @@ class Alpha30BacktestExample(HonbaExample):
 
     # -- steps -------------------------------------------------------------------
     def resolve(self, universe_key: str | None) -> list[InstrumentId]:
-        if universe_key and universe_key != self.universe_name:
-            raise SystemExit(
-                f"--universe {self.universe_name!r} differs from the universe the strategy "
-                f"trades ({universe_key!r}); the loader and the strategy must agree"
-            )
         universe = resolve_universe(self.universe_name, exchange=self.exchange)
+        if universe_key:
+            # Compare resolved members, not names: the catalog spells the key
+            # "nifty200_alpha30" while aliases such as "nifty200_alpha_30" also
+            # resolve to the same basket, and both must be accepted.
+            strategy_universe = resolve_universe(universe_key, exchange=self.exchange)
+            if set(strategy_universe) != set(universe):
+                raise SystemExit(
+                    f"--universe {self.universe_name!r} differs from the universe the strategy "
+                    f"trades ({universe_key!r}); the loader and the strategy must agree"
+                )
         return sorted(set(universe), key=lambda i: (i.symbol, i.exchange))
 
     def load(self, universe: list[InstrumentId], start: dt.date, end: dt.date) -> list[Bar]:
