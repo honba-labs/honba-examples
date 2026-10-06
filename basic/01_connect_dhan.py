@@ -22,8 +22,6 @@ import argparse
 import asyncio
 import json
 import sys
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -31,26 +29,19 @@ from honba.adapters.errors import AdapterNotFound
 from honba.adapters.registry import default_registry
 from honba.adapters.testing import FakeAdapter
 
+try:
+    import honba_examples  # noqa: F401
+except ModuleNotFoundError:  # plain checkout without `pip install -e .`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from honba_examples.jsonable import jsonable
+
 
 def _registry():
     registry = default_registry()
     if "fake" not in registry.available():
         registry.register("fake", FakeAdapter)
     return registry
-
-
-def _json(value: Any) -> Any:
-    """Plain JSON image of a Honba value: enums by value, containers sorted, dataclasses
-    as dicts. Deterministic, so two runs of the same adapter dump the same bytes."""
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, (set, frozenset, tuple, list)):
-        return sorted(_json(item) for item in value)
-    if is_dataclass(value) and not isinstance(value, type):
-        return {key: _json(item) for key, item in asdict(value).items()}
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
 
 
 async def _connect(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
@@ -61,8 +52,8 @@ async def _connect(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
             "adapter": adapter_name,
             "connected": adapter.is_connected(),
             "adapter_class": type(adapter).__name__,
-            "session": _json(session),
-            "capabilities": _json(adapter.capabilities()),
+            "session": jsonable(session),
+            "capabilities": jsonable(adapter.capabilities()),
         }
     finally:
         await adapter.disconnect()
