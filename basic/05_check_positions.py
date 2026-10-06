@@ -1,7 +1,7 @@
 """05_check_positions: read the account books - positions, funds, trades - after a round trip.
 
 ``positions()`` reports what you hold per instrument (``side``, ``quantity``, ``avg_price``
-and a ``realized_pnl`` booked in integer paise), ``funds()`` the cash, and ``trades()`` the
+and a ``realized_pnl`` booked in integer minor units), ``funds()`` the cash, and ``trades()`` the
 day's fills. The example buys 10 RELIANCE and sells 4 of them, so the position shrinks to 6
 and books the bid-ask spread as realized P&L, then buys and sells 5 TCS to close it: a flat
 position is omitted from ``positions()``. I/O is gated by capabilities, so
@@ -13,7 +13,7 @@ anywhere. Point it at a real broker with
 
 The result is JSON-serialisable and deterministic: ``adapter``, ``position_after_buy`` (the
 position the buy opened), ``positions`` (the non-flat book after the round trips, each row
-carrying ``realized_pnl`` in paise and ``realized_pnl_rupees`` for display),
+carrying ``realized_pnl`` in minor units and ``realized_pnl_rupees`` for display),
 ``flat_omitted`` (a TCS round trip that closed, plus the proof it is no longer reported),
 ``holdings`` (the capability check as data), ``funds`` and ``trades``.
 
@@ -47,7 +47,6 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba_examples.jsonable import jsonable
-from honba_examples.money import paise_to_rupees
 
 #: The two instruments the fake adapter serves; a real run picks its own.
 _RELIANCE = InstrumentId("RELIANCE", "NSE")
@@ -62,10 +61,10 @@ def _registry():
 
 
 def _position_row(position: Position) -> dict[str, Any]:
-    """One position as the report shows it: ``realized_pnl`` stays integer paise (ADR 0011)
+    """One position as the report shows it: ``realized_pnl`` stays integer minor units (ADR 0011)
     and gains the rupee figure a reader wants at a glance."""
     row = jsonable(position)
-    row["realized_pnl_rupees"] = paise_to_rupees(position.realized_pnl.amount)
+    row["realized_pnl_rupees"] = position.realized_pnl.to_major()
     return row
 
 

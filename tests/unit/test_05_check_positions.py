@@ -57,7 +57,7 @@ def test_partial_sell_reduces_the_position_and_books_realized_pnl(report):
     assert reliance["quantity"] == 6  # 10 bought, 4 sold
     assert reliance["avg_price"] == 2450.55  # the buy price survives a partial close
     # 4 shares sold at the bid after buying at the ask: the spread is the realized loss,
-    # booked once, in integer paise (ADR 0011).
+    # booked once, in integer minor units (ADR 0011).
     assert reliance["realized_pnl"] == {"amount": -40, "currency": "INR"}
     assert reliance["realized_pnl_rupees"] == -0.4
 

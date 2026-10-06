@@ -18,8 +18,8 @@ import pytest
 from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import CoverageRecord, CoverageStatus, DateInterval
 from honba.screener.store import ParquetBarStore
+from honba.strategies.loader import CatalogError, find_catalog
 
-from honba_examples.catalog import CatalogError, find_catalog
 from tests.synthetic import bar, weekdays
 
 SCRIPT = Path(__file__).resolve().parents[2] / "universes" / "07_alpha30_backtest.py"
@@ -32,7 +32,7 @@ MISSING = "IDEA"  # one member deliberately has no bars
 
 def _catalog_or_skip() -> Path:
     try:
-        return find_catalog()
+        return find_catalog(search_from=SCRIPT)
     except CatalogError as exc:
         pytest.skip(str(exc))
 
@@ -100,8 +100,10 @@ def test_run_writes_complete_structured_output(store_dir: Path, tmp_path: Path) 
     assert cfg["test_start"] == TEST_START.isoformat()
     assert cfg["test_end"] == TEST_END.isoformat()
     assert cfg["fill_model"] == "next_session_open"
-    assert cfg["settlement_days"] == 2  # NSE delivery, from the engine market pack
-    assert isinstance(cfg["capital_paise"], int)
+    # NSE delivery cycle from the core market pack, date-aware: 2026 sessions are T+1.
+    assert cfg["settlement_days"] == 1
+    assert cfg["settlement_source"].startswith("engine:")
+    assert isinstance(cfg["capital_minor"], int)
     assert len(run["universe"]) == 30
     assert run["data_coverage"]["missing"] == [MISSING]
 
@@ -113,12 +115,12 @@ def test_run_writes_complete_structured_output(store_dir: Path, tmp_path: Path) 
     assert fills, "the strategy should have invested"
     assert min(f["date"] for f in fills) > TEST_START.isoformat()  # next-open, never same bar
     assert all(f["submitted_date"] < f["date"] for f in fills)
-    assert all(isinstance(f["cost_paise"], int) and f["cost_paise"] > 0 for f in fills)
+    assert all(isinstance(f["cost_minor"], int) and f["cost_minor"] > 0 for f in fills)
     assert all(f["symbol"] != MISSING for f in fills)
     m = result["metrics"]
-    assert m["total_fees_paise"] == sum(f["cost_paise"] for f in fills)
+    assert m["total_fees_minor"] == sum(f["cost_minor"] for f in fills)
     assert m["n_fills"] == len(fills)
-    assert m["final_equity_paise"] == curve[-1]["equity_paise"]
+    assert m["final_equity_minor"] == curve[-1]["equity_minor"]
     assert m["n_rejected_intents"] == 0
 
 
@@ -178,3 +180,12 @@ def test_run_hash_does_not_depend_on_pythonhashseed(
         )
         hashes.append(json.loads((out / "run.json").read_text())["run_hash"])
     assert hashes[0] == hashes[1]
+
+
+def test_explicit_settlement_days_wins_over_the_engine_default(
+    store_dir: Path, tmp_path: Path
+) -> None:
+    run = _run(store_dir, tmp_path / "out", "--settlement-days", "2")
+    assert run["config"]["settlement_days"] == 2
+    assert run["config"]["settlement_source"] == "cli"
+    assert run["result"]["settlement_days"] == 2

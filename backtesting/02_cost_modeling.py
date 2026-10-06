@@ -22,12 +22,15 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.markets.india.costs import nse_equity_delivery_breakdown
 from honba.domain.order import OrderSide
-from honba_examples.jsonable import jsonable
-from honba_examples.money import paise_to_rupees, delivery_cost_paise
+from honba.markets.india.costs import (
+    nse_equity_delivery_breakdown,
+    nse_equity_delivery_fill_cost,
+)
 
-__all__ = ["run", "main"]
+from honba_examples.jsonable import jsonable
+
+__all__ = ["main", "run"]
 
 
 def run(
@@ -37,29 +40,22 @@ def run(
     buy_legs = nse_equity_delivery_breakdown(OrderSide.BUY, qty, price)
     sell_legs = nse_equity_delivery_breakdown(OrderSide.SELL, qty, price)
 
+    cost_buy = nse_equity_delivery_fill_cost(OrderSide.BUY, qty, price)
+    cost_sell = nse_equity_delivery_fill_cost(OrderSide.SELL, qty, price)
+
     return {
         "price": price,
         "quantity": qty,
         "notional": qty * price,
         "buy": {
             "legs": jsonable(buy_legs),
-            "total_rupees": sum(
-                paise_to_rupees(v) for v in [
-                    buy_legs.brokerage, buy_legs.stt, buy_legs.exchange,
-                    buy_legs.sebi, buy_legs.ipft, buy_legs.stamp_duty, buy_legs.gst
-                ] if v is not None
-            ),
-            "total_paise": delivery_cost_paise(OrderSide.BUY, qty, price),
+            "total_rupees": cost_buy.to_major(),
+            "total_minor": cost_buy.amount,
         },
         "sell": {
             "legs": jsonable(sell_legs),
-            "total_rupees": sum(
-                paise_to_rupees(v) for v in [
-                    sell_legs.brokerage, sell_legs.stt, sell_legs.exchange,
-                    sell_legs.sebi, sell_legs.ipft, sell_legs.stamp_duty, sell_legs.gst
-                ] if v is not None
-            ),
-            "total_paise": delivery_cost_paise(OrderSide.SELL, qty, price),
+            "total_rupees": cost_sell.to_major(),
+            "total_minor": cost_sell.amount,
         },
     }
 

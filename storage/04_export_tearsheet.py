@@ -49,8 +49,8 @@ DEFAULT_OUT_DIR = Path(__file__).resolve().parents[1] / "output" / "04_export_te
 SYMBOL = "DEMO"
 EXCHANGE = "NSE"
 QUANTITY = 10.0
-CAPITAL_PAISE = 1_000_000  # 10,000 rupees
-SETTLEMENT_DAYS = 2  # NSE delivery cycle
+CAPITAL_MINOR = 1_000_000  # 10,000 rupees in paise
+SETTLEMENT_DAYS = 2  # explicit what-if; the core default for 2026 sessions is T+1
 
 DAYS = weekdays(dt.date(2026, 6, 1), 10)
 TEST_START = DAYS[3]
@@ -61,7 +61,7 @@ SELL_DAY = DAYS[-2]  # an intent on the last session would never fill: orders fi
 class BuyFirstSellLast(Strategy):
     """Buy on the first test-window session and exit the session before the last.
 
-    Warm-up sessions are ignored rather than traded (the gated port would only
+    Warm-up sessions are ignored rather than traded (the runner's warm-up gate would only
     release those orders), and the exit is scheduled one session early because
     orders fill at the *next* session's open.
     """
@@ -100,7 +100,7 @@ def run_backtest() -> BacktestRun:
         synthetic_bars(),
         test_start=TEST_START,
         test_end=TEST_END,
-        capital_paise=CAPITAL_PAISE,
+        capital_minor=CAPITAL_MINOR,
         settlement_days=SETTLEMENT_DAYS,
     )
 
@@ -129,11 +129,11 @@ def render_markdown(doc: dict[str, Any]) -> str:
         "",
         "## Equity curve (first and last session)",
         "",
-        "| date | equity_paise | cash_paise | positions_value_paise |",
+        "| date | equity_minor | cash_minor | positions_value_minor |",
         "| --- | --- | --- | --- |",
         *(
-            f"| {p['date']} | {p['equity_paise']} | {p['cash_paise']} | "
-            f"{p['positions_value_paise']} |"
+            f"| {p['date']} | {p['equity_minor']} | {p['cash_minor']} | "
+            f"{p['positions_value_minor']} |"
             for p in (curve[0], curve[-1])
         ),
         "",

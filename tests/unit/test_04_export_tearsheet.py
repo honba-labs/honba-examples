@@ -47,12 +47,12 @@ def test_json_carries_the_schema_the_metrics_and_the_equity_curve(exported, doc)
         "turnover",
         "avg_cash_pct",
         "n_fills",
-        "total_fees_paise",
+        "total_fees_minor",
     ):
         assert name in metrics
     curve = doc["run"]["equity_curve"]
     assert [p["date"] for p in curve] == [d.isoformat() for d in DAYS[3:]]
-    assert all(isinstance(p["equity_paise"], int) for p in curve)
+    assert all(isinstance(p["equity_minor"], int) for p in curve)
     assert exported["metrics"] == metrics
 
 
@@ -79,8 +79,8 @@ def test_markdown_lists_every_metric_and_both_equity_endpoints(exported, doc):
     curve = doc["run"]["equity_curve"]
     assert curve[0]["date"] in md
     assert curve[-1]["date"] in md
-    assert str(curve[0]["equity_paise"]) in md
-    assert str(curve[-1]["equity_paise"]) in md
+    assert str(curve[0]["equity_minor"]) in md
+    assert str(curve[-1]["equity_minor"]) in md
     assert f"Fills: {doc['run']['metrics']['n_fills']}" in md
 
 

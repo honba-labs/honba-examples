@@ -6,18 +6,21 @@ import datetime as dt
 
 import pytest
 from honba.domain.bar import Bar
+from honba.domain.money import Currency, Money
 from honba.strategies.base import Strategy
 
 from honba_examples.backtest import run_portfolio_backtest
-from honba_examples.money import notional_paise
 from tests.synthetic import bar, weekdays
 
 DAYS = weekdays(dt.date(2026, 6, 1), 6)  # Mon 1 .. Mon 8 June 2026
 SYMS = ("AAA", "BBB")
 
 
-def zero_cost(side, qty, px) -> int:
-    return 0
+INR = Currency.INR
+
+
+def zero_cost(side, qty, px) -> Money:
+    return Money.zero(INR)
 
 
 class BuyEveryBar(Strategy):
@@ -47,9 +50,9 @@ def run(strategy: Strategy, warmup: int = 2, **kw):
     params = {
         "test_start": DAYS[warmup],
         "test_end": DAYS[-1],
-        "capital_paise": 1_000_000,
+        "capital_minor": 1_000_000,
         "settlement_days": 0,
-        "cost_paise": zero_cost,
+        "costs": zero_cost,
     }
     params.update(kw)
     return run_portfolio_backtest(strategy, series(), **params)
@@ -79,27 +82,29 @@ def test_fills_are_at_the_next_sessions_open() -> None:
 
 
 def test_fees_and_turnover_count_only_test_window_fills() -> None:
-    def flat_fee(side, qty, px) -> int:
-        return 1_000  # 10 rupees per fill
+    def flat_fee(side, qty, px) -> Money:
+        return Money.from_minor(1_000, INR)  # 10 rupees per fill
 
-    gated = run(BuyEveryBar(), warmup=2, cost_paise=flat_fee)
-    assert gated.fees_paise == 1_000 * len(gated.fills)
-    assert gated.traded_notional_paise == sum(f.notional_paise for f in gated.fills)
+    gated = run(BuyEveryBar(), warmup=2, costs=flat_fee)
+    assert gated.fees_minor == 1_000 * len(gated.fills)
+    assert gated.traded_notional_minor == sum(f.notional_minor for f in gated.fills)
     assert all(f.date >= DAYS[2].isoformat() for f in gated.fills)
     m = gated.metrics()
     assert m["n_fills"] == len(gated.fills)
-    assert m["total_fees_paise"] == gated.fees_paise
+    assert m["total_fees_minor"] == gated.fees_minor
 
 
-def test_curve_is_cash_plus_positions_marked_at_close_in_paise() -> None:
+def test_curve_is_cash_plus_positions_marked_at_close_in_minor() -> None:
     result = run(BuyEveryBar(), warmup=0)
     last = result.curve[-1]
     i = len(DAYS) - 1
     held = {s: result.final_positions[s] for s in SYMS}
-    marks = sum(notional_paise(held[s], 100.0 + 10 * j + i + 0.5) for j, s in enumerate(SYMS))
-    assert last["positions_value_paise"] == marks
-    assert last["equity_paise"] == last["cash_paise"] + marks
-    assert all(isinstance(p["equity_paise"], int) for p in result.curve)
+    marks = sum(
+        Money.mul_qty(held[s], 100.0 + 10 * j + i + 0.5, INR).amount for j, s in enumerate(SYMS)
+    )
+    assert last["positions_value_minor"] == marks
+    assert last["equity_minor"] == last["cash_minor"] + marks
+    assert all(isinstance(p["equity_minor"], int) for p in result.curve)
 
 
 def test_bars_outside_the_window_are_not_traded() -> None:
@@ -139,3 +144,30 @@ def test_intent_order_within_an_event_does_not_change_the_run() -> None:
     a = run(BuyAllOnFirstBar(SYMS), warmup=0)
     b = run(BuyAllOnFirstBar(tuple(reversed(SYMS))), warmup=0)
     assert a.to_dict() == b.to_dict()
+
+
+def test_default_settlement_is_date_aware_and_explicit_value_wins() -> None:
+    # 2026 sessions are T+1 under the core market pack; an explicit value always wins.
+    assert run(BuyEveryBar(), settlement_days=None).settlement_days == 1
+    assert run(BuyEveryBar(), settlement_days=2).settlement_days == 2
+
+
+def test_pre_2023_sessions_default_to_t_plus_2() -> None:
+    days = weekdays(dt.date(2022, 6, 1), 4)
+    bars = [bar(s, d, 100.0 + i) for i, d in enumerate(days) for s in SYMS]
+    result = run_portfolio_backtest(
+        BuyEveryBar(),
+        bars,
+        test_start=days[0],
+        test_end=days[-1],
+        capital_minor=1_000_000,
+        settlement_days=None,
+        costs=zero_cost,
+    )
+    assert result.settlement_days == 2
+
+
+def test_warmup_gate_is_the_core_runner_gate() -> None:
+    result = run(BuyEveryBar(), warmup=2)
+    assert result.warmup_sessions == 2
+    assert result.metrics()["n_suppressed_warmup"] == 2 * len(SYMS)

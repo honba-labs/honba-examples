@@ -1,7 +1,7 @@
 """Example 07: Honba-native backtest of the Alpha-30 equal-weight catalog strategy.
 
 This is the reference way to backtest a catalog strategy over a universe in Honba.
-(08 is the separate Jesse-parity port, kept for engine-to-engine comparison.)
+(08 is a hand-rolled equal-weight rebalancer over the same basket.)
 
 Pipeline
 --------
@@ -15,15 +15,17 @@ Pipeline
    share simply stays in cash.
 3. **Run** - the core ``StrategyRunner`` and ``LedgerContext`` drive the strategy.
    Orders fill at the *next session's open* (never the close that produced them),
-   sells before buys, with NSE delivery costs (``nse_equity_delivery_cost`` legs,
-   each rounded to paise) and the exchange's settlement cycle from the engine
-   (``settlement_days_for``: T+2 on NSE): a buy waits for sale proceeds to settle
-   and is cut to the cash available.
+   sells before buys, with NSE delivery costs (``nse_equity_delivery_fill_cost``,
+   each leg rounded to paise) and the exchange's settlement cycle from the core
+   market pack (``settlement_days_for``, date-aware: NSE is T+2 before 2023-01-27 and
+   T+1 from then, taken as of ``--test-start``; ``--settlement-days`` wins): a buy
+   waits for sale proceeds to settle and is cut to the cash available. The simulator
+   is core's ``honba.backtest.simulated.NextOpenExecution``.
 4. **Warm-up** - ``--warmup-days`` of bars before ``--test-start`` are fed to the
    strategy for its indicators but cannot trade; only test-window fills, fees and
    turnover count. Alpha-30 has no indicators and keeps a 15-session rebalance
    clock that warm-up would advance, so its default warm-up is 0.
-5. **Output** - money is integer paise (ADR 0011). ``--out-dir/run.json`` holds the
+5. **Output** - money is integer minor units, paise (ADR 0011). ``--out-dir/run.json`` holds the
    config, universe, data coverage, metrics, fills, order events, equity curve and
    hashes of the inputs and results; a summary prints to stdout.
 
@@ -49,8 +51,10 @@ from typing import Any
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
+from honba.domain.money import Currency, Money
 from honba.markets.india.settlement import settlement_days_for
 from honba.markets.india.universes import resolve_universe
+from honba.strategies.loader import CatalogError, find_catalog, load_catalog_strategy
 
 try:
     import honba_examples  # noqa: F401
@@ -59,8 +63,6 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
 
 from honba_examples.backtest import BacktestRun, canonical_hash, run_portfolio_backtest
 from honba_examples.base import HonbaExample, ts_to_date
-from honba_examples.catalog import CatalogError, find_catalog, load_catalog_strategy
-from honba_examples.money import paise_to_rupees, to_paise
 
 SCHEMA = "honba-examples/07-alpha30-backtest/v1"
 DEFAULT_STRATEGY = "alpha30_equal_weight"
@@ -100,7 +102,7 @@ def data_coverage(
 
 
 class Alpha30BacktestExample(HonbaExample):
-    """Honba-native Alpha-30 equal-weight backtest (next-open fills, T+2, paise ledger)."""
+    """Honba-native Alpha-30 equal-weight backtest (next-open fills, date-aware settlement, minor-unit ledger)."""
 
     universe_name: str = "nifty200_alpha_30"
     initial_capital: float | None = None  # None: the strategy config's `capital`
@@ -134,8 +136,9 @@ class Alpha30BacktestExample(HonbaExample):
             "--settlement-days",
             type=int,
             default=None,
-            help="Sessions until sale proceeds are spendable (default: engine value for the "
-            "exchange, T+2 on NSE)",
+            help="Sessions until sale proceeds are spendable (default: the core market pack's "
+            "cycle for the exchange as of --test-start: NSE T+2 before 2023-01-27, T+1 from "
+            "then; an explicit value always wins)",
         )
         parser.add_argument(
             "--require-full-coverage",
@@ -166,7 +169,7 @@ class Alpha30BacktestExample(HonbaExample):
 
     def run(self) -> dict[str, Any]:
         try:
-            catalog = find_catalog(self.strategies_dir)
+            catalog = find_catalog(self.strategies_dir, search_from=Path(__file__))
             loaded = load_catalog_strategy(self.strategy, catalog)
         except CatalogError as exc:
             raise SystemExit(str(exc)) from exc
@@ -180,13 +183,16 @@ class Alpha30BacktestExample(HonbaExample):
         )
         if capital <= 0:
             raise SystemExit("--capital must be positive")
+        capital_minor = Money.from_major(capital, Currency.INR).amount
         if self.settlement_days is not None:
             settlement, settlement_source = self.settlement_days, "cli"
         elif cfg.settlement_days is not None:
             settlement, settlement_source = int(cfg.settlement_days), "strategy_config"
         else:
-            settlement = settlement_days_for(self.exchange)
-            settlement_source = f"engine:settlement_days_for({self.exchange})"
+            settlement = settlement_days_for(self.exchange, as_of=self.test_start)
+            settlement_source = (
+                f"engine:settlement_days_for({self.exchange}, as_of={self.test_start})"
+            )
 
         # Window: explicit start; end explicit or the latest bar on/before today.
         warmup_start = self.test_start - dt.timedelta(days=self.warmup_days)
@@ -217,13 +223,13 @@ class Alpha30BacktestExample(HonbaExample):
                 raise SystemExit(msg)
             print(f"[Data] WARNING {msg}; their equal-weight share stays in cash")
 
-        strategy = loaded.cls(cfg)
+        strategy = loaded.instantiate()
         result = run_portfolio_backtest(
             strategy,
             bars,
             test_start=self.test_start,
             test_end=test_end,
-            capital_paise=to_paise(capital),
+            capital_minor=capital_minor,
             settlement_days=settlement,
         )
 
@@ -239,11 +245,11 @@ class Alpha30BacktestExample(HonbaExample):
             "test_end_source": end_source,
             "warmup_days": self.warmup_days,
             "warmup_start": warmup_start.isoformat(),
-            "capital_paise": to_paise(capital),
+            "capital_minor": capital_minor,
             "settlement_days": settlement,
             "settlement_source": settlement_source,
             "fill_model": "next_session_open",
-            "cost_model": "nse_equity_delivery, per-leg rounded to paise",
+            "cost_model": "nse_equity_delivery, per-leg rounded to minor units",
         }
         input_hash = canonical_hash(
             {"config": config, "universe": [i.symbol for i in universe], "bars": bars_digest(bars)}
@@ -271,7 +277,9 @@ class Alpha30BacktestExample(HonbaExample):
 
 def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
     cfg, m = out["config"], out["result"]["metrics"]
-    rupees = paise_to_rupees
+    def rupees(minor: int) -> float:
+        return Money.from_minor(minor, Currency.INR).to_major()
+
     print("=" * 64)
     print(f"Alpha-30 equal weight  {cfg['test_start']} -> {cfg['test_end']}  ({cfg['exchange']})")
     print(
@@ -280,16 +288,16 @@ def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
     )
     print("-" * 64)
     rows = [
-        ("Capital", f"{rupees(cfg['capital_paise']):,.2f}"),
-        ("Final equity", f"{rupees(m['final_equity_paise']):,.2f}"),
-        ("Final cash", f"{rupees(m['final_cash_paise']):,.2f}"),
+        ("Capital", f"{rupees(cfg['capital_minor']):,.2f}"),
+        ("Final equity", f"{rupees(m['final_equity_minor']):,.2f}"),
+        ("Final cash", f"{rupees(m['final_cash_minor']):,.2f}"),
         ("Total return %", f"{m['total_return_pct']:.2f}"),
         ("CAGR %", f"{m['cagr_pct']:.2f}"),
         ("Max drawdown %", f"{m['max_drawdown_pct']:.2f}"),
         ("Sharpe", f"{m['sharpe']:.3f}"),
         ("Turnover", f"{m['turnover']:.3f}"),
         ("Avg cash %", f"{m['avg_cash_pct']:.2f}"),
-        ("Total fees", f"{rupees(m['total_fees_paise']):,.2f}"),
+        ("Total fees", f"{rupees(m['total_fees_minor']):,.2f}"),
         ("Fills", f"{m['n_fills']}"),
         ("Buys cut for cash", f"{m['n_released_unfunded']}"),
         ("Orders unfilled at end", f"{m['n_unfilled_at_end']}"),

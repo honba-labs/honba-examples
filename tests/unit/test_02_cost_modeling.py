@@ -24,14 +24,14 @@ def test_run_returns_buy_and_sell_legs(example):
     assert set(result) == {"price", "quantity", "notional", "buy", "sell"}
     assert result["notional"] == 25000.0
     assert "legs" in result["buy"]
-    assert "total_paise" in result["buy"]
+    assert "total_minor" in result["buy"]
     assert "total_rupees" in result["buy"]
 
 
 def test_buy_and_sell_costs_differ_because_of_stt(example):
     result = example.run()
     # STT is only on sell side for delivery
-    assert result["sell"]["total_paise"] > result["buy"]["total_paise"]
+    assert result["sell"]["total_minor"] > result["buy"]["total_minor"]
 
 
 def test_deterministic_across_two_runs(example):
