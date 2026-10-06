@@ -28,10 +28,12 @@ except ModuleNotFoundError:
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from honba_examples.jsonable import jsonable
+from tests.synthetic import bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class RiskManagedSma(Strategy):
@@ -71,8 +73,7 @@ class RiskManagedSma(Strategy):
         if self._current_day != bar.ts:
             self._current_day = bar.ts
             self._day_start_equity = equity
-        if equity > self._peak_equity:
-            self._peak_equity = equity
+        self._peak_equity = max(self._peak_equity, equity)
 
         # Risk checks
         drawdown = (self._peak_equity - equity) / self._peak_equity
@@ -100,7 +101,7 @@ class RiskManagedSma(Strategy):
     def _estimate_equity(self, price: float) -> float:
         """Rough equity estimate from cash + position value."""
         cash = 100_000.0  # Simplified
-        for iid, qty in self.ctx.positions().items():
+        for qty in self.ctx.positions().values():
             cash += qty * price
         return cash
 

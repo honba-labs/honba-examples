@@ -27,10 +27,12 @@ except ModuleNotFoundError:
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from honba_examples.jsonable import jsonable
+from tests.synthetic import bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class BasketSma(Strategy):
@@ -87,13 +89,13 @@ class BasketSma(Strategy):
     def _rebalance(self) -> None:
         """Equal-weight the basket: track changes and adjust."""
         total_value = 100_000.0  # Simplified
-        target_per = total_value / len(self.symbols)
+        total_value / len(self.symbols)
 
         for sym in self.symbols:
             iid = self._instrument(sym)
             if iid is None:
                 continue
-            pos = self.position(iid)
+            self.position(iid)
             # Note: we can't get exact price here without bar; simplified
             # Rebalance logic would go here in a real implementation
 

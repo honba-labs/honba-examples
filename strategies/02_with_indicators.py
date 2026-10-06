@@ -27,12 +27,14 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba.strategies.base import Strategy
-from honba.strategies.indicators import Rsi, Atr, Sma
+from honba.strategies.indicators import Atr, Rsi, Sma
 from honba.strategies.testing import replay
-from honba_examples.jsonable import jsonable
-from tests.synthetic import bar, weekdays as weekdays_func
 
-__all__ = ["run", "main"]
+from honba_examples.jsonable import jsonable
+from tests.synthetic import bar
+from tests.synthetic import weekdays as weekdays_func
+
+__all__ = ["main", "run"]
 
 
 class CompositeSmaRsi(Strategy):
