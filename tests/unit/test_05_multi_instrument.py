@@ -35,6 +35,7 @@ def test_result_contains_fills_and_intents(example):
 
 def test_deterministic_across_two_runs(example):
     import json as _json
+
     first = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
     second = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
     assert first == second

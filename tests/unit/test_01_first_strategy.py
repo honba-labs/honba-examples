@@ -50,6 +50,7 @@ def test_fast_slow_crossover_produces_expected_signal_count(example):
 
 def test_deterministic_across_two_runs(example):
     import json as _json
+
     first = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
     second = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
     assert first == second

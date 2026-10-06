@@ -32,7 +32,7 @@ from honba.ai.knowledge import KnowledgePack, build_knowledge_pack
 from honba.ai.llm.provider import LlmPort, ScriptedFakeLlm
 from honba.screener.catalog import MetricCatalog, load_catalog
 
-__all__ = ["run", "main"]
+__all__ = ["main", "run"]
 
 
 def run(

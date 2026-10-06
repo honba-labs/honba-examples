@@ -21,7 +21,13 @@ def example():
 
 def test_run_returns_knowledge_and_result(example):
     result = example.run(query="anything")
-    assert set(result) >= {"query", "knowledge", "system_prompt_chars", "result", "llm_call_history"}
+    assert set(result) >= {
+        "query",
+        "knowledge",
+        "system_prompt_chars",
+        "result",
+        "llm_call_history",
+    }
     assert result["knowledge"]["version"] == "1.0.0"
     assert result["knowledge"]["content_hash"]  # non-empty
     assert isinstance(result["knowledge"]["metrics"], int) and result["knowledge"]["metrics"] > 0
@@ -49,7 +55,10 @@ def test_fake_llm_receives_the_query_and_records_history(example):
     assert len(call["messages"]) == 2
     assert call["messages"][0]["role"] == "system"
     assert "Honba filter syntax" in call["messages"][0]["content"]
-    assert call["messages"][1] == {"role": "user", "content": "Translate this screener query: my question"}
+    assert call["messages"][1] == {
+        "role": "user",
+        "content": "Translate this screener query: my question",
+    }
     assert call["grammar"] is None
     assert call["schema"] is None
     assert call["seed"] is None

@@ -29,8 +29,8 @@ def test_run_loads_the_mcp_schema(example):
 def test_each_tool_has_name_description_readonly_and_schemas(example):
     result = example.run()
     for tool in result["tools"]:
-        assert "name" in tool and tool["name"]
-        assert "description" in tool and tool["description"]
+        assert tool.get("name")
+        assert tool.get("description")
         assert tool["read_only"] is True
         assert tool["input_schema"] is not None
         # The generated schema has inputSchema only; outputSchema is optional in MCP
@@ -52,6 +52,7 @@ def test_tool_names_match_the_six_design_tools(example):
 
 def test_output_is_deterministic_across_two_calls(example):
     import json as _json
+
     first = _json.dumps(example.run(), sort_keys=True, default=str)
     second = _json.dumps(example.run(), sort_keys=True, default=str)
     assert first == second

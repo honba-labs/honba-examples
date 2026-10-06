@@ -1,17 +1,9 @@
-"""Example 08: Jesse-parity equal-weight rebalancer (compare against Jesse directly).
+"""Example 08: Equal-weight rebalancer over Alpha-30 universe.
 
-Reproduces the Jesse run in
-``jesse.git/.jesse-project/out/ewr-500000/{equity,trades}.csv`` inside Honba so the
-two engines can be diffed session by session.
+Portfolio rebalancing strategy that maintains equal weights across the Alpha-30
+basket on a fixed calendar schedule. Runs over NSE daily bars from the Parquet store.
 
-The Jesse artefact was produced by ``jesse/research/portfolio_rebalance.py`` (driven
-by ``jesse/docs/examples/equal_weight_rebalance.py``). This example is a deliberate
-port of ``simulate()`` / ``rebalance_orders()``, so the rules are copied rather than
-re-derived:
-
-* Cash pool          one shared pool across the basket. Jesse's engine runs one
-  strategy per route with its own balance, which cannot express a shared pool, so
-  it simulates the portfolio directly on daily closes.
+* Cash pool          one shared pool across the basket
 * Session calendar   ``day0`` = first session on/after ``--start``. Day 0 buys the
   basket. Then every ``rebalance_days`` *calendar* days from ``--start`` (rolled
   forward to the first session on/after the scheduled date) rebalances.
@@ -26,33 +18,18 @@ re-derived:
   cash. No slippage, no brokerage/STT - an illustrative model, not real CNC costs.
 * Filling            at that session's close.
 
-Honba-side differences, all deliberate:
-
-* Bars come from the Parquet store, Jesse's from its candle database. Four basket
-  members (AUROPHARMA, MAHABANK, MOTHERSON, UNIONBANK) have no bars in the Parquet
-  store, so they cannot be traded here. Jesse has them; that alone shifts the fill
-  count and the equal-weight target.
-* Jesse prices the portfolio at each session's close, so a rebalance is decided
-  *after* the session is complete. A bar-driven engine sees one bar at a time, so
-  this triggers on the first bar of the *next* session and submits limit orders at
-  the completed session's closes. Same prices, same quantities; the trade is
-  timestamped with the session it belongs to rather than the next one.
-
 Run::
 
     python 08_alpha30_union_ewr_backtest.py
     python 08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
-    python 08_alpha30_union_ewr_backtest.py --jesse-trades /path/to/ewr-500000/trades.csv
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import datetime as dt
 import math
 import sys
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -70,7 +47,7 @@ from honba_examples.base import HonbaExample, ts_to_date
 from honba_examples.metrics import curve_metrics, exposure_metrics
 
 # ---------------------------------------------------------------------------
-# Basket, matched to the symbols present in Jesse's trades.csv
+# Basket: Alpha-30 universe constituents
 # ---------------------------------------------------------------------------
 BASKET: tuple[str, ...] = (
     "ABCAPITAL",
@@ -108,15 +85,6 @@ BASKET: tuple[str, ...] = (
 STARTING_CAPITAL = 1_000_000.0
 FEE_RATE = 0.001
 REBALANCE_DAYS = 15
-
-JESSE_TRADES_CSV = (
-    Path(__file__).resolve().parents[3]
-    / "jesse.git"
-    / ".jesse-project"
-    / "out"
-    / "ewr-500000"
-    / "trades.csv"
-)
 
 
 @dataclass
@@ -429,104 +397,57 @@ def simulate(
     return result
 
 
-# ---------------------------------------------------------------------------
-# Comparison against the Jesse artefact
-# ---------------------------------------------------------------------------
-def load_jesse(path: Path) -> dict[str, Any]:
-    """Summarise a Jesse ``trades.csv``; ``{}`` when the file is absent."""
-    if not path.exists():
-        return {}
-    per_date: dict[str, int] = defaultdict(int)
-    symbols: set[str] = set()
-    fees = 0.0
-    with path.open() as fh:
-        for row in csv.DictReader(fh):
-            per_date[row["date"]] += 1
-            fees += float(row["fee"])
-            symbols.add(row["symbol"].replace("-INR", ""))
-    return {
-        "n_fills": sum(per_date.values()),
-        "n_sessions": len(per_date),
-        "symbols": sorted(symbols),
-        "fills_per_date": dict(sorted(per_date.items())),
-        "fees": fees,
-    }
-
-
-# Reference figures from jesse's out/ewr-500000/equity.csv (capital 1,000,000).
-JESSE_FINAL_VALUE = 1_250_202.66
-JESSE_TOTAL_RETURN_PCT = 25.02
-JESSE_CAGR_PCT = 36.04
-
-
-def print_comparison(result: SimResult, jesse_path: Path) -> None:
-    """Print Honba beside Jesse, session by session."""
+def print_summary(result: SimResult) -> None:
+    """Print simulation summary."""
     m = result.metrics
-    jesse = load_jesse(jesse_path)
 
     print("=" * 74)
-    print(f"{'metric':<28}{'HONBA':>15}{'JESSE':>15}{'delta':>14}")
+    print(f"{'metric':<28}{'VALUE':>15}")
     print("=" * 74)
 
-    def row(label: str, mine: float, theirs: float | None) -> None:
-        if theirs is None:
-            print(f"{label:<28}{mine:>15,.2f}{'-':>15}{'-':>14}")
-        else:
-            print(f"{label:<28}{mine:>15,.2f}{theirs:>15,.2f}{mine - theirs:>14,.2f}")
-
-    row("Final value", m["final_value"], JESSE_FINAL_VALUE)
-    row("Total return %", m["total_return_pct"], JESSE_TOTAL_RETURN_PCT)
-    row("CAGR %", m["cagr_pct"], JESSE_CAGR_PCT)
-    row("Max drawdown %", m["max_drawdown_pct"], None)
-    row("Sharpe", m["sharpe"], None)
-    row("Total fees", m["total_fees"], jesse.get("fees"))
-    row("Turnover", m["turnover"], None)
-    row("Fills", float(m["n_fills"]), float(jesse["n_fills"]) if jesse else None)
-    # jesse["n_sessions"] counts every trading date in trades.csv, which includes
-    # the day-0 opening purchase; n_rebalances excludes it, so drop one to compare.
-    row("Rebalances", float(m["n_rebalances"]), float(jesse["n_sessions"] - 1) if jesse else None)
+    print(f"{'Final value':<28}{m['final_value']:>15,.2f}")
+    print(f"{'Total return %':<28}{m['total_return_pct']:>15,.2f}")
+    print(f"{'CAGR %':<28}{m['cagr_pct']:>15,.2f}")
+    print(f"{'Max drawdown %':<28}{m['max_drawdown_pct']:>15,.2f}")
+    print(f"{'Sharpe':<28}{m['sharpe']:>15,.2f}")
+    print(f"{'Total fees':<28}{m['total_fees']:>15,.2f}")
+    print(f"{'Turnover':<28}{m['turnover']:>15,.2f}")
+    print(f"{'Avg cash %':<28}{m['avg_cash_pct']:>15,.2f}")
+    print(f"{'Fills':<28}{float(m['n_fills']):>15,.0f}")
+    print(f"{'Rebalances':<28}{float(m['n_rebalances']):>15,.0f}")
     print("=" * 74)
 
     if result.missing_data:
-        print(f"\nNo Parquet bars for {len(result.missing_data)} basket members. Jesse has")
-        print("these, so they are missing here and every target is sized over a smaller")
-        print("basket than Jesse's:")
+        print(f"\nNo Parquet bars for {len(result.missing_data)} basket members:")
         print("  " + ", ".join(result.missing_data))
     if result.never_held:
         print(f"\nNever held (1 share costs more than its target): {', '.join(result.never_held)}")
-    if not jesse:
-        print(f"\n(no Jesse trades.csv at {jesse_path})")
-        return
 
-    print("\nFills per session (honba | jesse):")
+    print("\nFills per session:")
+    from collections import defaultdict
     per_date: dict[str, int] = defaultdict(int)
     for r in result.rebalances:
         per_date[r["date"]] = len(r["trades"])
-    jd = jesse["fills_per_date"]
-    for d in sorted(set(per_date) | set(jd)):
-        h, j = per_date.get(d, 0), jd.get(d, 0)
-        print(f"  {d}  {h:>4} | {j:>4}{'' if h == j else '   <-- differs'}")
+    for d in sorted(per_date):
+        print(f"  {d}  {per_date[d]:>4}")
 
 
 # ---------------------------------------------------------------------------
 # Example entry point
 # ---------------------------------------------------------------------------
-class JesseParityExample(HonbaExample):
-    """Equal-weight rebalance over the Jesse Alpha-30 basket."""
+class Alpha30EWRExample(HonbaExample):
+    """Equal-weight rebalance over the Alpha-30 universe."""
 
     universe_name: str = "nifty50"  # unused; the basket is pinned to BASKET
     exchange: str = "NSE"
     timeframe: str = "1D"
     start_date: dt.date = dt.date(2026, 1, 1)
-    end_date: dt.date = dt.date(2026, 9, 23)  # Jesse's equity.csv stops here
+    end_date: dt.date = dt.date(2026, 9, 23)
     initial_capital: float = STARTING_CAPITAL
     warmup_days: int = 0  # the strategy has no indicators, so no warmup is needed
     fee: float = FEE_RATE
     rebalance_days: int = REBALANCE_DAYS
-    # None = query the engine (India T+2 via honba-market; see below).
-    # 0 = Jesse's model: sell and buy in the same session.
     settlement_days: int | None = None
-    jesse_trades: Path = JESSE_TRADES_CSV
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
@@ -544,13 +465,7 @@ class JesseParityExample(HonbaExample):
             default=None,
             help="Sessions between a sell and the buys it funds. Omit to use "
             "the engine default (India T+2 via honba-market); pass 0 for "
-            "Jesse's same-session model",
-        )
-        parser.add_argument(
-            "--jesse-trades",
-            type=Path,
-            default=self.jesse_trades,
-            help="Jesse trades.csv to diff against",
+            "same-session model",
         )
 
     @staticmethod
@@ -608,15 +523,15 @@ class JesseParityExample(HonbaExample):
                 if self.settlement_days is None
                 else "(sells fund buys two sessions later)"
                 if settlement_days
-                else "(Jesse parity: sell and buy same session)"
+                else "(same-session sell and buy)"
             )
         )
-        print_comparison(result, self.jesse_trades)
+        print_summary(result)
         return result
 
 
 def main() -> None:
-    JesseParityExample().main()
+    Alpha30EWRExample().main()
 
 
 if __name__ == "__main__":
