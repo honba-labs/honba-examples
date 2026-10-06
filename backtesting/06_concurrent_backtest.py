@@ -1,7 +1,7 @@
 """backtesting/06_concurrent_backtest: parameter sweep with concurrent execution.
 
-Uses ``honba_examples.backtest.run_portfolio_backtest`` (the multi-instrument
-event-driven backtest) in a thread pool to evaluate a grid of (fast, slow)
+Uses ``honba.strategies.testing.replay`` (bar-close fills, no settlement or costs)
+in a thread pool to evaluate a grid of (fast, slow)
 periods. Reports the Pareto frontier (return vs drawdown) and the best by
 Sharpe.
 
@@ -128,16 +128,17 @@ def run(
     # Concurrent execution
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {executor.submit(_backtest, bars_list, f, s): (f, s) for f, s in params}
-        for future in concurrent.futures.as_completed(futures):
-            results.append(future.result())
+        # Collect in grid order, not completion order: thread scheduling must not
+        # decide the order of equal-scoring results.
+        futures = [executor.submit(_backtest, bars_list, f, s) for f, s in params]
+        results = [future.result() for future in futures]
 
     # Find Pareto frontier (max return for given max DD, or max Sharpe)
-    results.sort(key=lambda r: -r["sharpe"])
+    results.sort(key=lambda r: (-r["sharpe"], r["fast"], r["slow"]))
     best_sharpe = results[0] if results else None
 
     # Pareto: max return for each drawdown bucket
-    results.sort(key=lambda r: r["max_dd_pct"])
+    results.sort(key=lambda r: (r["max_dd_pct"], r["fast"], r["slow"]))
     pareto = []
     best_ret = -float("inf")
     for r in results:

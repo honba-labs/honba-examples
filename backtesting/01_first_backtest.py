@@ -3,8 +3,9 @@
 Uses ``honba.session.BacktestSession`` (the same runner that powers live) with
 a tiny ``DataProvider`` that returns synthetic bars. The strategy emits market
 orders; fills arrive at the next bar's open (Honba's ``next_open`` fill model
-for daily sessions; see ``honba_examples/execution.py`` for the multi-instrument
-variant that also handles settlement and fees).
+for daily sessions, simulated by ``honba.backtest.simulated.NextOpenExecution``;
+``honba_examples.backtest.run_portfolio_backtest`` wraps it for multi-instrument runs
+with settlement and fees).
 
 Run::
 

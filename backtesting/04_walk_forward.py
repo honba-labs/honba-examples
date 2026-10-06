@@ -1,8 +1,8 @@
 """backtesting/04_walk_forward: rolling window optimization / validation.
 
 Walk-forward analysis: optimize parameters on an in-sample window, test on the
-next out-of-sample window, roll forward. Uses ``honba_examples.backtest.run_portfolio_backtest``
-for the event-driven backtest with proper settlement and costs.
+next out-of-sample window, roll forward. Uses ``honba.strategies.testing.replay`` (bar-close fills, no settlement or costs);
+see ``honba_examples.backtest.run_portfolio_backtest`` for next-open fills with both.
 
 Run::
 
