@@ -71,16 +71,16 @@ def test_simulate_reports_changes_matching_its_fills(ex, settlement_days: int) -
 
 
 def test_summary_prints_the_changes_table_per_rebalance(ex, capsys) -> None:
-    """Deliberate change from the old 'date  adds [...]  sells []' lines: the summary now prints
-    a Changes table (date, symbol, side, net shares, price, notional, cost) via the shared output
-    presets, so each rebalance change is one row."""
+    """The summary prints the concise Rebalance Schedule table (date, event, added, removed, rebalanced, notional)
+    followed by metrics and equity curve, without the final holdings table."""
     days = weekdays(dt.date(2026, 6, 1), 6)
     bars = [bar(s, d, 100.0) for d in days for s in ("AAA", "BBB")]
     result = ex.simulate(bars, ["AAA", "BBB"], start=days[0], capital=100_000.0, rebalance_days=3)
     ex.print_summary(result)
     out = capsys.readouterr().out
     rows = [" ".join(line.replace("│", " ").replace("┃", " ").split()) for line in out.splitlines()]
-    assert any("Net shares" in r for r in rows)
-    assert any(r.startswith(f"{days[0].isoformat()} AAA BUY +500") for r in rows)
-    assert any(r.startswith(f"{days[0].isoformat()} BBB BUY +499") for r in rows)
-    assert "adds [" not in out and "sells []" not in out
+    assert any("Rebalance Schedule" in r for r in rows)
+    assert any("Added (New)" in r for r in rows)
+    assert any(days[0].isoformat() in r and "Initial" in r and "+AAA(500)" in r for r in rows)
+    assert "Final holdings" not in out
+

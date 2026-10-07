@@ -40,10 +40,12 @@ __all__ = [
     "print_equity_summary",
     "print_holdings",
     "print_metrics",
+    "print_rebalance_schedule",
     "print_rejections",
     "print_run_header",
     "resolve_output",
 ]
+
 
 
 @dataclass
@@ -281,6 +283,108 @@ def print_changes(
         Column("cost", "Cost", fmt=_num),
     ]
     _table("changes", "Changes per rebalance", cols, raw, opts)
+
+
+def print_rebalance_schedule(
+    rebalances: Sequence[Mapping[str, Any]], opts: OutputOptions | None = None
+) -> None:
+    """Concise rebalance schedule table: 1 row per rebalance session.
+
+    Categorizes trades into Added (new position), Removed (exit), and Rebalanced (trim/top-up),
+    with Day 0 summarized compactly as the Initial basket funding.
+    """
+    opts = opts or OutputOptions()
+    groups: list[dict[str, Any]] = []
+    for r in rebalances:
+        if r.get("leg") == "buy" and groups:
+            groups[-1]["trades"].extend(r.get("trades", []))
+        else:
+            groups.append(
+                {
+                    "date": r["date"],
+                    "trades": list(r.get("trades", [])),
+                }
+            )
+
+    held: dict[str, int] = {}
+    raw: list[dict[str, Any]] = []
+
+    for idx, g in enumerate(groups):
+        trades = g["trades"]
+        notional = sum(t.get("notional", 0.0) for t in trades)
+        net: dict[str, int] = {}
+        for t in trades:
+            signed = t["qty"] if t.get("side") == "buy" else -t["qty"]
+            net[t["symbol"]] = net.get(t["symbol"], 0) + signed
+
+        added: list[str] = []
+        removed: list[str] = []
+        rebalanced_items: list[tuple[int, str]] = []
+
+
+        for sym in sorted(net):
+            delta = net[sym]
+            if delta == 0:
+                continue
+            before = held.get(sym, 0)
+            after = before + delta
+            if before == 0 and after > 0:
+                added.append(f"+{sym}({delta})")
+            elif before > 0 and after == 0:
+                removed.append(f"-{sym}(all)")
+            elif before > 0 and after > 0:
+                sign = "+" if delta > 0 else "-"
+                rebalanced_items.append((abs(delta), f"{sign}{sym}({abs(delta)})"))
+            held[sym] = after
+            if after == 0:
+                held.pop(sym, None)
+
+        rebalanced_items.sort(key=lambda x: -x[0])
+        rebalanced = [item[1] for item in rebalanced_items]
+
+        if idx == 0:
+            event = "Initial"
+            if len(added) >= 10:
+                added_str = f"{len(added)} basket names"
+            elif added:
+                added_str = ", ".join(added)
+            else:
+                added_str = "—"
+            removed_str = "—"
+            rebalanced_str = "—"
+        else:
+            event = "Rebalance"
+            added_str = ", ".join(added) if added else "—"
+            removed_str = ", ".join(removed) if removed else "—"
+            if len(rebalanced) > 4:
+                rebalanced_str = f"{', '.join(rebalanced[:4])} (+{len(rebalanced) - 4} more)"
+            elif rebalanced:
+                rebalanced_str = ", ".join(rebalanced)
+            else:
+                rebalanced_str = "—"
+
+
+        raw.append(
+            {
+                "date": g["date"],
+                "event": event,
+                "added": added_str,
+                "removed": removed_str,
+                "rebalanced": rebalanced_str,
+                "notional": notional,
+            }
+        )
+
+    cols = [
+        Column("date", "Date"),
+        Column("event", "Event"),
+        Column("added", "Added (New)"),
+        Column("removed", "Removed (Exit)"),
+        Column("rebalanced", "Rebalanced (Trim / Top-up)"),
+        Column("notional", "Notional", align="right", fmt=_num),
+    ]
+    _table("schedule", "Rebalance Schedule", cols, raw, opts)
+
 
 
 def print_holdings(

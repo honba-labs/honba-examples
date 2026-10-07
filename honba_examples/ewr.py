@@ -17,11 +17,10 @@ from honba_examples.base import ts_to_date
 from honba_examples.metrics import curve_metrics, exposure_metrics
 from honba_examples.output import (
     OutputOptions,
-    print_changes,
     print_data_notes,
     print_equity_summary,
-    print_holdings,
     print_metrics,
+    print_rebalance_schedule,
 )
 
 STARTING_CAPITAL = 1_000_000.0
@@ -345,8 +344,8 @@ def print_summary(result: SimResult, opts: OutputOptions | None = None) -> None:
     opts = opts or OutputOptions()
     metrics = dict(result.metrics)
     metrics["traded_notional"] = sum(t["notional"] for r in result.rebalances for t in r["trades"])
+    print_rebalance_schedule(result.rebalances, opts)
     print_metrics(metrics, opts)
-    print_changes(result.rebalances, opts)
-    print_holdings(result.final_holdings, opts)
     print_equity_summary(result.equity_curve, opts)
     print_data_notes(opts, missing_data=result.missing_data, never_held=result.never_held)
+
