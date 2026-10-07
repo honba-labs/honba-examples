@@ -4,8 +4,7 @@ A curve is a list of ``{"date": "YYYY-MM-DD", "value": float, "cash": float}``
 points, one per session close. Values are floats: these are statistics, not
 ledger entries (ADR 0011), so callers convert from paise before calling.
 
-The conventions mirror Jesse's ``portfolio_rebalance._curve_metrics`` so 08 can be
-diffed against it: returns are session over session, Sharpe is annualised over
+Returns are session over session, Sharpe is annualised over
 252 sessions with a zero risk-free rate and the sample (n-1) deviation, CAGR
 uses calendar days / 365.25 with a one-day floor, and drawdown is reported as a
 negative percentage.
@@ -18,7 +17,7 @@ import math
 from collections.abc import Sequence
 from typing import Any
 
-__all__ = ["SESSIONS_PER_YEAR", "curve_metrics", "exposure_metrics"]
+__all__ = ["SESSIONS_PER_YEAR", "curve_metrics", "exposure_metrics", "max_drawdown", "sharpe_ratio"]
 
 SESSIONS_PER_YEAR = 252
 
@@ -71,3 +70,36 @@ def exposure_metrics(curve: Sequence[dict[str, Any]], traded_notional: float) ->
         "turnover": traded_notional / mean_value,
         "avg_cash_pct": 100 * sum(p["cash"] / p["value"] for p in curve) / len(curve),
     }
+
+
+def max_drawdown(curve: Sequence[dict[str, Any]]) -> float:
+    """Maximum drawdown as a negative percentage (<= 0)."""
+    if not curve:
+        return 0.0
+    values = [p["value"] for p in curve]
+    peak = values[0]
+    max_dd = 0.0
+    for v in values:
+        peak = max(peak, v)
+        if peak:
+            max_dd = min(max_dd, v / peak - 1.0)
+    return 100 * max_dd
+
+
+def sharpe_ratio(curve: Sequence[dict[str, Any]], capital: float) -> float:
+    """Sharpe ratio (annualized over 252 sessions, zero risk-free, sample std)."""
+    if len(curve) < 2:
+        return 0.0
+    values = [p["value"] for p in curve]
+    rets = [
+        (values[i] - values[i - 1]) / values[i - 1]
+        for i in range(1, len(values))
+        if values[i - 1] != 0
+    ]
+    n = len(rets)
+    if n > 1:
+        mean = sum(rets) / n
+        var = sum((r - mean) ** 2 for r in rets) / (n - 1)
+        std = math.sqrt(var)
+        return (mean / std) * math.sqrt(SESSIONS_PER_YEAR) if std > 0 else 0.0
+    return 0.0

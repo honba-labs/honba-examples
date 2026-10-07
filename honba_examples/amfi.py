@@ -20,11 +20,13 @@ import datetime as dt
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 
 __all__ = ["EXCHANGE", "NavRow", "NavSkip", "nav_bars", "parse_navall"]
+
 
 EXCHANGE = "AMFI"
 """Venue the series is booked under: NAVs are published, not traded, so they name the publisher."""
@@ -53,6 +55,14 @@ class NavSkip:
     line: int
     code: str
     reason: str
+
+
+@dataclass(frozen=True)
+class NavPoint:
+    """A single NAV observation (date + value)."""
+
+    date: dt.date
+    nav: float
 
 
 def parse_navall(text: str, skipped: list[NavSkip] | None = None) -> list[NavRow]:
@@ -133,3 +143,49 @@ def _positive_float(text: str) -> float | None:
     except ValueError:
         return None
     return value if math.isfinite(value) and value > 0 else None
+
+
+class AmfiNavLoader:
+    """Load NAV data from AMFI's published NAVAll.txt files.
+
+    This is a thin wrapper around the Parquet store that the mutual_funds examples
+    expect. It reads daily bars from the store and converts to NavPoint objects.
+    """
+
+    def __init__(self, data_dir: Path | None = None) -> None:
+        from honba_examples.base import get_store
+
+        self._store = get_store(data_dir)
+
+    def load(self, scheme: str, start: dt.date | None = None, end: dt.date | None = None) -> list[NavPoint]:
+        """Load NAV points for a single scheme."""
+        inst_id = f"{scheme}.{EXCHANGE}"
+        bars = self._store.read_bars(inst_id, start=start, end=end)
+        return [
+            NavPoint(
+                date=dt.datetime.fromtimestamp(b.ts // _NS_PER_DAY, tz=dt.timezone.utc).date(),
+                nav=b.close,
+            )
+            for b in bars
+        ]
+
+    def load_category(self, category: str, start: dt.date | None = None, end: dt.date | None = None) -> dict[str, list[NavPoint]]:
+        """Load all schemes in an AMFI category.
+
+        Note: This requires a category mapping file. For now returns empty dict
+        as the category mapping is not yet integrated.
+        """
+        # The actual category mapping would come from AMFI's scheme metadata.
+        # For now, return empty to avoid network dependency.
+        return {}
+
+    def latest_nav(self, scheme: str) -> NavPoint | None:
+        """Get the most recent NAV for a scheme."""
+        inst_id = f"{scheme}.{EXCHANGE}"
+        bar = self._store.read_latest_bar(inst_id)
+        if bar is None:
+            return None
+        return NavPoint(
+            date=dt.datetime.fromtimestamp(bar.ts // _NS_PER_DAY, tz=dt.timezone.utc).date(),
+            nav=bar.close,
+        )
