@@ -12,7 +12,7 @@ from honba.strategies.base import Strategy
 from honba_examples.backtest import run_portfolio_backtest
 from tests.synthetic import bar, weekdays
 
-DAYS = weekdays(dt.date(2026, 6, 1), 6)  # Mon 1 .. Mon 8 June 2026
+DAYS = weekdays(dt.date(2026, 6, 1), 7)  # Mon 1 .. Mon 8 June 2026 (7 trading days)
 SYMS = ("AAA", "BBB")
 
 
@@ -68,7 +68,7 @@ def test_warmup_bars_reach_the_strategy_but_never_trade() -> None:
     assert min(f.date for f in result.fills) == DAYS[3].isoformat()
     assert result.curve[0]["date"] == DAYS[2].isoformat()
     assert result.warmup_sessions == 2
-    assert result.test_sessions == 4
+    assert result.test_sessions == 5
 
 
 def test_fills_are_at_the_next_sessions_open() -> None:

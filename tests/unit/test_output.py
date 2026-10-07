@@ -107,7 +107,7 @@ def test_metrics_block_formats_by_kind_and_orders_known_first() -> None:
     t = _text(o)
     assert "+1.25%" in t and "-2.50%" in t and "1.234" in t
     assert "1,012,500.50" in t
-    assert t.index("Final value") < t.index("Sharpe") < t.index("N fills")
+    assert t.index("Final value") < t.index("Sharpe") < t.index("Fills")
 
 
 def test_changes_aggregate_net_shares_per_symbol_and_date() -> None:

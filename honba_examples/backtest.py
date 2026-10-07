@@ -192,6 +192,17 @@ class BacktestRun:
             "equity_curve": self.curve,
         }
 
+    def major_metrics(self) -> dict[str, Any]:
+        """Metrics in rupees (major units) with readable labels for printing."""
+        m = self.metrics()
+        out = {k: v for k, v in m.items() if not k.endswith("_minor")}
+        out["final_equity"] = _major(m["final_equity_minor"])
+        out["final_cash"] = _major(m["final_cash_minor"])
+        out["total_fees"] = _major(m["total_fees_minor"])
+        out["traded_notional"] = _major(m["traded_notional_minor"])
+        out["positions_value"] = _major(m["positions_value_minor"])
+        return out
+
 
 def run_portfolio_backtest(
     strategy: Strategy,

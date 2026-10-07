@@ -17,7 +17,7 @@
 │ Total fees      │       123.45 │
 │ Turnover        │        0.500 │
 │ Traded notional │     1,750.00 │
-│ N fills         │            3 │
+│ Fills           │            3 │
 │ N rebalances    │            2 │
 └─────────────────┴──────────────┘
                         Changes per rebalance                         

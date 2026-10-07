@@ -159,7 +159,10 @@ def _kv(
 
 
 def print_run_header(info: Mapping[str, Any], opts: OutputOptions | None = None) -> None:
-    """Run header: strategy, universe, dates, capital, settlement, backend (missing keys skipped)."""
+    """Run header: strategy, universe, dates, capital, settlement, backend (missing keys skipped).
+
+    Any additional keys in ``info`` not in the fixed set are appended in insertion order.
+    """
     opts = opts or OutputOptions()
     pairs: list[tuple[str, Any]] = []
     for key, label in (("strategy", "Strategy"), ("universe", "Universe")):
@@ -173,7 +176,13 @@ def print_run_header(info: Mapping[str, Any], opts: OutputOptions | None = None)
         pairs.append(("Settlement", f"T+{info['settlement_days']}"))
     if info.get("backend") is not None:
         pairs.append(("Backend", info["backend"]))
+    fixed_keys = {"strategy", "universe", "start", "end", "capital", "settlement_days", "backend"}
+    for key, value in info.items():
+        if key not in fixed_keys and value is not None:
+            label = " ".join(w.capitalize() for w in key.split("_"))
+            pairs.append((label, value))
     _kv("run_header", "Run", pairs, dict(info), opts)
+
 
 
 _METRIC_ORDER = (
@@ -202,7 +211,21 @@ def _metric_text(key: str, v: Any) -> str:
     return _num(v)
 
 
+_METRIC_LABEL_OVERRIDES = {
+    "n_fills": "Fills",
+    "n_trades": "Trades",
+    "n_rejections": "Rejections",
+    "n_suppressed_warmup": "Suppressed (warm-up)",
+    "n_released_unfunded": "Buys cut for cash",
+    "n_unfilled_at_end": "Unfilled at end",
+    "n_released_no_position": "Released (no position)",
+    "n_rejected_intents": "Rejected intents",
+}
+
+
 def _metric_label(key: str) -> str:
+    if key in _METRIC_LABEL_OVERRIDES:
+        return _METRIC_LABEL_OVERRIDES[key]
     label = key.replace("_pct", " %").replace("_", " ").capitalize()
     return label.replace("Cagr", "CAGR")
 
