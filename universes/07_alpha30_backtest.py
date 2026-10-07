@@ -1,37 +1,20 @@
 """Example 07: Honba-native backtest of the Alpha-30 equal-weight catalog strategy.
 
 This is the reference way to backtest a catalog strategy over a universe in Honba.
-(08 is a hand-rolled equal-weight rebalancer over the same basket.)
 
 Pipeline
 --------
 1. **Strategy** - ``alpha30_equal_weight`` is loaded from the ``honba-strategies``
-   catalog by registry name (``--strategies-dir`` / ``$HONBA_STRATEGIES_DIR`` /
-   sibling checkout) with its ``config.toml``.
+   catalog by registry name with its ``config.toml``.
 2. **Universe** - resolved once, from the universe the strategy trades
    (``nifty200_alpha_30``). The same list is loaded from the Parquet store; members
    with no bars in the test window are reported (``--require-full-coverage`` makes
-   that fatal). The strategy sizes over the whole universe, so a missing member's
-   share simply stays in cash.
+   that fatal).
 3. **Run** - the core ``StrategyRunner`` and ``LedgerContext`` drive the strategy.
-   Orders fill at the *next session's open* (never the close that produced them),
-   sells before buys, with NSE delivery costs (``nse_equity_delivery_fill_cost``,
-   each leg rounded to paise) and the exchange's settlement cycle from the core
-   market pack (``settlement_days_for``, date-aware: NSE is T+2 before 2023-01-27 and
-   T+1 from then, taken as of ``--test-start``; ``--settlement-days`` wins): a buy
-   waits for sale proceeds to settle and is cut to the cash available. The simulator
-   is core's ``honba.backtest.simulated.NextOpenExecution``.
-4. **Warm-up** - ``--warmup-days`` of bars before ``--test-start`` are fed to the
-   strategy for its indicators but cannot trade; only test-window fills, fees and
-   turnover count. Alpha-30 has no indicators and keeps a 15-session rebalance
-   clock that warm-up would advance, so its default warm-up is 0.
-5. **Output** - money is integer minor units, paise (ADR 0011). ``--out-dir/run.json`` holds the
-   config, universe, data coverage, metrics, fills, order events, equity curve and
-   hashes of the inputs and results; a summary prints to stdout.
-
-The test window is explicit: ``--test-start`` defaults to 2026-01-01 and
-``--test-end`` defaults to the latest bar in the store at run time (recorded in
-run.json as ``test_end_source``).
+   Orders fill at the next session's open with NSE delivery costs and date-aware settlement.
+4. **Warm-up** - bars before ``--test-start`` are fed to the strategy for indicators.
+5. **Output** - money is integer minor units (paise). ``--out-dir/run.json`` holds the
+   complete structured artifact with hashes of inputs and results.
 
 Run::
 
@@ -43,8 +26,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import hashlib
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -53,17 +34,19 @@ from honba.display import Column, render_kv, render_table
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.domain.money import Currency, Money
-from honba.markets.india.settlement import settlement_days_for
 from honba.markets.india.universes import resolve_universe
-from honba.strategies.loader import CatalogError, find_catalog, load_catalog_strategy
+from honba.strategies.loader import CatalogError
 
 try:
     import honba_examples  # noqa: F401
 except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba_examples.backtest import BacktestRun, canonical_hash, run_portfolio_backtest
+from honba_examples.artifact import write_run_json
+from honba_examples.backtest import BacktestRun, run_portfolio_backtest
 from honba_examples.base import HonbaExample, ts_to_date
+from honba_examples.catalog import load_named
+from honba_examples.settlement import resolve_settlement_days
 
 SCHEMA = "honba-examples/07-alpha30-backtest/v1"
 DEFAULT_STRATEGY = "alpha30_equal_weight"
@@ -71,17 +54,6 @@ DEFAULT_STRATEGY = "alpha30_equal_weight"
 
 def _date(text: str) -> dt.date:
     return dt.date.fromisoformat(text)
-
-
-def bars_digest(bars: list[Bar]) -> str:
-    """sha256 over every loaded bar, so a run hash changes when the data does."""
-    h = hashlib.sha256()
-    for b in sorted(bars, key=lambda b: (b.instrument_id.symbol, b.ts)):
-        h.update(
-            f"{b.instrument_id.symbol}|{b.instrument_id.exchange}|{b.ts}|{b.open!r}|{b.high!r}|"
-            f"{b.low!r}|{b.close!r}|{b.volume!r}\n".encode()
-        )
-    return h.hexdigest()
 
 
 def data_coverage(
@@ -103,16 +75,16 @@ def data_coverage(
 
 
 class Alpha30BacktestExample(HonbaExample):
-    """Honba-native Alpha-30 equal-weight backtest (next-open fills, date-aware settlement, minor-unit ledger)."""
+    """Honba-native Alpha-30 equal-weight backtest."""
 
     universe_name: str = "nifty200_alpha_30"
-    initial_capital: float | None = None  # None: the strategy config's `capital`
+    initial_capital: float | None = None
     warmup_days: int = 0
     out_dir: Path = Path("output") / "07_alpha30"
-    date_range_args = False  # the window is --test-start/--test-end
+    date_range_args = False
 
     test_start: dt.date = dt.date(2026, 1, 1)
-    test_end: dt.date | None = None  # None: latest bar in the store, resolved at run time
+    test_end: dt.date | None = None
     strategy: str = DEFAULT_STRATEGY
     strategies_dir: Path | None = None
     settlement_days: int | None = None
@@ -137,9 +109,7 @@ class Alpha30BacktestExample(HonbaExample):
             "--settlement-days",
             type=int,
             default=None,
-            help="Sessions until sale proceeds are spendable (default: the core market pack's "
-            "cycle for the exchange as of --test-start: NSE T+2 before 2023-01-27, T+1 from "
-            "then; an explicit value always wins)",
+            help="Sessions until sale proceeds are spendable",
         )
         parser.add_argument(
             "--require-full-coverage",
@@ -147,13 +117,9 @@ class Alpha30BacktestExample(HonbaExample):
             help="Fail if any universe member has no bars in the test window",
         )
 
-    # -- steps -------------------------------------------------------------------
     def resolve(self, universe_key: str | None) -> list[InstrumentId]:
         universe = resolve_universe(self.universe_name, exchange=self.exchange)
         if universe_key:
-            # Compare resolved members, not names: the catalog spells the key
-            # "nifty200_alpha30" while aliases such as "nifty200_alpha_30" also
-            # resolve to the same basket, and both must be accepted.
             strategy_universe = resolve_universe(universe_key, exchange=self.exchange)
             if set(strategy_universe) != set(universe):
                 raise SystemExit(
@@ -163,15 +129,16 @@ class Alpha30BacktestExample(HonbaExample):
         return sorted(set(universe), key=lambda i: (i.symbol, i.exchange))
 
     def load(self, universe: list[InstrumentId], start: dt.date, end: dt.date) -> list[Bar]:
-        bars: list[Bar] = []
-        for iid in universe:
-            bars.extend(self.load_bars([iid], start, end))
-        return sorted(bars, key=lambda b: (b.ts, b.instrument_id.symbol))
+        return self.load_bars(universe, start, end)
+
 
     def run(self) -> dict[str, Any]:
         try:
-            catalog = find_catalog(self.strategies_dir, search_from=Path(__file__))
-            loaded = load_catalog_strategy(self.strategy, catalog)
+            loaded = load_named(
+                self.strategy,
+                strategies_dir=self.strategies_dir,
+                search_from=Path(__file__),
+            )
         except CatalogError as exc:
             raise SystemExit(str(exc)) from exc
         cfg = loaded.config
@@ -185,23 +152,20 @@ class Alpha30BacktestExample(HonbaExample):
         if capital <= 0:
             raise SystemExit("--capital must be positive")
         capital_minor = Money.from_major(capital, Currency.INR).amount
-        if self.settlement_days is not None:
-            settlement, settlement_source = self.settlement_days, "cli"
-        elif cfg.settlement_days is not None:
-            settlement, settlement_source = int(cfg.settlement_days), "strategy_config"
-        else:
-            settlement = settlement_days_for(self.exchange, as_of=self.test_start)
-            settlement_source = (
-                f"engine:settlement_days_for({self.exchange}, as_of={self.test_start})"
-            )
 
-        # Window: explicit start; end explicit or the latest bar on/before today.
+        settlement, settlement_source = resolve_settlement_days(
+            self.exchange,
+            as_of=self.test_start,
+            cli_value=self.settlement_days,
+            cfg_value=cfg.settlement_days,
+        )
+
         warmup_start = self.test_start - dt.timedelta(days=self.warmup_days)
         if self.test_end is not None:
             test_end, end_source = self.test_end, "cli"
             bars = self.load(universe, warmup_start, test_end)
         else:
-            today = dt.datetime.now(dt.timezone.utc).date()  # resolved at run time, recorded
+            today = dt.datetime.now(dt.timezone.utc).date()
             bars = self.load(universe, warmup_start, today)
             if not bars:
                 raise SystemExit(f"no bars on or after {warmup_start} in {self.store.data_dir}")
@@ -252,27 +216,19 @@ class Alpha30BacktestExample(HonbaExample):
             "fill_model": "next_session_open",
             "cost_model": "nse_equity_delivery, per-leg rounded to minor units",
         }
-        input_hash = canonical_hash(
-            {"config": config, "universe": [i.symbol for i in universe], "bars": bars_digest(bars)}
+
+        out = write_run_json(
+            schema=SCHEMA,
+            config=config,
+            universe=universe,
+            coverage=coverage,
+            run_result=result,
+            bars=bars,
+            out_dir=self.ensure_out_dir(),
+            paths={"data_dir": str(self.store.data_dir), "strategy_dir": str(loaded.path)},
         )
-        body = result.to_dict()
-        result_hash = canonical_hash(body)
-        out = {
-            "schema": SCHEMA,
-            "config": config,
-            "universe": [i.symbol for i in universe],
-            "data_coverage": coverage,
-            "result": body,
-            "input_hash": input_hash,
-            "result_hash": result_hash,
-            "run_hash": canonical_hash([input_hash, result_hash]),
-            # Paths are provenance only and stay out of every hash.
-            "paths": {"data_dir": str(self.store.data_dir), "strategy_dir": str(loaded.path)},
-        }
-        path = self.ensure_out_dir() / "run.json"
-        path.write_text(json.dumps(out, indent=2, sort_keys=False) + "\n", encoding="utf-8")
         print_summary(out, result)
-        print(f"[Out] {path}")
+        print(f"[Out] {self.out_dir / 'run.json'}")
         return out
 
 
@@ -298,17 +254,16 @@ def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
     rows = [
         ("Capital", f"{rupees(cfg['capital_minor']):,.2f}"),
         ("Final equity", f"{rupees(m['final_equity_minor']):,.2f}"),
-        ("Final cash", f"{rupees(m['final_cash_minor']):,.2f}"),
-        ("Total return %", f"{m['total_return_pct']:.2f}"),
-        ("CAGR %", f"{m['cagr_pct']:.2f}"),
-        ("Max drawdown %", f"{m['max_drawdown_pct']:.2f}"),
+        ("Total return %", f"{m['total_return_pct']:+.2f}%"),
+        ("CAGR %", f"{m['cagr_pct']:+.2f}%"),
+        ("Max drawdown %", f"{m['max_drawdown_pct']:.2f}%"),
         ("Sharpe", f"{m['sharpe']:.3f}"),
-        ("Turnover", f"{m['turnover']:.3f}"),
-        ("Avg cash %", f"{m['avg_cash_pct']:.2f}"),
         ("Total fees", f"{rupees(m['total_fees_minor']):,.2f}"),
+        ("Turnover", f"{m['turnover']:.3f}"),
         ("Fills", f"{m['n_fills']}"),
         ("Buys cut for cash", f"{m['n_released_unfunded']}"),
         ("Orders unfilled at end", f"{m['n_unfilled_at_end']}"),
+
     ]
     render_table(
         rows,
@@ -317,8 +272,8 @@ def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
     print(f"run_hash {out['run_hash']}")
 
 
-def main(argv: list[str] | None = None) -> dict[str, Any]:
-    return Alpha30BacktestExample().main(argv)
+def main(args: list[str] | None = None) -> Any:
+    return Alpha30BacktestExample().main(args)
 
 
 if __name__ == "__main__":
