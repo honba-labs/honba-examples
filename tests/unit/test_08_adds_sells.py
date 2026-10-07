@@ -84,3 +84,43 @@ def test_summary_prints_the_changes_table_per_rebalance(ex, capsys) -> None:
     assert any(days[0].isoformat() in r and "Initial" in r and "+AAA(500)" in r for r in rows)
     assert "Final holdings" not in out
 
+
+def test_tolerance_band_suppresses_micro_drift_rebalancing(ex) -> None:
+    """A position that drifts within the tolerance band does not generate rebalance trades."""
+    days = weekdays(dt.date(2026, 6, 1), 6)
+    bars = []
+    for d in days:
+        # AAA moves by +1% (well within 5% band), BBB moves by -1%
+        bars.append(bar("AAA", d, 101.0 if d > days[0] else 100.0))
+        bars.append(bar("BBB", d, 99.0 if d > days[0] else 100.0))
+
+    # With tolerance_pct=0.05, rebalances after day 0 should generate NO trades
+    res_tol = ex.simulate(
+        bars, ["AAA", "BBB"], start=days[0], capital=100_000.0, rebalance_days=3, tolerance_pct=0.05
+    )
+    assert all(len(r["trades"]) == 0 for r in res_tol.rebalances[1:])
+
+    # With tolerance_pct=0.0, rebalances after day 0 DO trade to re-equalize the 1% drift
+    res_no_tol = ex.simulate(
+        bars, ["AAA", "BBB"], start=days[0], capital=100_000.0, rebalance_days=3, tolerance_pct=0.0
+    )
+    assert any(len(r["trades"]) > 0 for r in res_no_tol.rebalances[1:])
+
+
+def test_residual_cash_sweep_and_unaffordable_stock_handling(ex) -> None:
+    """Unaffordable stocks are not allocated target cash, and sweep minimizes uninvested cash."""
+    qty: dict[str, int] = {}
+    closes = {"EXPENSIVE": 60_000.0, "CHEAP": 100.0}
+    cash = 10_000.0
+    fee = 0.001
+
+    # EXPENSIVE is 60,000, cash is 10,000. EXPENSIVE is unaffordable.
+    # Target should be allocated solely to CHEAP, buying floor(10,000 / 100.1) = 99 shares.
+    cash_left, trades = ex.rebalance_orders(qty, closes, cash, fee, is_day0=True)
+    assert len(trades) == 1
+    assert qty["EXPENSIVE"] == 0
+    assert qty["CHEAP"] > 0
+    # Remainder cash is less than the price of CHEAP
+    assert cash_left < closes["CHEAP"] * (1 + fee)
+
+

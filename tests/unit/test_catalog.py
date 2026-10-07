@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pathlib import Path
+
 from types import SimpleNamespace
 
 from honba_examples import catalog
@@ -16,7 +16,7 @@ def test_load_named_uses_loader(monkeypatch, tmp_path):
         calls["load"] = (name, catalog_path)
         return SimpleNamespace(name=name, path=catalog_path)
 
-    import honba.strategies.loader as loader
+    from honba.strategies import loader
 
     monkeypatch.setattr(loader, "find_catalog", fake_find_catalog)
     monkeypatch.setattr(loader, "load_catalog_strategy", fake_load_catalog_strategy)
@@ -39,7 +39,7 @@ def test_load_named_defaults(monkeypatch, tmp_path):
         calls["load"] = (name, catalog_path)
         return SimpleNamespace(ok=True)
 
-    import honba.strategies.loader as loader
+    from honba.strategies import loader
 
     monkeypatch.setattr(loader, "find_catalog", fake_find_catalog)
     monkeypatch.setattr(loader, "load_catalog_strategy", fake_load_catalog_strategy)

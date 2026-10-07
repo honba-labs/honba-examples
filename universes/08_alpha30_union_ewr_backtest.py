@@ -6,9 +6,12 @@ basket on a fixed calendar schedule. Runs over NSE daily bars from the Parquet s
 * Cash pool          one shared pool across the basket
 * Session calendar   ``day0`` = first session on/after ``--start``. Day 0 buys the
   basket. Then every ``rebalance_days`` calendar days from ``--start`` rebalances.
-* Equal weight       ``pool = cash + sum(qty * close)`` over the names that printed
-  that session; ``target = pool / n``; ``desired = floor(target / close)``. Whole
-  shares only.
+* Equal weight       ``pool = cash + sum(qty * close)`` over active symbols.
+  Unaffordable unheld stocks are excluded from target denominator to avoid idle cash traps.
+* Tolerance band     Holdings within ``--tolerance-pct`` (default 5%) of equal weight are
+  preserved without trading, avoiding churn from daily micro-drifts.
+* Cash sweep         Residual cash after floor division is swept greedily into holdings
+  furthest below target, keeping uninvested cash under 1%.
 * Order of trades    all sells first (they raise the cash), then buys sorted by
   largest rupee shortfall first.
 * Costs              ``fee`` fraction of traded notional per side, deducted from cash.
@@ -39,6 +42,7 @@ from honba_examples.ewr import (
     FEE_RATE,
     REBALANCE_DAYS,
     STARTING_CAPITAL,
+    TOLERANCE_PCT,
     SimResult,
     buy_shortfall,
     format_changes,
@@ -58,6 +62,7 @@ __all__ = [
     "FEE_RATE",
     "REBALANCE_DAYS",
     "STARTING_CAPITAL",
+    "TOLERANCE_PCT",
     "Alpha30EWRExample",
     "SimResult",
     "buy_shortfall",
@@ -91,6 +96,8 @@ class Alpha30EWRExample(HonbaExample):
     fee: float = FEE_RATE
     rebalance_days: int = REBALANCE_DAYS
     settlement_days: int | None = None
+    tolerance_pct: float = TOLERANCE_PCT
+    sweep: bool = True
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
@@ -107,6 +114,18 @@ class Alpha30EWRExample(HonbaExample):
             type=int,
             default=None,
             help="Sessions between a sell and the buys it funds (default: date-aware cycle)",
+        )
+        parser.add_argument(
+            "--tolerance-pct",
+            type=float,
+            default=self.tolerance_pct,
+            help="Relative drift tolerance band before rebalancing a holding (default: 0.05 = 5%%)",
+        )
+        parser.add_argument(
+            "--no-sweep",
+            dest="sweep",
+            action="store_false",
+            help="Disable greedy residual cash sweep into holdings",
         )
 
     @staticmethod
@@ -148,6 +167,8 @@ class Alpha30EWRExample(HonbaExample):
             rebalance_days=self.rebalance_days,
             fee=self.fee,
             settlement_days=settlement_days,
+            tolerance_pct=self.tolerance_pct,
+            sweep=self.sweep,
         )
         result.missing_data = missing
         print(f"[Model] settlement T+{settlement_days}")
