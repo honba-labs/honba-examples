@@ -5,21 +5,21 @@
   Capital       1,000,000.00              
   Settlement    T+1                       
   Backend       python                    
-              Metrics              
-┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Metric           ┃        Value ┃
-┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ Final value      │ 1,012,500.50 │
-│ Total return pct │       +1.25% │
-│ Cagr pct         │       +9.50% │
-│ Max drawdown pct │       -2.50% │
-│ Sharpe           │        1.234 │
-│ Total fees       │       123.45 │
-│ Turnover         │        0.500 │
-│ Traded notional  │     1,750.00 │
-│ N fills          │            3 │
-│ N rebalances     │            2 │
-└──────────────────┴──────────────┘
+             Metrics              
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Metric          ┃        Value ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Final value     │ 1,012,500.50 │
+│ Total return %  │       +1.25% │
+│ CAGR %          │       +9.50% │
+│ Max drawdown %  │       -2.50% │
+│ Sharpe          │        1.234 │
+│ Total fees      │       123.45 │
+│ Turnover        │        0.500 │
+│ Traded notional │     1,750.00 │
+│ N fills         │            3 │
+│ N rebalances    │            2 │
+└─────────────────┴──────────────┘
                         Changes per rebalance                         
 ┏━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┳━━━━━━┓
 ┃ Date       ┃ Symbol ┃ Side ┃ Net shares ┃  Price ┃ Notional ┃ Cost ┃

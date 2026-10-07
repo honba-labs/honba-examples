@@ -212,10 +212,7 @@ def print_metrics(metrics: Mapping[str, Any], opts: OutputOptions | None = None)
     opts = opts or OutputOptions()
     keys = [k for k in _METRIC_ORDER if k in metrics]
     keys += sorted(k for k in metrics if k not in _METRIC_ORDER)
-    text = [
-        {"metric": k.replace("_", " ").capitalize(), "value": _metric_text(k, metrics[k])}
-        for k in keys
-    ]
+    text = [{"metric": _metric_label(k), "value": _metric_text(k, metrics[k])} for k in keys]
     raw = [{"metric": k, "value": metrics[k]} for k in keys]
     cols = [Column("metric", "Metric"), Column("value", "Value", align="right")]
     _table("metrics", "Metrics", cols, text, opts, raw=raw)
