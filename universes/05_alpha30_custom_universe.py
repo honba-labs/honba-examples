@@ -18,6 +18,7 @@ Run:
 
 from __future__ import annotations
 
+from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import UNIVERSES, resolve_universe
 
@@ -28,16 +29,16 @@ CUSTOM_UNIVERSE_NAME = "custom_infra_basket"
 EXCHANGE = "NSE"
 
 CUSTOM_SYMBOLS: tuple[str, ...] = (
-    "LT",           # Larsen & Toubro
-    "ULTRACEMCO",   # UltraTech Cement
-    "ADANIPORTS",   # Adani Ports
-    "POWERGRID",    # Power Grid Corporation
-    "NTPC",         # NTPC Limited
-    "BHARTIARTL",   # Bharti Airtel (telecom infra)
-    "SIEMENS",      # Siemens India
-    "ABB",          # ABB India
-    "VOLTAS",       # Voltas
-    "CUMMINSIND",   # Cummins India
+    "LT",  # Larsen & Toubro
+    "ULTRACEMCO",  # UltraTech Cement
+    "ADANIPORTS",  # Adani Ports
+    "POWERGRID",  # Power Grid Corporation
+    "NTPC",  # NTPC Limited
+    "BHARTIARTL",  # Bharti Airtel (telecom infra)
+    "SIEMENS",  # Siemens India
+    "ABB",  # ABB India
+    "VOLTAS",  # Voltas
+    "CUMMINSIND",  # Cummins India
 )
 
 
@@ -56,13 +57,20 @@ def main() -> None:
     # Verify round-trip through the engine API
     resolved = resolve_universe(CUSTOM_UNIVERSE_NAME, exchange=EXCHANGE)
 
-    print(f"\nCustom universe : {CUSTOM_UNIVERSE_NAME}")
-    print(f"Exchange           : {EXCHANGE}")
-    print(f"Members         : {len(resolved)}")
-    print("-" * 36)
-    for iid in sorted(resolved, key=lambda x: x.symbol):
-        print(f"  {iid.symbol:15s}  {iid.exchange}")
-
+    render_kv(
+        [
+            ("Custom universe", CUSTOM_UNIVERSE_NAME),
+            ("Exchange", EXCHANGE),
+            ("Members", len(resolved)),
+        ]
+    )
+    render_table(
+        [
+            {"symbol": iid.symbol, "exchange": iid.exchange}
+            for iid in sorted(resolved, key=lambda x: x.symbol)
+        ],
+        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+    )
     print(
         "\nPass universe_name=CUSTOM_UNIVERSE_NAME to UniverseEqualWeightRebalance "
         "(see 04_alpha30_generic_rebalancer.py) to trade this basket."

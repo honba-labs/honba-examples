@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from honba.display import Column, render_table
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import DateInterval
@@ -433,25 +434,32 @@ def simulate(
     return result
 
 
+def _fmt_metric_value(v: float) -> str:
+    return f"{v:,.2f}"
+
+
 def print_summary(result: SimResult) -> None:
     """Print simulation summary."""
     m = result.metrics
 
-    print("=" * 74)
-    print(f"{'metric':<28}{'VALUE':>15}")
-    print("=" * 74)
-
-    print(f"{'Final value':<28}{m['final_value']:>15,.2f}")
-    print(f"{'Total return %':<28}{m['total_return_pct']:>15,.2f}")
-    print(f"{'CAGR %':<28}{m['cagr_pct']:>15,.2f}")
-    print(f"{'Max drawdown %':<28}{m['max_drawdown_pct']:>15,.2f}")
-    print(f"{'Sharpe':<28}{m['sharpe']:>15,.2f}")
-    print(f"{'Total fees':<28}{m['total_fees']:>15,.2f}")
-    print(f"{'Turnover':<28}{m['turnover']:>15,.2f}")
-    print(f"{'Avg cash %':<28}{m['avg_cash_pct']:>15,.2f}")
-    print(f"{'Fills':<28}{float(m['n_fills']):>15,.0f}")
-    print(f"{'Rebalances':<28}{float(m['n_rebalances']):>15,.0f}")
-    print("=" * 74)
+    render_table(
+        [
+            ("Final value", m["final_value"]),
+            ("Total return %", m["total_return_pct"]),
+            ("CAGR %", m["cagr_pct"]),
+            ("Max drawdown %", m["max_drawdown_pct"]),
+            ("Sharpe", m["sharpe"]),
+            ("Total fees", m["total_fees"]),
+            ("Turnover", m["turnover"]),
+            ("Avg cash %", m["avg_cash_pct"]),
+            ("Fills", float(m["n_fills"])),
+            ("Rebalances", float(m["n_rebalances"])),
+        ],
+        [
+            Column("metric", "Metric"),
+            Column("value", "Value", align="right", fmt=_fmt_metric_value),
+        ],
+    )
 
     if result.missing_data:
         print(f"\nNo Parquet bars for {len(result.missing_data)} basket members:")

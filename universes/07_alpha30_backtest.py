@@ -49,6 +49,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from honba.display import Column, render_kv, render_table
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.domain.money import Currency, Money
@@ -277,16 +278,23 @@ class Alpha30BacktestExample(HonbaExample):
 
 def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
     cfg, m = out["config"], out["result"]["metrics"]
+
     def rupees(minor: int) -> float:
         return Money.from_minor(minor, Currency.INR).to_major()
 
-    print("=" * 64)
-    print(f"Alpha-30 equal weight  {cfg['test_start']} -> {cfg['test_end']}  ({cfg['exchange']})")
-    print(
-        f"sessions: {result.test_sessions} test, {result.warmup_sessions} warm-up  |  "
-        f"fills at next open, T+{cfg['settlement_days']}"
+    render_kv(
+        [
+            ("Period", f"{cfg['test_start']} -> {cfg['test_end']}  ({cfg['exchange']})"),
+            (
+                "Sessions",
+                (
+                    f"{result.test_sessions} test, {result.warmup_sessions} warm-up  |  "
+                    f"fills at next open, T+{cfg['settlement_days']}"
+                ),
+            ),
+        ],
+        title="Alpha-30 equal weight",
     )
-    print("-" * 64)
     rows = [
         ("Capital", f"{rupees(cfg['capital_minor']):,.2f}"),
         ("Final equity", f"{rupees(m['final_equity_minor']):,.2f}"),
@@ -302,9 +310,10 @@ def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
         ("Buys cut for cash", f"{m['n_released_unfunded']}"),
         ("Orders unfilled at end", f"{m['n_unfilled_at_end']}"),
     ]
-    for label, value in rows:
-        print(f"{label:<26}{value:>38}")
-    print("=" * 64)
+    render_table(
+        rows,
+        [Column("metric", "Metric"), Column("value", "Value", align="right")],
+    )
     print(f"run_hash {out['run_hash']}")
 
 

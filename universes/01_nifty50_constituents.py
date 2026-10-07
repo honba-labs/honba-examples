@@ -12,6 +12,7 @@ Run:
 
 from __future__ import annotations
 
+from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 
@@ -21,12 +22,14 @@ EXCHANGE = "NSE"
 
 def main() -> None:
     members: list[InstrumentId] = resolve_universe(UNIVERSE_NAME, exchange=EXCHANGE)
-    print(f"Universe : {UNIVERSE_NAME}")
-    print(f"Exchange    : {EXCHANGE}")
-    print(f"Members  : {len(members)}")
-    print("-" * 36)
-    for iid in sorted(members, key=lambda x: x.symbol):
-        print(f"  {iid.symbol:15s}  {iid.exchange}")
+    render_kv([("Universe", UNIVERSE_NAME), ("Exchange", EXCHANGE), ("Members", len(members))])
+    render_table(
+        [
+            {"symbol": iid.symbol, "exchange": iid.exchange}
+            for iid in sorted(members, key=lambda x: x.symbol)
+        ],
+        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+    )
 
 
 if __name__ == "__main__":

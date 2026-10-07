@@ -14,6 +14,7 @@ Catalog counterpart: honba.markets.india.universes
 
 from __future__ import annotations
 
+from honba.display import Column, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import UNIVERSES, resolve_universe
 
@@ -31,7 +32,7 @@ NIFTY200_ALPHA_30_SEED: tuple[str, ...] = (
     "IDEA",
     "BHEL",
     "CUMMINSIND",
-    "POWERINDIA",          # Hitachi Energy India
+    "POWERINDIA",  # Hitachi Energy India
     "POLYCAB",
     "MUTHOOTFIN",
     "PAYTM",
@@ -39,7 +40,7 @@ NIFTY200_ALPHA_30_SEED: tuple[str, ...] = (
     "LAURUSLABS",
     "VEDL",
     "BHARATFORG",
-    "NYKAA",              # FSN E-Commerce
+    "NYKAA",  # FSN E-Commerce
     "ASHOKLEY",
     "MCX",
     "FEDERALBNK",
@@ -86,8 +87,17 @@ def load_alpha30(exchange: str = "NSE") -> list[InstrumentId]:
     return [InstrumentId(sym, exchange) for sym in NIFTY200_ALPHA_30_SEED]
 
 
-if __name__ == "__main__":
-    members = load_alpha30()
+def print_members(members: list[InstrumentId]) -> None:
+    """Print the members as a Symbol / Exchange table."""
     print(f"Nifty200 Alpha 30 → {len(members)} instruments")
-    for iid in sorted(members, key=lambda x: x.symbol):
-        print(f"  {iid.symbol:15s}  {iid.exchange}")
+    render_table(
+        [
+            {"symbol": iid.symbol, "exchange": iid.exchange}
+            for iid in sorted(members, key=lambda x: x.symbol)
+        ],
+        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+    )
+
+
+if __name__ == "__main__":
+    print_members(load_alpha30())
