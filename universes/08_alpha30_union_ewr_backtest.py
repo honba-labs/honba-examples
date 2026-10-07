@@ -30,7 +30,7 @@ import datetime as dt
 import sys
 from pathlib import Path
 
-from honba.markets.india.universes import resolve_universe
+from honba.domain.instrument import InstrumentId
 
 try:
     import honba_examples  # noqa: F401
@@ -77,9 +77,38 @@ __all__ = [
     "trade_changes",
 ]
 
-# Canonical universe constituents for Alpha-30 on NSE
-BASKET: tuple[str, ...] = tuple(
-    iid.symbol for iid in resolve_universe("nifty200_alpha_30", exchange="NSE")
+# Canonical universe constituents for Alpha-30 Union on NSE
+BASKET: tuple[str, ...] = (
+    "ABCAPITAL",
+    "ADANIENSOL",
+    "ADANIGREEN",
+    "ADANIPOWER",
+    "ASHOKLEY",
+    "AUBANK",
+    "AUROPHARMA",
+    "BHARATFORG",
+    "BHEL",
+    "BSE",
+    "CUMMINSIND",
+    "FEDERALBNK",
+    "GVT&D",
+    "HINDALCO",
+    "IDEA",
+    "INDIANB",
+    "LAURUSLABS",
+    "LTF",
+    "MAHABANK",
+    "MCX",
+    "MOTHERSON",
+    "NATIONALUM",
+    "NYKAA",
+    "PAYTM",
+    "POLYCAB",
+    "POWERINDIA",
+    "SAIL",
+    "SHRIRAMFIN",
+    "UNIONBANK",
+    "VEDL",
 )
 
 
@@ -98,6 +127,9 @@ class Alpha30EWRExample(HonbaExample):
     settlement_days: int | None = None
     tolerance_pct: float = TOLERANCE_PCT
     sweep: bool = True
+
+    def load_universe(self) -> list[InstrumentId]:
+        return [InstrumentId(sym, self.exchange) for sym in BASKET]
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
