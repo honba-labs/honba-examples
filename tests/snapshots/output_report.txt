@@ -1,0 +1,54 @@
+                   Run                    
+  Strategy      ewr                       
+  Universe      nifty200_alpha30          
+  Period        2026-06-01 -> 2026-06-03  
+  Capital       1,000,000.00              
+  Settlement    T+1                       
+  Backend       python                    
+              Metrics              
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Metric           ┃        Value ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Final value      │ 1,012,500.50 │
+│ Total return pct │       +1.25% │
+│ Cagr pct         │       +9.50% │
+│ Max drawdown pct │       -2.50% │
+│ Sharpe           │        1.234 │
+│ Total fees       │       123.45 │
+│ Turnover         │        0.500 │
+│ Traded notional  │     1,750.00 │
+│ N fills          │            3 │
+│ N rebalances     │            2 │
+└──────────────────┴──────────────┘
+                        Changes per rebalance                         
+┏━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┳━━━━━━┓
+┃ Date       ┃ Symbol ┃ Side ┃ Net shares ┃  Price ┃ Notional ┃ Cost ┃
+┡━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━╇━━━━━━┩
+│ 2026-06-01 │ AAA    │ BUY  │        +15 │ 103.33 │ 1,550.00 │ 2.25 │
+│ 2026-06-01 │ BBB    │ SELL │         -4 │  50.00 │   200.00 │ 0.50 │
+└────────────┴────────┴──────┴────────────┴────────┴──────────┴──────┘
+            Final holdings             
+┏━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┓
+┃ Symbol ┃ Shares ┃  Price ┃    Value ┃
+┡━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━┩
+│ AAA    │     15 │ 110.00 │ 1,650.00 │
+│ BBB    │      4 │  50.00 │   200.00 │
+└────────┴────────┴────────┴──────────┘
+                    Rejections                     
+┏━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┓
+┃ Date       ┃ Symbol ┃ Side ┃ Quantity ┃ Reason  ┃
+┡━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━╇━━━━━━━━━┩
+│ 2026-06-02 │ AAA    │ -    │ -        │ no cash │
+└────────────┴────────┴──────┴──────────┴─────────┘
+
+No Parquet bars for 1 basket members: IDEA
+
+Never held (1 share costs more than its target): MRF
+                Equity curve                 
+  Sessions       3                           
+  Period         2026-06-01 -> 2026-06-03    
+  Start value    1,000,000.00                
+  End value      990,000.00                  
+  Peak           1,020,000.00  (2026-06-02)  
+  Trough         990,000.00  (2026-06-03)    
+  Avg cash %     8.98                        

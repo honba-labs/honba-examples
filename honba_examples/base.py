@@ -13,6 +13,8 @@ from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore, find_data_root
 
+from honba_examples.output import OutputFormat, OutputOptions, add_output_args, resolve_output
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 """Root of this checkout; the default data root is searched from here, not from the cwd."""
 
@@ -41,6 +43,8 @@ class HonbaExample:
     warmup_days: int = 0
     out_dir: Path = Path("output")
     data_dir: Path | None = None
+    output_format: OutputFormat = OutputFormat.TABLE
+    output_width: int | None = None
     # Examples with their own window flags (e.g. --test-start/--test-end) turn this off
     # so a --start/--end that would do nothing is not offered.
     date_range_args: bool = True
@@ -92,6 +96,7 @@ class HonbaExample:
         )
         parser.add_argument("--out-dir", type=Path, default=cls.out_dir, help="Output directory")
         parser.add_argument("--data-dir", type=Path, default=cls.data_dir, help="Data directory")
+        add_output_args(parser)
 
     @classmethod
     def _add_date_range_args(cls, parser: argparse.ArgumentParser) -> None:
@@ -120,6 +125,13 @@ class HonbaExample:
             if hasattr(self, key):
                 setattr(self, key, value)
         return parsed
+
+    @property
+    def output(self) -> OutputOptions:
+        """Output options from ``--format`` / ``--width`` for ``honba_examples.output``."""
+        return resolve_output(
+            {"output_format": self.output_format, "output_width": self.output_width}
+        )
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
         """Override to add example-specific arguments."""
