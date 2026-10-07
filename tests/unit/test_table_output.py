@@ -103,7 +103,34 @@ def test_08_summary_is_a_metrics_table(capsys: pytest.CaptureFixture[str]) -> No
         },
         missing_data=["IDEA"],
         never_held=["MRF"],
-        rebalance_changes=[{"date": "2026-06-01", "adds": {"AAA": 3}, "sells": {"BBB": 2}}],
+        rebalances=[
+            {
+                "date": "2026-06-01",
+                "trades": [
+                    {
+                        "symbol": "AAA",
+                        "side": "buy",
+                        "qty": 3,
+                        "price": 10.0,
+                        "notional": 30.0,
+                        "fee": 0.1,
+                    },
+                    {
+                        "symbol": "BBB",
+                        "side": "sell",
+                        "qty": 2,
+                        "price": 20.0,
+                        "notional": 40.0,
+                        "fee": 0.2,
+                    },
+                ],
+            }
+        ],
+        final_holdings={"AAA": 3},
+        equity_curve=[
+            {"date": "2026-06-01", "value": 1_000_000.0, "cash": 30_000.0},
+            {"date": "2026-06-02", "value": 1_012_500.5, "cash": 30_000.0},
+        ],
     )
     module.print_summary(result)
     text = capsys.readouterr().out
@@ -112,10 +139,13 @@ def test_08_summary_is_a_metrics_table(capsys: pytest.CaptureFixture[str]) -> No
         "Value",
         "Final value",
         "1,012,500.50",
-        "Rebalances",
+        "N rebalances",
         "IDEA",
         "MRF",
         "2026-06-01",
-        "AAA+3",
+        "Net shares",
+        "+3",
+        "-2",
+        "Equity curve",
     ):
         assert needle in text

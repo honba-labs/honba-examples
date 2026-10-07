@@ -34,7 +34,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from honba.display import Column, render_table
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import DateInterval
@@ -46,6 +45,14 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
 
 from honba_examples.base import HonbaExample, ts_to_date
 from honba_examples.metrics import curve_metrics, exposure_metrics
+from honba_examples.output import (
+    OutputOptions,
+    print_changes,
+    print_data_notes,
+    print_equity_summary,
+    print_holdings,
+    print_metrics,
+)
 
 # ---------------------------------------------------------------------------
 # Basket: Alpha-30 universe constituents
@@ -434,42 +441,16 @@ def simulate(
     return result
 
 
-def _fmt_metric_value(v: float) -> str:
-    return f"{v:,.2f}"
-
-
-def print_summary(result: SimResult) -> None:
-    """Print simulation summary."""
-    m = result.metrics
-
-    render_table(
-        [
-            ("Final value", m["final_value"]),
-            ("Total return %", m["total_return_pct"]),
-            ("CAGR %", m["cagr_pct"]),
-            ("Max drawdown %", m["max_drawdown_pct"]),
-            ("Sharpe", m["sharpe"]),
-            ("Total fees", m["total_fees"]),
-            ("Turnover", m["turnover"]),
-            ("Avg cash %", m["avg_cash_pct"]),
-            ("Fills", float(m["n_fills"])),
-            ("Rebalances", float(m["n_rebalances"])),
-        ],
-        [
-            Column("metric", "Metric"),
-            Column("value", "Value", align="right", fmt=_fmt_metric_value),
-        ],
-    )
-
-    if result.missing_data:
-        print(f"\nNo Parquet bars for {len(result.missing_data)} basket members:")
-        print("  " + ", ".join(result.missing_data))
-    if result.never_held:
-        print(f"\nNever held (1 share costs more than its target): {', '.join(result.never_held)}")
-
-    print("\nChanges per rebalance (net shares from the fills):")
-    for c in result.rebalance_changes:
-        print(f"  {c['date']}  {format_changes(c['adds'], c['sells'])}")
+def print_summary(result: SimResult, opts: OutputOptions | None = None) -> None:
+    """Print the simulation summary through the shared example output presets."""
+    opts = opts or OutputOptions()
+    metrics = dict(result.metrics)
+    metrics["traded_notional"] = sum(t["notional"] for r in result.rebalances for t in r["trades"])
+    print_metrics(metrics, opts)
+    print_changes(result.rebalances, opts)
+    print_holdings(result.final_holdings, opts)
+    print_equity_summary(result.equity_curve, opts)
+    print_data_notes(opts, missing_data=result.missing_data, never_held=result.never_held)
 
 
 # ---------------------------------------------------------------------------
@@ -568,7 +549,7 @@ class Alpha30EWRExample(HonbaExample):
                 else "(same-session sell and buy)"
             )
         )
-        print_summary(result)
+        print_summary(result, self.output)
         return result
 
 
