@@ -124,3 +124,99 @@ def test_residual_cash_sweep_and_unaffordable_stock_handling(ex) -> None:
     assert cash_left < closes["CHEAP"] * (1 + fee)
 
 
+def test_simresult_margin_parameters(ex) -> None:
+    """SimResult dataclass has margin attributes and defaults."""
+    res = ex.SimResult()
+    assert res.margin_used_curve == []
+    assert res.max_margin_used_pct == 0.0
+    assert res.margin_calls == 0
+    assert res.leverage == 1.0
+    assert res.initial_margin == ex.DEFAULT_INITIAL_MARGIN
+    assert res.maintenance_margin == ex.DEFAULT_MAINTENANCE_MARGIN
+
+
+def test_buy_shortfall_supports_margin_buying(ex) -> None:
+    """_buy_shortfall allows purchasing with borrowed cash when max_borrow > 0."""
+    from honba_examples.ewr import _buy_shortfall
+
+    qty: dict[str, int] = {"AAA": 0}
+    desired = {"AAA": 100}
+    closes = {"AAA": 100.0}
+    fee = 0.001
+
+    # Cash is zero, but max_borrow allows buying on margin
+    trades, cash_after = _buy_shortfall(
+        "AAA", qty, desired, closes, cash=0.0, fee=fee, max_borrow=10_010.0
+    )
+    assert len(trades) == 1
+    assert trades[0]["qty"] == 100
+    assert qty["AAA"] == 100
+    assert cash_after < 0  # negative cash indicates margin borrowing
+
+
+def test_sell_excess_supports_short_selling(ex) -> None:
+    """_sell_excess allows short selling into negative positions when allow_short=True."""
+    from honba_examples.ewr import _sell_excess
+
+    qty: dict[str, int] = {"AAA": 0}
+    desired = {"AAA": -50}
+    closes = {"AAA": 100.0}
+    fee = 0.001
+
+    # When allow_short=False, cannot short sell
+    trades_long_only, cash1 = _sell_excess(
+        "AAA", dict(qty), desired, closes, cash=1000.0, fee=fee, allow_short=False
+    )
+    assert trades_long_only == []
+    assert cash1 == 1000.0
+
+    # When allow_short=True, short selling creates negative position and raises cash
+    trades_short, cash2 = _sell_excess(
+        "AAA", qty, desired, closes, cash=1000.0, fee=fee, allow_short=True
+    )
+    assert len(trades_short) == 1
+    assert trades_short[0]["qty"] == 50
+    assert qty["AAA"] == -50
+    assert cash2 > 1000.0  # sale proceeds credited
+
+
+def test_simulate_margin_call_check(ex) -> None:
+    """A severe market crash with 2x leverage triggers margin calls."""
+    days = weekdays(dt.date(2026, 6, 1), 6)
+    bars = []
+    # Day 0 starts at 100.0, then price crashes to 20.0
+    for d in days:
+        px = 100.0 if d == days[0] else 20.0
+        bars.append(bar("AAA", d, px))
+
+    res = ex.simulate(
+        bars,
+        ["AAA"],
+        start=days[0],
+        capital=100_000.0,
+        rebalance_days=30,
+        leverage=2.0,
+        maintenance_margin=0.25,
+    )
+    # Severe drop with 2x leverage leads to equity < maintenance margin requirement
+    assert res.margin_calls > 0
+    assert res.max_margin_used_pct > 0.0
+
+
+def test_cli_margin_arguments(ex) -> None:
+    """Alpha30EWRExample parses margin CLI arguments properly."""
+    example = ex.Alpha30EWRExample()
+    args = example.parse_args([
+        "--leverage", "2.5",
+        "--initial-margin", "0.4",
+        "--maintenance-margin", "0.2",
+        "--allow-short",
+    ])
+    assert args.leverage == 2.5
+    assert args.initial_margin == 0.4
+    assert args.maintenance_margin == 0.2
+    assert args.allow_short is True
+    assert example.leverage == 2.5
+    assert example.initial_margin == 0.4
+    assert example.maintenance_margin == 0.2
+    assert example.allow_short is True

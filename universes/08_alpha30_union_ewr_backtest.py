@@ -21,6 +21,7 @@ Run::
 
     python 08_alpha30_union_ewr_backtest.py
     python 08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
+    python 08_alpha30_union_ewr_backtest.py --leverage 2.0
 """
 
 from __future__ import annotations
@@ -39,6 +40,9 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
 
 from honba_examples.base import HonbaExample
 from honba_examples.ewr import (
+    DEFAULT_INITIAL_MARGIN,
+    DEFAULT_LEVERAGE,
+    DEFAULT_MAINTENANCE_MARGIN,
     FEE_RATE,
     REBALANCE_DAYS,
     STARTING_CAPITAL,
@@ -59,6 +63,9 @@ from honba_examples.settlement import resolve_settlement_days
 # Re-export engine symbols for backwards compatibility with tests and callers
 __all__ = [
     "BASKET",
+    "DEFAULT_INITIAL_MARGIN",
+    "DEFAULT_LEVERAGE",
+    "DEFAULT_MAINTENANCE_MARGIN",
     "FEE_RATE",
     "REBALANCE_DAYS",
     "STARTING_CAPITAL",
@@ -127,6 +134,10 @@ class Alpha30EWRExample(HonbaExample):
     settlement_days: int | None = None
     tolerance_pct: float = TOLERANCE_PCT
     sweep: bool = True
+    leverage: float = 1.0
+    initial_margin: float = DEFAULT_INITIAL_MARGIN
+    maintenance_margin: float = DEFAULT_MAINTENANCE_MARGIN
+    allow_short: bool = False
 
     def load_universe(self) -> list[InstrumentId]:
         return [InstrumentId(sym, self.exchange) for sym in BASKET]
@@ -158,6 +169,30 @@ class Alpha30EWRExample(HonbaExample):
             dest="sweep",
             action="store_false",
             help="Disable greedy residual cash sweep into holdings",
+        )
+        parser.add_argument(
+            "--leverage",
+            type=float,
+            default=self.leverage,
+            help="Portfolio leverage multiplier (default: 1.0, e.g. 2.0 for margin)",
+        )
+        parser.add_argument(
+            "--initial-margin",
+            type=float,
+            default=self.initial_margin,
+            help=f"Initial margin requirement fraction (default: {DEFAULT_INITIAL_MARGIN})",
+        )
+        parser.add_argument(
+            "--maintenance-margin",
+            type=float,
+            default=self.maintenance_margin,
+            help=f"Maintenance margin requirement fraction (default: {DEFAULT_MAINTENANCE_MARGIN})",
+        )
+        parser.add_argument(
+            "--allow-short",
+            action="store_true",
+            default=self.allow_short,
+            help="Allow short selling positions",
         )
 
     @staticmethod
@@ -201,9 +236,14 @@ class Alpha30EWRExample(HonbaExample):
             settlement_days=settlement_days,
             tolerance_pct=self.tolerance_pct,
             sweep=self.sweep,
+            leverage=self.leverage,
+            initial_margin=self.initial_margin,
+            maintenance_margin=self.maintenance_margin,
+            allow_short=self.allow_short,
         )
         result.missing_data = missing
-        print(f"[Model] settlement T+{settlement_days}")
+        lev_str = f", leverage {self.leverage}x" if self.leverage > 1.0 else ""
+        print(f"[Model] settlement T+{settlement_days}{lev_str}")
         print_summary(result, self.output)
         return result
 
