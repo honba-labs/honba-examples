@@ -1,11 +1,12 @@
-"""Example 07: Honba-native backtest of the Alpha-30 equal-weight catalog strategy.
+"""Example 07: Honba-native backtest of the Alpha-30 equal-weight rebalance catalog strategy.
 
 This is the reference way to backtest a catalog strategy over a universe in Honba.
 
 Pipeline
 --------
-1. **Strategy** - ``alpha30_equal_weight`` is loaded from the ``honba-strategies``
-   catalog by registry name with its ``config.toml``.
+1. **Strategy** - ``equal_weight`` (class ``EqualWeightRebalance``, ``portfolio/rebalancing/equal_weight``)
+   is loaded from the ``honba-strategies`` catalog by registry name with its ``config.toml``.
+   Alpha 30 is just its ``universe`` param (``nifty200_alpha30``).
 2. **Universe** - resolved once, from the universe the strategy trades
    (``nifty200_alpha_30``). The same list is loaded from the Parquet store; members
    with no bars in the test window are reported (``--require-full-coverage`` makes
@@ -49,7 +50,7 @@ from honba_examples.catalog import load_named
 from honba_examples.settlement import resolve_settlement_days
 
 SCHEMA = "honba-examples/07-alpha30-backtest/v1"
-DEFAULT_STRATEGY = "alpha30_equal_weight"
+DEFAULT_STRATEGY = "equal_weight"
 
 
 def _date(text: str) -> dt.date:
@@ -131,7 +132,6 @@ class Alpha30BacktestExample(HonbaExample):
     def load(self, universe: list[InstrumentId], start: dt.date, end: dt.date) -> list[Bar]:
         return self.load_bars(universe, start, end)
 
-
     def run(self) -> dict[str, Any]:
         try:
             loaded = load_named(
@@ -143,7 +143,8 @@ class Alpha30BacktestExample(HonbaExample):
             raise SystemExit(str(exc)) from exc
         cfg = loaded.config
 
-        universe = self.resolve(getattr(loaded.module, "UNIVERSE_KEY", None))
+        universe_param = cfg.params.get("universe")
+        universe = self.resolve(universe_param if isinstance(universe_param, str) else None)
         capital = (
             self.initial_capital
             if self.initial_capital is not None
@@ -263,7 +264,6 @@ def print_summary(out: dict[str, Any], result: BacktestRun) -> None:
         ("Fills", f"{m['n_fills']}"),
         ("Buys cut for cash", f"{m['n_released_unfunded']}"),
         ("Orders unfilled at end", f"{m['n_unfilled_at_end']}"),
-
     ]
     render_table(
         rows,

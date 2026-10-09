@@ -21,10 +21,10 @@ def test_load_named_uses_loader(monkeypatch, tmp_path):
     monkeypatch.setattr(loader, "find_catalog", fake_find_catalog)
     monkeypatch.setattr(loader, "load_catalog_strategy", fake_load_catalog_strategy)
 
-    res = catalog.load_named("alpha30_equal_weight", strategies_dir=tmp_path, search_from=tmp_path / "here")
-    assert res.name == "alpha30_equal_weight"
+    res = catalog.load_named("equal_weight", strategies_dir=tmp_path, search_from=tmp_path / "here")
+    assert res.name == "equal_weight"
     assert calls["find"] == (tmp_path, tmp_path / "here")
-    assert calls["load"][0] == "alpha30_equal_weight"
+    assert calls["load"][0] == "equal_weight"
     assert calls["load"][1] == tmp_path / "catalog.json"
 
 

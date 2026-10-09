@@ -24,6 +24,11 @@ with a production-ready catalog strategy.
 
 ## 04 – 07  Alpha 30 equal-weight strategy progression
 
+> Hierarchy: Alpha 30 is a *universe* (a parameter); the strategy is "equal-weight periodic
+> rebalance". The hand-rolled classes below teach the mechanics; the composable version is
+> `strategies/06_equal_weight_rebalance.py` (`PortfolioStrategy`), and the catalog entry is
+> `portfolio/rebalancing/equal_weight`.
+
 These four files are a self-contained learning arc that ends at a
 runnable backtest:
 
@@ -70,7 +75,8 @@ API so index joiners/leavers are applied automatically.
 ### 07 — Backtest pipeline
 
 `07_alpha30_backtest.py` is the Honba-native reference backtest of the
-`alpha30_equal_weight` catalog strategy:
+`equal_weight` catalog strategy (`portfolio/rebalancing/equal_weight`, class
+`EqualWeightRebalance`; Alpha 30 is its `universe` param):
 
 - Strategy loaded from `honba-strategies` by registry name
   (`--strategies-dir`, `$HONBA_STRATEGIES_DIR`, or the sibling checkout).
