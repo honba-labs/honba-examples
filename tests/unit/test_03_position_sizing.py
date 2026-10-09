@@ -14,6 +14,7 @@ _PATH = Path(__file__).resolve().parents[2] / "strategies" / "03_position_sizing
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("position_sizing", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

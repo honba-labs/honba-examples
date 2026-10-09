@@ -18,6 +18,7 @@ _SESSION_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc)
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("historical_candles", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

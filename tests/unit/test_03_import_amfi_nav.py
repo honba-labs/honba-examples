@@ -24,6 +24,7 @@ CODES = ["100001", "100002", "100003"]
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("import_amfi_nav", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

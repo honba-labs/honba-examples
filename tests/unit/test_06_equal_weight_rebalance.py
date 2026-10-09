@@ -14,6 +14,7 @@ _PATH = Path(__file__).resolve().parents[2] / "strategies" / "06_equal_weight_re
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("equal_weight_rebalance_example", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

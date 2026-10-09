@@ -20,6 +20,7 @@ DAYS = weekdays(dt.date(2026, 6, 1), 10)
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("export_tearsheet", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

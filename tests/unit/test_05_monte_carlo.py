@@ -14,6 +14,7 @@ _PATH = Path(__file__).resolve().parents[2] / "backtesting" / "05_monte_carlo.py
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("monte_carlo", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

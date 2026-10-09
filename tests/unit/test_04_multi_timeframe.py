@@ -22,6 +22,7 @@ _PAIRS = (("1m", "5m"), ("5m", "1h"), ("1h", "1d"))
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("multi_timeframe", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

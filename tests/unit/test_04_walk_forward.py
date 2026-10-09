@@ -14,6 +14,7 @@ _PATH = Path(__file__).resolve().parents[2] / "backtesting" / "04_walk_forward.p
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("walk_forward", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

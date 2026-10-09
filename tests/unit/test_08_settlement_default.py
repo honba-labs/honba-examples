@@ -15,6 +15,7 @@ _PATH = Path(__file__).resolve().parents[2] / "universes" / "08_alpha30_union_ew
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("ex08", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
     spec.loader.exec_module(module)

@@ -19,6 +19,7 @@ _NS_PER_MINUTE = 60 * 1_000_000_000
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("realtime_candles", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
