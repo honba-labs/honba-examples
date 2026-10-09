@@ -1,13 +1,13 @@
-"""02_banknifty_constituents
+"""02_banknifty_constituents: the same resolution for a sector / thematic universe.
 
-Resolve the Bank Nifty universe and print its members.
+Universe resolution, no strategy: Bank Nifty goes through the identical
+``resolve_universe()`` call — only the name changes, so the pattern works for any
+named universe registered with Honba. Runs offline and deterministically against
+the bundled universe map.
 
-Demonstrates:
-  1. Using resolve_universe() for a sector / thematic universe.
-  2. The same pattern works for any named universe registered with Honba.
+Run::
 
-Run:
-    python 02_banknifty_constituents.py
+    python universes/02_banknifty_constituents.py
 """
 
 from __future__ import annotations

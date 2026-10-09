@@ -1,16 +1,20 @@
 # 10 Production – paper trading, live, monitoring, deployment
 
-Production examples demonstrate the path from backtest to live trading. All start with
-the `fake` adapter; swap `--adapter dhan` (or any registered adapter) for real broker
-connectivity.
+Production examples demonstrate the path from backtest to live trading. The first
+three wire up an inline SMA-crossover strategy (`SmaPaper`, `SmaLive`, `SmaMulti`)
+selected with `--strategy sma_crossover`; the last two are operational tooling with
+no strategy. All examples run offline and deterministically on the `fake` adapter
+unless you explicitly opt into a real broker (`--no-dry-run` on the Dhan example).
 
-| #  | File                           | What you learn                                                         |
-|----|--------------------------------|------------------------------------------------------------------------|
-| 01 | `01_paper_trading.py`          | Paper trading session: simulated fills, real-time P&L, risk guards     |
-| 02 | `02_live_trading_dhan.py`      | Dhan adapter: connect, place orders, handle rejections, sync positions |
-| 03 | `03_multi_account.py`          | Multiple accounts: isolate capital, aggregate P&L, per-account risk    |
-| 04 | `04_monitoring.py`             | Health checks: adapter latency, order throughput, position drift       |
-| 05 | `05_deployment.py`             | Systemd/container deploy: config, secrets, logging, graceful shutdown  |
+## At a glance
+
+| #  | File                          | Strategy / focus  | What you learn                                                         |
+|----|-------------------------------|-------------------|------------------------------------------------------------------------|
+| 01 | `01_paper_trading.py`         | SMA crossover     | Paper trading session: simulated fills, real-time P&L, risk guards     |
+| 02 | `02_live_trading_dhan.py`     | SMA crossover     | Dhan adapter: connect, place orders, handle rejections, sync positions |
+| 03 | `03_multi_account.py`         | SMA crossover     | Multiple accounts: isolate capital, aggregate P&L, per-account risk    |
+| 04 | `04_monitoring.py`            | —                 | Health checks: adapter latency, order throughput, position drift       |
+| 05 | `05_deployment.py`            | —                 | Systemd/container deploy: config, secrets, logging, graceful shutdown  |
 
 ## The production pattern
 

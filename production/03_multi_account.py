@@ -1,7 +1,9 @@
 """production/03_multi_account: Multiple accounts with isolated capital and aggregated P&L.
 
-Manages multiple trading accounts, each with its own capital, risk limits,
-and position tracking. Demonstrates account-level isolation and aggregation.
+Strategy: inline `SmaMulti`, a 10/30 SMA crossover (`--strategy sma_crossover`), run
+once per account. Each account keeps its own capital, risk limits and position
+tracking; results are aggregated into a firm-wide P&L. Teaches account-level
+isolation and aggregation; runs are offline and deterministic on synthetic bars.
 
 Run::
 

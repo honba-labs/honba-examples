@@ -1,7 +1,9 @@
 """production/01_paper_trading: Paper trading session with simulated fills.
 
-Runs a strategy against a simulated market (fake adapter) with realistic
-fill modeling, risk guards, and real-time P&L reporting.
+Strategy: inline `SmaPaper`, a 10/30 SMA crossover (`--strategy sma_crossover`).
+Runs it against the fake adapter with next-open fills, risk guards and real-time
+P&L/equity reporting. Teaches the paper-trading loop before live capital; runs are
+offline and deterministic on synthetic bars.
 
 Run::
 

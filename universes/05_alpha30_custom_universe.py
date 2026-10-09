@@ -1,19 +1,16 @@
-"""05_alpha30_custom_universe
+"""05_alpha30_custom_universe: register and resolve a hand-built universe.
 
-Build a custom universe from an explicit InstrumentId list and run an
-equal-weight rebalance on it.
-
-Demonstrates:
-  1. Creating InstrumentId objects by hand (no engine API required).
-  2. Passing a custom symbol list directly to UniverseEqualWeightRebalance
-     by registering it as an ad-hoc named universe.
-  3. A pattern useful for: watchlists, research baskets, or any set of
-     tickers that is not tracked by a named index.
+Universe resolution, no strategy: build ``InstrumentId`` objects from an explicit
+symbol tuple without the engine API, register them under an ad-hoc name, and verify
+the round-trip through ``resolve_universe()``. Pass ``CUSTOM_UNIVERSE_NAME`` to
+``UniverseEqualWeightRebalance`` (04) to trade the basket. Useful for watchlists and
+research baskets that no named index tracks. Runs offline and deterministically.
 
 Custom universe here: a hand-picked basket of Indian infrastructure names.
 
-Run:
-    python 05_alpha30_custom_universe.py
+Run::
+
+    python universes/05_alpha30_custom_universe.py
 """
 
 from __future__ import annotations

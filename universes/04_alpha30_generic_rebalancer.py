@@ -12,6 +12,14 @@ Demonstrates the three actions required on every rebalance day:
 Default universe = Nifty200 Alpha 30, rebalance every 15 trading days.
 Reuse the same class for Nifty 50, Bank Nifty, custom lists, etc. by
 passing a different ``universe`` name (see 05_alpha30_custom_universe.py).
+
+The strategy class is ``UniverseEqualWeightRebalance``; the ``__main__`` block
+only resolves membership as a smoke test, so it runs offline and deterministically
+against the bundled universe map.
+
+Run::
+
+    python universes/04_alpha30_generic_rebalancer.py
 """
 
 from __future__ import annotations

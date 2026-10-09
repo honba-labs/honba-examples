@@ -1,11 +1,14 @@
-"""production/02_live_trading_dhan: Live trading with Dhan adapter.
+"""production/02_live_trading_dhan: Live trading with the Dhan adapter.
 
-Connects to Dhan, places real orders, handles rejections, and syncs positions.
-Requires valid Dhan credentials (client_id, access_token).
+Strategy: inline `SmaLive`, a 10/30 SMA crossover (`--strategy sma_crossover`).
+Shows how a live session connects to Dhan, places real orders, handles rejections
+and syncs positions. Requires valid Dhan credentials (client_id, access_token); it
+runs in dry-run mode by default and only connects with `--no-dry-run`.
 
 Run::
 
-    python production/02_live_trading_dhan.py --client-id XXX --access-token YYY --strategy sma_crossover
+    python production/02_live_trading_dhan.py \
+        --client-id XXX --access-token YYY --strategy sma_crossover
 """
 
 from __future__ import annotations

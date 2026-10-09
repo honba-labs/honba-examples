@@ -1,13 +1,13 @@
-"""01_nifty50_constituents
+"""01_nifty50_constituents: resolve a static named universe and print its members.
 
-Resolve the Nifty 50 universe and print its members.
+Universe resolution, no strategy: ``resolve_universe()`` is the single entry-point
+for any named universe and returns a ``list[InstrumentId]``. Runs offline and
+deterministically against the universe map bundled with Honba — no adapter, no
+network.
 
-Demonstrates:
-  1. resolve_universe() – the single entry-point for any named universe.
-  2. Iterating InstrumentId objects returned by the API.
+Run::
 
-Run:
-    python 01_nifty50_constituents.py
+    python universes/01_nifty50_constituents.py
 """
 
 from __future__ import annotations
