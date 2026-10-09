@@ -111,7 +111,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bars", type=int, default=60)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)
-    parser.add_argument("--capital", type=float, default=100_000.0)
+    parser.add_argument(
+        "--initial-capital",
+        "--capital",
+        dest="capital",
+        type=float,
+        default=100_000.0,
+        help="Initial capital in INR (default: 100000.0)",
+    )
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)
 

@@ -21,7 +21,7 @@ from typing import Any
 
 try:
     import honba_examples  # noqa: F401
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba.domain.instrument import InstrumentId, InstrumentKind
@@ -142,7 +142,14 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--strategy", type=str, default="sma_crossover")
-    parser.add_argument("--capital", type=float, default=100_000.0)
+    parser.add_argument(
+        "--initial-capital",
+        "--capital",
+        dest="capital",
+        type=float,
+        default=100_000.0,
+        help="Initial capital in INR (default: 100000.0)",
+    )
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)

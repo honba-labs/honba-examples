@@ -205,7 +205,7 @@ class Alpha30EWRExample(HonbaExample):
             "--initial-corpus",
             type=float,
             default=None,
-            help="Starting initial investment corpus in INR (overrides --capital)",
+            help="Starting initial investment corpus in INR (overrides --initial-capital / --capital)",
         )
         parser.add_argument(
             "--sip",

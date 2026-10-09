@@ -97,11 +97,12 @@ class HonbaExample:
         if cls.date_range_args:
             cls._add_date_range_args(parser)
         parser.add_argument(
+            "--initial-capital",
             "--capital",
             dest="initial_capital",
             type=float,
             default=cls.initial_capital,
-            help="Initial capital (INR)",
+            help="Initial capital in INR (default: %(default)s)",
         )
         parser.add_argument(
             "--warmup-days", type=int, default=cls.warmup_days, help="Warmup period in days"
@@ -174,8 +175,7 @@ class HonbaExample:
     def load_bars_with_warmup(
         self, instruments: list[InstrumentId], start: dt.date, end: dt.date
     ) -> tuple[list[Bar], list[Bar]]:
-        """Load bars split into warmup and main periods.
-
+        """Load bars split into warmup and main periods.\n
         Warmup bars are the ``warmup_days`` calendar days immediately *before*
         ``start``; they feed indicators before any main-period bar is processed.
 

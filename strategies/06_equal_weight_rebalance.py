@@ -10,11 +10,11 @@ wires them together::
 
 Composed in code (``build_strategy`` below, the whole strategy)::
 
-    PortfolioStrategy(
-        NamedUniverse("nifty200_alpha30"),   # the only Alpha-30-specific thing: a name
+    PortfolioStrategy(\
+        NamedUniverse(\"nifty200_alpha30\"),   # the only Alpha-30-specific thing: a name
         EqualWeight(),                       # swap: InverseVolatility()
         EveryNDays(15),                      # swap: MonthlyFirstSession()
-        allocation=0.995,
+        allocation=0.995,\
     )
 
 No subclass, no ``on_bar``: the universe is re-read at every rebalance (joiners and leavers
@@ -24,9 +24,9 @@ Everything is deterministic and never reads the wall clock.
 The same strategy as plain params (what a ``config.toml`` ``[params]`` table holds)::
 
     [params]
-    universe   = "nifty200_alpha30"
-    weighting  = "equal"            # or "inverse_vol" / "inverse_vol:30"
-    schedule   = "every:15d"        # or "monthly:first_session" / "drift:0.05"
+    universe   = \"nifty200_alpha30\"
+    weighting  = \"equal\"            # or \"inverse_vol\" / \"inverse_vol:30\"
+    schedule   = \"every:15d\"        # or \"monthly:first_session\" / \"drift:0.05\"
     allocation = 0.995
 
     PortfolioStrategy.from_params(params)   # == build_portfolio_strategy(params)
@@ -100,8 +100,8 @@ NAME = "equal_weight_rebalance"
 ALLOCATION = 0.995  # same cash buffer as the catalog strategy's config.toml
 
 
-def build_strategy(
-    rebalance_days: int = 15, allocation: float = ALLOCATION, name: str = NAME
+def build_strategy(\
+    rebalance_days: int = 15, allocation: float = ALLOCATION, name: str = NAME\
 ) -> PortfolioStrategy:
     """Equal-weight rebalance of the Alpha 30, composed from parts in code."""
     return PortfolioStrategy(
@@ -113,7 +113,7 @@ def build_strategy(
     )
 
 
-def build_variant(
+def build_variant(\
     weighting: str = "equal",
     schedule: str = "every:15d",
     allocation: float = ALLOCATION,
@@ -167,7 +167,7 @@ def _replay_at_last_close(strategy: PortfolioStrategy, bars: list[Bar]) -> Repla
     return result
 
 
-def run(
+def run(\
     bars: int = 60,
     rebalance_days: int = 15,
     allocation: float = ALLOCATION,
@@ -252,7 +252,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--schedule", default=None, help="every:<N>d | monthly:first_session | drift:<x>"
     )
-    parser.add_argument("--capital", type=float, default=1_000_000.0, help="starting cash")
+    parser.add_argument(
+        "--initial-capital",
+        "--capital",
+        dest="capital",
+        type=float,
+        default=1_000_000.0,
+        help="Initial capital in INR / starting cash (default: 1000000.0)",
+    )
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
     args = parser.parse_args(argv)
 

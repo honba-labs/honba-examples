@@ -38,6 +38,12 @@ def test_common_flags_set_the_attributes_they_name(tmp_path: Path) -> None:
     assert ex.out_dir == tmp_path / "out"
 
 
+def test_initial_capital_flag_alias() -> None:
+    ex = _Probe()
+    ex.parse_args(["--initial-capital", "500000"])
+    assert ex.initial_capital == 500000.0
+
+
 def test_store_honours_data_dir_given_on_the_command_line(tmp_path: Path) -> None:
     ex = _Probe()
     ex.parse_args(["--data-dir", str(tmp_path)])

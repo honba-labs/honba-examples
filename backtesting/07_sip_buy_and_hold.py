@@ -402,7 +402,13 @@ def main(argv: list[str] | None = None) -> int:
         "--sip-amount", type=float, default=5000.0, help="SIP installment amount in INR (default: 5000.0)"
     )
     parser.add_argument(
-        "--initial-corpus", type=float, default=0.0, help="Initial lump sum corpus invested on day 1 (default: 0.0)"
+        "--initial-capital",
+        "--initial-corpus",
+        "--capital",
+        dest="initial_corpus",
+        type=float,
+        default=0.0,
+        help="Initial capital / lump sum corpus invested on day 1 in INR (default: 0.0)",
     )
     parser.add_argument(
         "--sip-day", type=int, default=1, help="Day of month for monthly SIP (1-28, default: 1)"

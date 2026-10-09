@@ -148,10 +148,10 @@ class Alpha30BacktestExample(HonbaExample):
         capital = (
             self.initial_capital
             if self.initial_capital is not None
-            else float(cfg.params.get("capital", 1_000_000))
+            else float(cfg.params.get("initial_capital", cfg.params.get("capital", 1_000_000)))
         )
         if capital <= 0:
-            raise SystemExit("--capital must be positive")
+            raise SystemExit("--initial-capital / --capital must be positive")
         capital_minor = Money.from_major(capital, Currency.INR).amount
 
         settlement, settlement_source = resolve_settlement_days(
