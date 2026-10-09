@@ -26,7 +26,7 @@ def curve_metrics(
     curve: Sequence[dict[str, Any]],
     capital: float,
     *,
-    cash_inflows: Mapping[dt.date | str, float] | None = None,
+    cash_inflows: Mapping[Any, float] | None = None,
     total_invested: float | None = None,
 ) -> dict[str, float]:
     """Final value, total return %, CAGR %, max drawdown % (<= 0) and Sharpe.

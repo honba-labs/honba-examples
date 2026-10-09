@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""basic/01_connect_dhan: connect an adapter through the registry (default fake, offline)."""
+"""basic/01_connect_dhan: connect an adapter through the registry and inspect it.
+
+Resolves a broker adapter by name (``fake`` by default), connects, and reports the session
+it opened (user, mode, accounts, expiry) plus the capabilities it declares (exchanges,
+order types, products, features, time-in-force, stream modes) before disconnecting. It is
+adapter mechanics only - no market data and no trading strategy - and everything past the
+boundary is a Honba session or capability value, never a broker wire format. The default
+``fake`` adapter is deterministic and offline, so the example runs anywhere; point it at a
+real broker with ``--adapter dhan`` and its credentials.
+
+Run::
+
+    python basic/01_connect_dhan.py
+    python basic/01_connect_dhan.py --out connection.json
+    python basic/01_connect_dhan.py --adapter dhan
+"""
 
 from __future__ import annotations
 

@@ -17,7 +17,7 @@ _PATH = Path(__file__).resolve().parents[2] / "universes" / "08_alpha30_union_ew
 @pytest.fixture(scope="module")
 def ex():
     spec = importlib.util.spec_from_file_location("ex08_adds", _PATH)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None and spec.loader is not None and spec.name is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

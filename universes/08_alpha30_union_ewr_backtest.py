@@ -130,7 +130,7 @@ class Alpha30EWRExample(HonbaExample):
     timeframe: str = "1D"
     start_date: dt.date = dt.date(2026, 1, 1)
     end_date: dt.date = dt.date(2026, 9, 23)
-    initial_capital: float = STARTING_CAPITAL
+    initial_capital: float | None = STARTING_CAPITAL
     warmup_days: int = 0
     fee: float = FEE_RATE
     rebalance_days: int = REBALANCE_DAYS
@@ -263,7 +263,7 @@ class Alpha30EWRExample(HonbaExample):
             print(f"[Data] missing bars for {len(missing)}: {', '.join(missing)}")
 
         settlement_days = self.resolve_settlement_days()
-        corpus = self.initial_corpus if self.initial_corpus is not None else self.initial_capital
+        corpus = float(self.initial_corpus if self.initial_corpus is not None else (self.initial_capital if self.initial_capital is not None else STARTING_CAPITAL))
         sip_duration_days = parse_duration_to_days(self.duration, start_date=self.start_date)
 
         result = simulate(

@@ -1,4 +1,14 @@
-"""Base class for Honba examples with common configuration and utilities."""
+"""Base class and shared infrastructure for Honba examples.
+
+This module provides common functionality across all examples:
+- Standard CLI argument handling (--universe, --exchange, --start, --end, etc.)
+- Consistent data loading from Parquet store
+- Output path conventions
+- Common types and imports
+
+Subclasses customize behaviour by overriding defaults and implementing
+example-specific logic in their `run()` methods.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +18,17 @@ from pathlib import Path
 from typing import Any
 
 from honba.domain.bar import Bar
-from honba.domain.instrument import InstrumentId
-from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import DateInterval
+from honba.domain.instrument import InstrumentId
 from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.output import OutputFormat, OutputOptions, add_output_args, resolve_output
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 """Root of this checkout; the default data root is searched from here, not from the cwd."""
+from honba.markets.india.universes import resolve_universe
+
+__all__ = ["HonbaExample", "format_timestamp", "ts_to_date"]
 
 
 class HonbaExample:
@@ -39,7 +51,7 @@ class HonbaExample:
     timeframe: str = "1D"
     start_date: dt.date = dt.date(2022, 1, 1)
     end_date: dt.date = dt.date(2025, 12, 31)
-    initial_capital: float = 1_000_000.0
+    initial_capital: float | None = 1_000_000.0
     warmup_days: int = 0
     out_dir: Path = Path("output")
     data_dir: Path | None = None
@@ -176,13 +188,16 @@ class HonbaExample:
             return [], main_bars
 
         warmup_start = start - dt.timedelta(days=self.warmup_days)
-        warmup_bars = self.load_bars(instruments, warmup_start, start - dt.timedelta(days=1))
+        warmup_end = start - dt.timedelta(days=1)
+
+        warmup_bars = self.load_bars(instruments, warmup_start, warmup_end)
         main_bars = self.load_bars(instruments, start, end)
+
         return warmup_bars, main_bars
 
     def run(self) -> Any:
-        """Run the example. Override in subclass."""
-        raise NotImplementedError
+        """Execute the example logic. Subclasses must implement this."""
+        raise NotImplementedError("Subclasses must implement run()")
 
     def main(self, args: list[str] | None = None) -> Any:
         """Entry point: parse args, initialize, and run."""

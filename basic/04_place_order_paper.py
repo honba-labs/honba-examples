@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""basic/04_place_order_paper: intent -> report, fills, a cancel, a reject, the books."""
+"""basic/04_place_order_paper: intent -> report, fills, a cancel, a reject, the books.
+
+Walks one paper order lifecycle end to end on the ``fake`` adapter: a market buy fills at
+the ask, resubmitting it with the same ``client_order_id`` is idempotent, a non-marketable
+limit buy rests and is then cancelled, and an oversized buy comes back as a *report*, not an
+exception. It closes on the order and trade books and the funds snapshot, so the whole
+account view is visible in one run. Adapter mechanics only - no trading strategy; the
+default adapter is deterministic and offline, so it runs anywhere, and ``--adapter dhan``
+points it at a real broker.
+
+Run::
+
+    python basic/04_place_order_paper.py
+    python basic/04_place_order_paper.py --out orders.json
+    python basic/04_place_order_paper.py --adapter dhan
+"""
 
 from __future__ import annotations
 
@@ -15,7 +30,7 @@ from honba.adapters import (
     Product,
     available_adapters,
     register_adapter,
-    resolve_adapter,
+    resolve_execution_adapter,
 )
 from honba.adapters.testing import FakeAdapter
 from honba.domain.instrument import InstrumentId
@@ -71,7 +86,7 @@ def serialize_trade(trade: Trade) -> dict[str, Any]:
 
 
 async def _run_async(adapter: str = "fake", **config: Any) -> dict[str, Any]:
-    inst: Any = resolve_adapter(adapter, **config)
+    inst = resolve_execution_adapter(adapter, **config)
     await inst.connect()
 
     try:
