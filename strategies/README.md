@@ -5,15 +5,17 @@ no Parquet store, no network. The bars are synthetic (``tests/synthetic.py``),
 the results are deterministic, and the same strategy class can later be plugged
 into a real backtest or live runner unchanged.
 
-| #  | File                             | What you learn                                                          |
-|----|----------------------------------|-------------------------------------------------------------------------|
-| 01 | `01_first_strategy.py`           | Minimal SMA crossover with the ``Sma`` indicator                        |
-| 02 | `02_with_indicators.py`          | Composite: SMA + RSI filter + ATR sizing + trailing stop                |
-| 03 | `03_position_sizing.py`          | Compare fixed / volatility / Kelly sizing on the same signals           |
-| 04 | `04_risk_management.py`          | Portfolio drawdown, daily loss, and position limits as strategy guards  |
-| 05 | `05_multi_instrument.py`         | Basket of symbols with scheduled equal-weight rebalancing               |
-| 06 | `06_equal_weight_rebalance.py`   | Equal-weight rebalance composed from universe, weighting and schedule parts with ``PortfolioStrategy`` (Alpha 30 is just a universe name; compare with the catalog `portfolio/rebalancing/equal_weight`) |
-| 07 | `07_declarative_long_short.py`   | Jesse-style ``DeclarativeStrategy``: long and short SMA crossover with stop and target |
+## At a glance
+
+| #  | File                             | Strategy class        | What you learn                                                          |
+|----|----------------------------------|-----------------------|-------------------------------------------------------------------------|
+| 01 | `01_first_strategy.py`           | `SmaCrossover`        | Minimal SMA crossover with the ``Sma`` indicator                        |
+| 02 | `02_with_indicators.py`          | `CompositeSmaRsi`     | Composite: SMA + RSI filter + ATR sizing + trailing stop                |
+| 03 | `03_position_sizing.py`          | `SmaSizing`           | Compare fixed / volatility / Kelly sizing on the same signals           |
+| 04 | `04_risk_management.py`          | `RiskManagedSma`      | Portfolio drawdown, daily loss, and position limits as strategy guards  |
+| 05 | `05_multi_instrument.py`         | `BasketSma`           | Basket of symbols with scheduled equal-weight rebalancing               |
+| 06 | `06_equal_weight_rebalance.py`   | `PortfolioStrategy`   | Equal-weight rebalance composed from universe, weighting and schedule parts with ``PortfolioStrategy`` (Alpha 30 is just a universe name; compare with the catalog `portfolio/rebalancing/equal_weight`) |
+| 07 | `07_declarative_long_short.py`   | `LongShortCrossover`  | Jesse-style ``DeclarativeStrategy``: long and short SMA crossover with stop and target |
 
 ## The common pattern
 
@@ -62,7 +64,7 @@ python strategies/05_multi_instrument.py --rebalance-every 15
 python strategies/06_equal_weight_rebalance.py --rebalance-days 10
 python strategies/06_equal_weight_rebalance.py --weighting inverse_vol --schedule monthly:first_session
 python strategies/07_declarative_long_short.py --stop-pct 0.02
-pytest tests/unit -q -k "first_strategy or with_indicators or position_sizing or risk_management or multi_instrument or declarative"
+pytest tests/unit -q -k "first_strategy or with_indicators or position_sizing or risk_management or multi_instrument or equal_weight_rebalance or declarative"
 ```
 
 ## From here to production

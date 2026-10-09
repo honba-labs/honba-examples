@@ -1,15 +1,19 @@
-# 02 Candles – bar construction
+# Candles – bar construction
 
-Bars arrive from two directions: an adapter serves them historically, or you build
-them yourself from a tick stream. Neither is a network call by default — every
-example here runs on the offline `fake` adapter.
+Bars arrive from two directions: an adapter serves them historically, or you build them
+yourself from a tick stream. Neither is a network call by default — every example here runs
+offline and deterministically on the `fake` adapter (synthetic one-minute bars and quote
+ticks), and **none of them runs a trading strategy**: the lesson is how bars are fetched,
+folded and aligned.
 
-| #  | File                           | What you learn                                                     |
-|----|--------------------------------|--------------------------------------------------------------------|
-| 01 | `01_historical_candles.py`     | `historical_bars` over a half-open `[start, end)` of tz-aware datetimes; `timeframe` is a canonical name |
-| 02 | `02_realtime_candles.py`       | Turn pushed `QuoteTick`s into OHLC frames; release the subscription in `finally` |
-| 03 | `03_custom_aggregation.py`     | The OHLC fold: open from the first bar, extremes, close from the last, volume summed |
-| 04 | `04_multi_timeframe.py`        | One fetch, many resolutions, and the alignment invariants between them |
+## At a glance
+
+| #  | File                       | Strategy / focus | What you learn |
+|----|----------------------------|------------------|----------------|
+| 01 | `01_historical_candles.py` | — | `historical_bars` over a half-open `[start, end)` of tz-aware datetimes; `timeframe` is a canonical name |
+| 02 | `02_realtime_candles.py`   | — | Turn pushed `QuoteTick`s into OHLC frames; release the subscription in `finally` |
+| 03 | `03_custom_aggregation.py` | — | The OHLC fold: open from the first bar, extremes, close from the last, volume summed |
+| 04 | `04_multi_timeframe.py`    | — | One fetch, many resolutions, and the alignment invariants between them |
 
 ## Where the aggregation lives
 
@@ -29,12 +33,12 @@ weekly = aggregate(minute_bars, "1w")
 ## Running them
 
 ```bash
-python candles/01_historical_candles.py --start 2025-06-02T09:15:00+00:00 \
-    --end 2025-06-02T09:20:00+00:00
+python candles/01_historical_candles.py --timeframe 1m --instrument RELIANCE \
+    --start 2025-06-02T09:15:00+00:00 --end 2025-06-02T09:20:00+00:00
 python candles/02_realtime_candles.py --advances 5
 python candles/03_custom_aggregation.py --timeframe 5m --out bars.json
-python candles/04_multi_timeframe.py
-pytest tests/unit -q -k "historical or realtime or aggregation or multi_timeframe"
+python candles/04_multi_timeframe.py --out multi_timeframe.json
+pytest tests/unit -q -k "historical_candles or realtime_candles or custom_aggregation or multi_timeframe"
 ```
 
 ## The fake adapter is a test double, not a feed

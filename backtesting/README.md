@@ -3,14 +3,16 @@
 Every example here uses Honba's event-driven backtest harness with synthetic data.
 No Parquet store, no network — just the runner and the cost model.
 
-| #  | File                            | What you learn                                                           |
-|----|---------------------------------|--------------------------------------------------------------------------|
-| 01 | `01_first_backtest.py`          | Minimal backtest: SMA crossover, next-open fills, India equity costs     |
-| 02 | `02_cost_modeling.py`           | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST) |
-| 03 | `03_latency_modeling.py`        | Compare fill models: bar_close / next_open / next_close                  |
-| 04 | `04_walk_forward.py`            | Rolling window optimization/validation (in-sample → out-of-sample)       |
-| 05 | `05_monte_carlo.py`             | Bootstrap equity curves for risk distribution (final equity, DD, Sharpe) |
-| 06 | `06_concurrent_backtest.py`     | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe       |
+## At a glance
+
+| #  | File                            | Strategy class    | What you learn                                                           |
+|----|---------------------------------|-------------------|--------------------------------------------------------------------------|
+| 01 | `01_first_backtest.py`          | `SmaBacktest`     | Minimal backtest: SMA crossover, next-open fills, India equity costs     |
+| 02 | `02_cost_modeling.py`           | —                 | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST) |
+| 03 | `03_latency_modeling.py`        | `SmaLatency`      | Compare fill models: bar_close / next_open / next_close                  |
+| 04 | `04_walk_forward.py`            | `SmaWalk`         | Rolling window optimization/validation (in-sample → out-of-sample)       |
+| 05 | `05_monte_carlo.py`             | `SmaMonteCarlo`   | Bootstrap equity curves for risk distribution (final equity, DD, Sharpe) |
+| 06 | `06_concurrent_backtest.py`     | `SmaSweep`        | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe       |
 
 ## The common pattern
 
@@ -55,7 +57,7 @@ python backtesting/03_latency_modeling.py
 python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
-pytest tests/unit -q -k "backtest"
+pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest"
 ```
 
 ## Key concepts demonstrated
