@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 __all__ = ["SESSIONS_PER_YEAR", "curve_metrics", "exposure_metrics", "max_drawdown", "sharpe_ratio"]
@@ -22,17 +22,35 @@ __all__ = ["SESSIONS_PER_YEAR", "curve_metrics", "exposure_metrics", "max_drawdo
 SESSIONS_PER_YEAR = 252
 
 
-def curve_metrics(curve: Sequence[dict[str, Any]], capital: float) -> dict[str, float]:
-    """Final value, total return %, CAGR %, max drawdown % (<= 0) and Sharpe."""
+def curve_metrics(
+    curve: Sequence[dict[str, Any]],
+    capital: float,
+    *,
+    cash_inflows: Mapping[dt.date | str, float] | None = None,
+    total_invested: float | None = None,
+) -> dict[str, float]:
+    """Final value, total return %, CAGR %, max drawdown % (<= 0) and Sharpe.
+
+    When ``cash_inflows`` (e.g. SIP deposits) is provided, session returns use Time-Weighted
+    Return (TWR) formulation: ``(V_t - Inflow_t - V_{t-1}) / V_{t-1}`` to avoid false return spikes.
+    ``total_return_pct`` and ``cagr_pct`` use ``total_invested`` when given.
+    """
     if not curve:
         raise ValueError("curve_metrics needs at least one point")
     values = [p["value"] for p in curve]
     first = dt.date.fromisoformat(curve[0]["date"])
     last = dt.date.fromisoformat(curve[-1]["date"])
     years = max((last - first).days, 1) / 365.25
+    invested = total_invested if total_invested is not None else capital
+
+    inflows_by_str: dict[str, float] = {}
+    if cash_inflows:
+        for k, v in cash_inflows.items():
+            date_str = k.isoformat() if isinstance(k, dt.date) else str(k)
+            inflows_by_str[date_str] = float(v)
 
     rets = [
-        (values[i] - values[i - 1]) / values[i - 1]
+        (values[i] - inflows_by_str.get(curve[i]["date"], 0.0) - values[i - 1]) / values[i - 1]
         for i in range(1, len(values))
         if values[i - 1] != 0
     ]
@@ -52,10 +70,18 @@ def curve_metrics(curve: Sequence[dict[str, Any]], capital: float) -> dict[str, 
         if peak:
             max_dd = min(max_dd, v / peak - 1.0)
 
+    net_profit = values[-1] - invested
+    total_return_pct = 100 * (net_profit / invested) if invested > 0 else 0.0
+    cagr_pct = (
+        100 * ((values[-1] / invested) ** (1 / years) - 1)
+        if invested > 0 and values[-1] > 0
+        else 0.0
+    )
+
     return {
         "final_value": values[-1],
-        "total_return_pct": 100 * (values[-1] / capital - 1),
-        "cagr_pct": 100 * ((values[-1] / capital) ** (1 / years) - 1),
+        "total_return_pct": total_return_pct,
+        "cagr_pct": cagr_pct,
         "max_drawdown_pct": 100 * max_dd,
         "sharpe": sharpe,
     }

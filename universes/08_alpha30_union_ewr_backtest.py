@@ -19,9 +19,10 @@ basket on a fixed calendar schedule. Runs over NSE daily bars from the Parquet s
 
 Run::
 
-    python 08_alpha30_union_ewr_backtest.py
-    python 08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
-    python 08_alpha30_union_ewr_backtest.py --leverage 2.0
+    python universes/08_alpha30_union_ewr_backtest.py
+    python universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
+    python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 1000000 --sip 50000 --no-of-sip 12
+    python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 500000 --sip 25000 --duration 180d
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ from honba_examples.ewr import (
     SimResult,
     buy_shortfall,
     format_changes,
+    parse_duration_to_days,
     print_summary,
     rebalance_changes,
     rebalance_orders,
@@ -75,6 +77,7 @@ __all__ = [
     "buy_shortfall",
     "format_changes",
     "main",
+    "parse_duration_to_days",
     "print_summary",
     "rebalance_changes",
     "rebalance_orders",
@@ -138,6 +141,10 @@ class Alpha30EWRExample(HonbaExample):
     initial_margin: float = DEFAULT_INITIAL_MARGIN
     maintenance_margin: float = DEFAULT_MAINTENANCE_MARGIN
     allow_short: bool = False
+    initial_corpus: float | None = None
+    sip: float = 0.0
+    duration: str | None = None
+    no_of_sip: int | None = None
 
     def load_universe(self) -> list[InstrumentId]:
         return [InstrumentId(sym, self.exchange) for sym in BASKET]
@@ -194,6 +201,36 @@ class Alpha30EWRExample(HonbaExample):
             default=self.allow_short,
             help="Allow short selling positions",
         )
+        parser.add_argument(
+            "--initial-corpus",
+            type=float,
+            default=None,
+            help="Starting initial investment corpus in INR (overrides --capital)",
+        )
+        parser.add_argument(
+            "--sip",
+            "--sip-amount",
+            dest="sip",
+            type=float,
+            default=self.sip,
+            help="SIP installment amount in INR injected every rebalance session",
+        )
+        parser.add_argument(
+            "--duration",
+            "--sip-duration",
+            dest="duration",
+            type=str,
+            default=self.duration,
+            help="Duration for SIP injections (e.g. '180d', '6m', '1y', '180' days, or end date YYYY-MM-DD)",
+        )
+        parser.add_argument(
+            "--no-of-sip",
+            "--sip-count",
+            dest="no_of_sip",
+            type=int,
+            default=self.no_of_sip,
+            help="Maximum number of SIP installments to execute",
+        )
 
     @staticmethod
     def engine_settlement_days(exchange: str, as_of: dt.date | None = None) -> int:
@@ -226,12 +263,18 @@ class Alpha30EWRExample(HonbaExample):
             print(f"[Data] missing bars for {len(missing)}: {', '.join(missing)}")
 
         settlement_days = self.resolve_settlement_days()
+        corpus = self.initial_corpus if self.initial_corpus is not None else self.initial_capital
+        sip_duration_days = parse_duration_to_days(self.duration, start_date=self.start_date)
+
         result = simulate(
             bars,
             symbols,
             start=self.start_date,
-            capital=self.initial_capital,
+            capital=corpus,
             rebalance_days=self.rebalance_days,
+            sip_amount=self.sip,
+            no_of_sip=self.no_of_sip,
+            sip_duration_days=sip_duration_days,
             fee=self.fee,
             settlement_days=settlement_days,
             tolerance_pct=self.tolerance_pct,
@@ -243,7 +286,8 @@ class Alpha30EWRExample(HonbaExample):
         )
         result.missing_data = missing
         lev_str = f", leverage {self.leverage}x" if self.leverage > 1.0 else ""
-        print(f"[Model] settlement T+{settlement_days}{lev_str}")
+        sip_str = f", SIP ₹{self.sip:,.0f}" if self.sip > 0 else ""
+        print(f"[Model] settlement T+{settlement_days}{lev_str}{sip_str}")
         print_summary(result, self.output)
         return result
 

@@ -47,7 +47,6 @@ __all__ = [
 ]
 
 
-
 @dataclass
 class OutputOptions:
     """Where and how an example prints. ``out=None`` means the current ``sys.stdout``."""
@@ -186,7 +185,6 @@ def print_run_header(info: Mapping[str, Any], opts: OutputOptions | None = None)
     _kv("run_header", "Run", pairs, dict(info), opts)
 
 
-
 _METRIC_ORDER = (
     "final_value",
     "final_equity",
@@ -200,6 +198,10 @@ _METRIC_ORDER = (
     "avg_cash_pct",
     "n_fills",
     "n_rebalances",
+    "initial_corpus",
+    "total_invested",
+    "net_profit",
+    "sips_executed",
 )
 
 
@@ -208,7 +210,7 @@ def _metric_text(key: str, v: Any) -> str:
         return format_percent(v)
     if key in ("sharpe", "turnover"):
         return _num(v, 3)
-    if key.startswith("n_"):
+    if key in ("sips_executed",) or key.startswith("n_"):
         return _num(v, 0)
     return _num(v)
 
@@ -222,6 +224,10 @@ _METRIC_LABEL_OVERRIDES = {
     "n_unfilled_at_end": "Unfilled at end",
     "n_released_no_position": "Released (no position)",
     "n_rejected_intents": "Rejected intents",
+    "sips_executed": "SIP installments",
+    "total_invested": "Total invested",
+    "initial_corpus": "Initial corpus",
+    "net_profit": "Net profit",
 }
 
 
@@ -298,11 +304,14 @@ def print_rebalance_schedule(
     for r in rebalances:
         if r.get("leg") == "buy" and groups:
             groups[-1]["trades"].extend(r.get("trades", []))
+            if "sip_injected" in r:
+                groups[-1]["sip_injected"] = groups[-1].get("sip_injected", 0.0) + r["sip_injected"]
         else:
             groups.append(
                 {
                     "date": r["date"],
                     "trades": list(r.get("trades", [])),
+                    "sip_injected": r.get("sip_injected", 0.0),
                 }
             )
 
@@ -320,7 +329,6 @@ def print_rebalance_schedule(
         added: list[str] = []
         removed: list[str] = []
         rebalanced_items: list[tuple[int, str]] = []
-
 
         for sym in sorted(net):
             delta = net[sym]
@@ -353,7 +361,8 @@ def print_rebalance_schedule(
             removed_str = "—"
             rebalanced_str = "—"
         else:
-            event = "Rebalance"
+            sip_inj = g.get("sip_injected", 0.0)
+            event = "Rebal + SIP" if sip_inj > 0 else "Rebalance"
             added_str = ", ".join(added) if added else "—"
             removed_str = ", ".join(removed) if removed else "—"
             if len(rebalanced) > 4:
@@ -362,7 +371,6 @@ def print_rebalance_schedule(
                 rebalanced_str = ", ".join(rebalanced)
             else:
                 rebalanced_str = "—"
-
 
         raw.append(
             {
@@ -384,7 +392,6 @@ def print_rebalance_schedule(
         Column("notional", "Notional", align="right", fmt=_num),
     ]
     _table("schedule", "Rebalance Schedule", cols, raw, opts)
-
 
 
 def print_holdings(

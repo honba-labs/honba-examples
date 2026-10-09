@@ -49,6 +49,10 @@ class SimResult:
     leverage: float = 1.0
     initial_margin: float = DEFAULT_INITIAL_MARGIN
     maintenance_margin: float = DEFAULT_MAINTENANCE_MARGIN
+    initial_corpus: float = STARTING_CAPITAL
+    sip_amount: float = 0.0
+    total_invested: float = STARTING_CAPITAL
+    sips_executed: int = 0
 
 
 def _compute_desired(
@@ -75,9 +79,7 @@ def _compute_desired(
     pool = cash + sum(qty.get(s, 0) * closes[s] for s in active)
     target_pool = max(0.0, pool) * leverage
     tentative = target_pool / len(active) if target_pool > 0 else 0.0
-    eligible = [
-        s for s in active if qty.get(s, 0) > 0 or closes[s] * (1 + fee) <= tentative
-    ]
+    eligible = [s for s in active if qty.get(s, 0) > 0 or closes[s] * (1 + fee) <= tentative]
     if not eligible:
         eligible = list(active)
     target = target_pool / len(eligible) if target_pool > 0 else 0.0
@@ -357,6 +359,43 @@ def rebalance_changes(rebalances: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def parse_duration_to_days(
+    val: str | int | None,
+    *,
+    start_date: dt.date | None = None,
+) -> int | None:
+    """Parse duration specified as string ('180d', '6m', '1y', ISO date) or integer days."""
+    if val is None:
+        return None
+    if isinstance(val, int):
+        if val < 0:
+            raise ValueError(f"duration days must be non-negative, got {val}")
+        return val
+    s = str(val).strip()
+    if not s:
+        return None
+
+    try:
+        d = dt.date.fromisoformat(s)
+        if start_date is not None:
+            return max(0, (d - start_date).days)
+    except ValueError:
+        pass
+
+    s_lower = s.lower()
+    for suffix in ("days", "day", "d"):
+        if s_lower.endswith(suffix):
+            return int(s_lower[: -len(suffix)].strip())
+    for suffix in ("months", "month", "mo", "m"):
+        if s_lower.endswith(suffix):
+            return int(s_lower[: -len(suffix)].strip()) * 30
+    for suffix in ("years", "year", "yr", "y"):
+        if s_lower.endswith(suffix):
+            return int(s_lower[: -len(suffix)].strip()) * 365
+
+    return int(s_lower)
+
+
 def rebalance_sessions(
     calendar: list[dt.date], start: dt.date, rebalance_days: int
 ) -> set[dt.date]:
@@ -380,6 +419,9 @@ def simulate(
     start: dt.date,
     capital: float = STARTING_CAPITAL,
     rebalance_days: int = REBALANCE_DAYS,
+    sip_amount: float = 0.0,
+    no_of_sip: int | None = None,
+    sip_duration_days: int | None = None,
     fee: float = FEE_RATE,
     settlement_days: int = 0,
     tolerance_pct: float = TOLERANCE_PCT,
@@ -401,11 +443,22 @@ def simulate(
     * ``initial_margin``: initial margin requirement (default 0.5).
     * ``maintenance_margin``: maintenance margin threshold for margin call check (default 0.25).
     * ``allow_short``: enable short-selling into negative positions (default False).
+
+    SIP parameters:
+    * ``sip_amount``: fixed rupee cash injected on each scheduled rebalance session after Day 0.
+    * ``no_of_sip``: limit on the total count of SIP installments.
+    * ``sip_duration_days``: calendar days limit from start for SIP installments.
     """
     if capital <= 0:
         raise ValueError("capital must be positive")
     if rebalance_days < 1:
         raise ValueError("rebalance_days must be at least 1")
+    if sip_amount < 0:
+        raise ValueError("sip_amount must be non-negative")
+    if no_of_sip is not None and no_of_sip < 0:
+        raise ValueError("no_of_sip must be non-negative")
+    if sip_duration_days is not None and sip_duration_days < 0:
+        raise ValueError("sip_duration_days must be non-negative")
     if settlement_days < 0:
         raise ValueError("settlement_days must be >= 0")
     if not 0 <= fee < 1:
@@ -451,6 +504,13 @@ def simulate(
 
     pending_buys: dict[int, bool] = {}
 
+    sips_executed = 0
+    total_invested = float(capital)
+    sip_cutoff_date = (
+        (start + dt.timedelta(days=sip_duration_days)) if sip_duration_days is not None else None
+    )
+    cash_inflows: dict[dt.date, float] = {}
+
     for idx, session in enumerate(calendar):
         today = {s: closes[s][session] for s in symbols if session in closes[s]}
         last_close.update(today)
@@ -479,7 +539,20 @@ def simulate(
                 )
 
         if session == day0 or session in sessions:
-            value_before = cash + sum(qty[s] * last_close[s] for s in qty if s in last_close)
+            sip_injected = 0.0
+            if session != day0 and sip_amount > 0:
+                count_ok = (no_of_sip is None) or (sips_executed < no_of_sip)
+                duration_ok = (sip_cutoff_date is None) or (session <= sip_cutoff_date)
+                if count_ok and duration_ok:
+                    cash += sip_amount
+                    total_invested += sip_amount
+                    sips_executed += 1
+                    sip_injected = sip_amount
+                    cash_inflows[session] = sip_amount
+
+            value_before = (cash - sip_injected) + sum(
+                qty[s] * last_close[s] for s in qty if s in last_close
+            )
             if settlement_days and session != day0:
                 cash, trades = sell_excess(
                     qty,
@@ -509,6 +582,7 @@ def simulate(
                 {
                     "date": session.isoformat(),
                     "value_before": value_before,
+                    "sip_injected": sip_injected,
                     "trades": trades,
                     "cash_after": cash,
                     "leg": leg,
@@ -534,6 +608,11 @@ def simulate(
         if gross_exposure > 0 and value < maint_req:
             result.margin_calls += 1
 
+    result.initial_corpus = float(capital)
+    result.sip_amount = float(sip_amount)
+    result.total_invested = float(total_invested)
+    result.sips_executed = sips_executed
+
     result.rebalance_changes = rebalance_changes(result.rebalances)
     traded_notional = sum(t["notional"] for r in result.rebalances for t in r["trades"])
     total_fees = sum(t["fee"] for r in result.rebalances for t in r["trades"])
@@ -541,13 +620,24 @@ def simulate(
     n_rebalances = len({r["date"] for r in result.rebalances if r.get("leg") != "buy"}) - 1
     exposure = exposure_metrics(result.equity_curve, traded_notional)
     result.metrics = {
-        **curve_metrics(result.equity_curve, capital),
+        **curve_metrics(
+            result.equity_curve,
+            capital,
+            cash_inflows=cash_inflows,
+            total_invested=total_invested,
+        ),
         "n_rebalances": n_rebalances,
         "total_fees": total_fees,
         "turnover": exposure["turnover"],
         "avg_cash_pct": exposure["avg_cash_pct"],
         "n_fills": sum(len(r["trades"]) for r in result.rebalances),
     }
+    if sips_executed > 0 or sip_amount > 0:
+        result.metrics["initial_corpus"] = float(capital)
+        result.metrics["total_invested"] = float(total_invested)
+        result.metrics["sips_executed"] = float(sips_executed)
+        result.metrics["net_profit"] = result.equity_curve[-1]["value"] - total_invested
+
     if leverage > 1.0 or result.margin_calls > 0 or result.max_margin_used_pct > 0:
         result.metrics["max_margin_used_pct"] = result.max_margin_used_pct
         result.metrics["margin_calls"] = float(result.margin_calls)
