@@ -113,6 +113,7 @@ def calculate_xirr(
     f_low, f_high = xnpv(low), xnpv(high)
     if f_low * f_high > 0:
         return None
+    mid = (low + high) / 2.0
     for _ in range(max_iter):
         mid = (low + high) / 2.0
         f_mid = xnpv(mid)
@@ -390,7 +391,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument(
         "--symbol", "--instrument", dest="symbol", default="ALPHAETF", help="Instrument symbol (default: ALPHAETF)"
     )

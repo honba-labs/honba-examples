@@ -39,8 +39,8 @@ __all__ = ["main", "run"]
 class SmaSweep(Strategy):
     """SMA crossover for parameter sweeps."""
 
-    name: str = "sma_sweep"
-    warmup_bars: int = 30
+    name = "sma_sweep"
+    warmup_bars = 30
 
     def __init__(self, fast: int = 10, slow: int = 30) -> None:
         super().__init__()
@@ -157,7 +157,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=120)
     parser.add_argument("--fast-min", type=int, default=5)
     parser.add_argument("--fast-max", type=int, default=20)

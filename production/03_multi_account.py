@@ -38,15 +38,15 @@ __all__ = ["main", "run"]
 class SmaMulti(Strategy):
     """SMA crossover for multi-account demo."""
 
-    name: str = "sma_multi"
-    warmup_bars: int = 30
+    name = "sma_multi"
+    warmup_bars = 30
 
     def __init__(self, fast: int = 10, slow: int = 30, symbol: str = "RELIANCE") -> None:
         super().__init__()
         self.fast = Sma(fast)
         self.slow = Sma(slow)
         self.symbol = symbol
-        self.iid = InstrumentId(symbol=symbol, exchange="NSE", kind=InstrumentKind.EQUITY)
+        self.iid = InstrumentId(symbol=symbol, exchange="NSE")
 
     def on_bar(self, bar) -> None:
         if bar.instrument_id != self.iid:
@@ -139,7 +139,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--accounts", type=Path, default=None, help="YAML with account list")
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--out", type=Path, default=None)
@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
 
     accounts = None
     if args.accounts and args.accounts.exists():
-        import yaml
+        import yaml  # pyright: ignore[reportMissingModuleSource]
 
         accounts = yaml.safe_load(args.accounts.read_text())
 

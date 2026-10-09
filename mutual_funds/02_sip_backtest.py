@@ -117,7 +117,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--scheme", type=str, default="120503")
     parser.add_argument("--monthly", type=float, default=10000.0)
     parser.add_argument("--start", type=lambda s: dt.date.fromisoformat(s), default=None)

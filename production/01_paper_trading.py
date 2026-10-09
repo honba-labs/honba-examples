@@ -37,15 +37,15 @@ __all__ = ["main", "run"]
 class SmaPaper(Strategy):
     """SMA crossover for paper trading."""
 
-    name: str = "sma_paper"
-    warmup_bars: int = 30
+    name = "sma_paper"
+    warmup_bars = 30
 
     def __init__(self, fast: int = 10, slow: int = 30, symbol: str = "RELIANCE") -> None:
         super().__init__()
         self.fast = Sma(fast)
         self.slow = Sma(slow)
         self.symbol = symbol
-        self.iid = InstrumentId(symbol=symbol, exchange="NSE", kind=InstrumentKind.EQUITY)
+        self.iid = InstrumentId(symbol=symbol, exchange="NSE")
 
     def on_bar(self, bar) -> None:
         if bar.instrument_id != self.iid:
@@ -140,7 +140,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--strategy", type=str, default="sma_crossover")
     parser.add_argument(
         "--initial-capital",

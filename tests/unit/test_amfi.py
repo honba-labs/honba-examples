@@ -105,7 +105,7 @@ def test_rows_come_back_sorted_by_code_then_date():
 def test_rows_are_frozen():
     row = parse_navall(NAVALL)[0]
     with pytest.raises(dataclasses.FrozenInstanceError):
-        row.nav = 0.0
+        row.nav = 0.0  # type: ignore[misc]
 
 
 def test_nav_bars_are_stamped_at_the_documented_session_open():

@@ -95,7 +95,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--underlying", type=str, default="NIFTY")
     parser.add_argument("--expiry", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--spot", type=float, default=24000.0)

@@ -86,7 +86,7 @@ def run(
         # Convert nav_points to format for metrics
         curve = [{"date": p.date.isoformat(), "value": p.nav, "cash": 0} for p in nav_points]
         mdd = max_drawdown(curve) if len(curve) > 1 else 0.0
-        sharpe = sharpe_ratio(curve) if len(curve) > 2 else 0.0
+        sharpe = sharpe_ratio(curve, capital=100_000.0) if len(curve) > 2 else 0.0
 
         results.append({
             "scheme_code": scheme_code,
@@ -129,7 +129,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--category", type=str, default="Equity:Large Cap")
     parser.add_argument("--start", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--end", type=lambda s: dt.date.fromisoformat(s), default=None)

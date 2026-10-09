@@ -163,7 +163,7 @@ def _parse_bound(flag: str, text: str | None) -> dt.datetime | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--adapter", default="fake", help="registered adapter name")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--instrument", default="RELIANCE", help="symbol to fetch")

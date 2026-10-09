@@ -77,7 +77,6 @@ class LongShortCrossover(DeclarativeStrategy):
         target_pct: float = 0.06,
     ) -> None:
         self.fast, self.slow = Sma(fast), Sma(slow)
-        self.warmup_bars = slow
         self.quantity, self.stop_pct, self.target_pct = quantity, stop_pct, target_pct
         self.entries: list[dict[str, Any]] = []
         self._prev_gap: float | None = None
@@ -147,9 +146,13 @@ def _triggered(intent: OrderIntent, b: Bar) -> float | None:
     sell = intent.side is OrderSide.SELL
     if intent.order_type is OrderType.STOP_MARKET:
         level = intent.trigger_price
+        if level is None:
+            return None
         hit = b.low <= level if sell else b.high >= level
     else:  # LIMIT
         level = intent.price
+        if level is None:
+            return None
         hit = b.high >= level if sell else b.low <= level
     return level if hit else None
 
@@ -235,7 +238,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=120, help="number of synthetic bars")
     parser.add_argument("--fast", type=int, default=5, help="fast SMA period")
     parser.add_argument("--slow", type=int, default=20, help="slow SMA period")

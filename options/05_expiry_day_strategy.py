@@ -71,7 +71,7 @@ def run(
     path = _simulate_intraday_path(spot_at_open, 0.0, iv, intraday_steps)
 
     rebalance_log = []
-    position = {"call": 1, "put": 1}  # quantities
+    position = {"call": 1.0, "put": 1.0}  # quantities
     cash_flow = 0.0  # cash from rebalancing
 
     for i, spot in enumerate(path):
@@ -146,7 +146,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--underlying", type=str, default="BANKNIFTY")
     parser.add_argument("--expiry", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--spot", type=float, default=50000.0)

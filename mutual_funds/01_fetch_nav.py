@@ -72,7 +72,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--scheme", type=str, default=None, help="AMFI scheme code (e.g., 120503)")
     parser.add_argument("--category", type=str, default=None, help="AMFI category name")
     parser.add_argument("--start", type=lambda s: dt.date.fromisoformat(s), default=None)

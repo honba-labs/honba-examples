@@ -39,8 +39,8 @@ __all__ = ["main", "run"]
 class SmaMonteCarlo(Strategy):
     """SMA crossover for Monte Carlo bootstrap."""
 
-    name: str = "sma_monte_carlo"
-    warmup_bars: int = 30
+    name = "sma_monte_carlo"
+    warmup_bars = 30
 
     def __init__(self, fast: int = 10, slow: int = 30) -> None:
         super().__init__()
@@ -156,7 +156,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)

@@ -48,7 +48,7 @@ def _row(instrument: Any) -> dict[str, Any]:
 
 
 async def _fetch(adapter_name: str, query: str | None, config: dict[str, str]) -> list[Any]:
-    adapter = _registry().create(adapter_name, **config)
+    adapter = _registry().create_market_data(adapter_name, **config)
     await adapter.connect()
     try:
         if query:
@@ -84,7 +84,7 @@ def _parse_config(pairs: list[str]) -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--adapter", default="fake", help="registered adapter name")
     parser.add_argument("--query", default=None, help="symbol substring to search for")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")

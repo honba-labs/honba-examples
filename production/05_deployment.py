@@ -235,7 +235,7 @@ metrics_port = 9090
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--strategy", type=str, default="sma_crossover")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--user", type=str, default="honba")

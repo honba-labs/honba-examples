@@ -28,8 +28,10 @@ def bar(
         c = close
     if isinstance(ts, datetime):
         ts_ns = int(ts.timestamp() * 1_000_000_000)
-    elif isinstance(ts, date) and not isinstance(ts, datetime):
+    elif isinstance(ts, date):
         ts_ns = int(datetime.combine(ts, datetime.min.time()).timestamp() * 1_000_000_000)
+    elif isinstance(ts, int):
+        ts_ns = ts
     else:
         ts_ns = int(ts)
 

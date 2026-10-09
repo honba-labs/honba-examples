@@ -150,7 +150,8 @@ def _replay_at_last_close(strategy: PortfolioStrategy, bars: list[Bar]) -> Repla
     strategy.on_start()
     for b in bars:
         last_close[b.instrument_id] = b.close
-        strategy.ctx.set_now(b.ts)
+        if isinstance(strategy.ctx, LedgerContext):
+            strategy.ctx.set_now(b.ts)
         strategy.on_bar(b)
         for intent in strategy.drain_intents():
             result.intents.append(intent)
@@ -242,7 +243,7 @@ def run(\
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=60, help="number of synthetic sessions")
     parser.add_argument("--rebalance-days", type=int, default=15, help="trading days between")
     parser.add_argument("--allocation", type=float, default=ALLOCATION, help="fraction of equity")

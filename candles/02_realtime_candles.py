@@ -173,7 +173,7 @@ def _parse_config(pairs: list[str]) -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--adapter", default="fake", help="registered adapter name")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--advances", type=int, default=3, help="price advances (fake only)")

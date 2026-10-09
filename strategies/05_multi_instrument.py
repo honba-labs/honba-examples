@@ -38,8 +38,8 @@ __all__ = ["main", "run"]
 class BasketSma(Strategy):
     """Equal-weight SMA crossover across a basket of symbols."""
 
-    name: str = "basket_sma"
-    warmup_bars: int = 30
+    name = "basket_sma"
+    warmup_bars = 30
     rebalance_every: int = 20
 
     def __init__(
@@ -88,18 +88,12 @@ class BasketSma(Strategy):
 
     def _rebalance(self) -> None:
         """Equal-weight the basket: track changes and adjust."""
-        total_value = 100_000.0  # Simplified
-        total_value / len(self.symbols)
-
+        positions = {}
         for sym in self.symbols:
             iid = self._instrument(sym)
-            if iid is None:
-                continue
-            self.position(iid)
-            # Note: we can't get exact price here without bar; simplified
-            # Rebalance logic would go here in a real implementation
-
-        self._positions_before = {sym: self.position(self._instrument(sym)) for sym in self.symbols if self._instrument(sym)}
+            if iid is not None:
+                positions[sym] = self.position(iid)
+        self._positions_before = positions
 
     def _instrument(self, symbol: str):
         for iid in self.ctx.positions():
@@ -150,7 +144,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)

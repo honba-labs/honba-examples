@@ -40,8 +40,8 @@ __all__ = ["main", "run"]
 class SmaSizing(Strategy):
     """SMA crossover with pluggable position sizing."""
 
-    name: str = "sma_sizing"
-    warmup_bars: int = 30
+    name = "sma_sizing"
+    warmup_bars = 30
 
     def __init__(
         self,
@@ -84,7 +84,7 @@ class SmaSizing(Strategy):
             self.sell(bar.instrument_id, position)
 
         # Track PnL for Kelly
-        for fill in self.ctx.drain_intents():
+        for fill in self.drain_intents():
             pass  # replay doesn't expose fills this way; Kelly is illustrative
 
     def _size(self, atr_val: float, price: float) -> int:
@@ -141,7 +141,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)

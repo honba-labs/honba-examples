@@ -85,7 +85,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--query", default="large cap stocks with volume > 1m", help="natural-language question")
     parser.add_argument("--fake-response", default=None, help="override the scripted LLM response (for testing)")
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")

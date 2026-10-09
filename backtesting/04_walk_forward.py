@@ -36,8 +36,8 @@ __all__ = ["main", "run"]
 class SmaWalk(Strategy):
     """SMA crossover with configurable periods."""
 
-    name: str = "sma_walk"
-    warmup_bars: int = 30
+    name = "sma_walk"
+    warmup_bars = 30
 
     def __init__(self, fast: int = 10, slow: int = 30) -> None:
         super().__init__()
@@ -106,7 +106,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=120)
     parser.add_argument("--window", type=int, default=40)
     parser.add_argument("--step", type=int, default=20)

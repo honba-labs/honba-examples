@@ -61,7 +61,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--price", type=float, default=2500.0)
     parser.add_argument("--qty", type=float, default=10.0)
     parser.add_argument("--out", type=Path, default=None)

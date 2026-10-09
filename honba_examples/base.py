@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 """Root of this checkout; the default data root is searched from here, not from the cwd."""
 from honba.markets.india.universes import resolve_universe
 
-__all__ = ["HonbaExample", "format_timestamp", "ts_to_date"]
+__all__ = ["HonbaExample", "format_timestamp", "get_store", "ts_to_date"]
 
 
 class HonbaExample:
@@ -216,3 +216,8 @@ def format_timestamp(ts: int) -> str:
         return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).strftime("%Y-%m-%d")
     except (ValueError, OSError):
         return "?"
+
+def get_store(data_dir: Path | None = None) -> ParquetBarStore:
+    """Parquet bar store at ``data_dir``, else the workspace data root found from this repo."""
+    root = Path(data_dir) if data_dir is not None else find_data_root(REPO_ROOT)
+    return ParquetBarStore(root)

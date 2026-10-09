@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from honba.domain.bar import Bar
+from honba.domain.instrument import InstrumentId
 
 __all__ = ["SUPPORTED_TIMEFRAMES", "aggregate", "bucket_start", "timeframe_seconds"]
 
@@ -66,7 +67,7 @@ def aggregate(bars: Sequence[Bar], timeframe: str) -> list[Bar]:
     so shuffled input produces the identical list.
     """
     timeframe_seconds(timeframe)  # fail fast on an unknown vocabulary
-    grouped: dict[object, list[Bar]] = {}
+    grouped: dict[InstrumentId, list[Bar]] = {}
     for bar in bars:
         grouped.setdefault(bar.instrument_id, []).append(bar)
 

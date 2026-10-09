@@ -135,7 +135,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--schemes", type=lambda s: s.split(","), default=["120503", "120504", "120505"])
     parser.add_argument("--start", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--end", type=lambda s: dt.date.fromisoformat(s), default=None)

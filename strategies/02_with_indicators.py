@@ -40,8 +40,8 @@ __all__ = ["main", "run"]
 class CompositeSmaRsi(Strategy):
     """SMA crossover with RSI filter and ATR trailing stop."""
 
-    name: str = "composite_sma_rsi"
-    warmup_bars: int = 30
+    name = "composite_sma_rsi"
+    warmup_bars = 30
 
     def __init__(
         self,
@@ -138,7 +138,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)

@@ -49,6 +49,7 @@ def _opts(fmt: str = "table", width: int = 78) -> ex_out.OutputOptions:
 
 
 def _text(o: ex_out.OutputOptions) -> str:
+    assert isinstance(o.out, io.StringIO)
     return o.out.getvalue()
 
 

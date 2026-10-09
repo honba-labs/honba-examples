@@ -133,7 +133,7 @@ def run(port: int = 9090, duration: int = 30) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--port", type=int, default=9090)
     parser.add_argument("--duration", type=int, default=10)
     parser.add_argument("--out", type=Path, default=None)

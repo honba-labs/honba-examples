@@ -83,7 +83,7 @@ def run() -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
     args = parser.parse_args(argv)
 

@@ -77,7 +77,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--spot", type=float, default=24000.0)
     parser.add_argument("--strike", type=float, default=24000.0)
     parser.add_argument("--days-to-expiry", type=int, default=7)

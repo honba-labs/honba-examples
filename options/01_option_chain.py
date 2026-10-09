@@ -32,7 +32,7 @@ __all__ = ["main", "run"]
 
 def _synthetic_chain(underlying: str, expiry: dt.date, spot: float = 24000.0, step: float = 50.0) -> OptionChain:
     """Create a synthetic option chain around ATM."""
-    iid = InstrumentId(symbol=underlying, exchange="NSE", kind=InstrumentKind.INDEX)
+    iid = InstrumentId(symbol=underlying, exchange="NSE")
     contracts = []
 
     # Generate strikes around spot
@@ -118,7 +118,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--underlying", type=str, default="NIFTY")
     parser.add_argument("--expiry", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--spot", type=float, default=24000.0)

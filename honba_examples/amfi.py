@@ -63,6 +63,7 @@ class NavPoint:
 
     date: dt.date
     nav: float
+    scheme_name: str = ""
 
 
 def parse_navall(text: str, skipped: list[NavSkip] | None = None) -> list[NavRow]:
@@ -159,8 +160,12 @@ class AmfiNavLoader:
 
     def load(self, scheme: str, start: dt.date | None = None, end: dt.date | None = None) -> list[NavPoint]:
         """Load NAV points for a single scheme."""
-        inst_id = f"{scheme}.{EXCHANGE}"
-        bars = self._store.read_bars(inst_id, start=start, end=end)
+        from honba.screener.coverage import DateInterval
+        inst = InstrumentId(symbol=scheme, exchange=EXCHANGE)
+        start_d = start or dt.date(2000, 1, 1)
+        end_d = end or dt.date(2099, 1, 1)
+        interval = DateInterval(start_d, end_d)
+        bars = self._store.read(inst, "1D", interval)
         return [
             NavPoint(
                 date=dt.datetime.fromtimestamp(b.ts // _NS_PER_DAY, tz=dt.timezone.utc).date(),
@@ -175,17 +180,9 @@ class AmfiNavLoader:
         Note: This requires a category mapping file. For now returns empty dict
         as the category mapping is not yet integrated.
         """
-        # The actual category mapping would come from AMFI's scheme metadata.
-        # For now, return empty to avoid network dependency.
         return {}
 
     def latest_nav(self, scheme: str) -> NavPoint | None:
         """Get the most recent NAV for a scheme."""
-        inst_id = f"{scheme}.{EXCHANGE}"
-        bar = self._store.read_latest_bar(inst_id)
-        if bar is None:
-            return None
-        return NavPoint(
-            date=dt.datetime.fromtimestamp(bar.ts // _NS_PER_DAY, tz=dt.timezone.utc).date(),
-            nav=bar.close,
-        )
+        points = self.load(scheme)
+        return points[-1] if points else None
