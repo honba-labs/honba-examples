@@ -495,6 +495,36 @@ def simulate(
     calendar = sorted({d for by_date in closes.values() for d in by_date})
     day0 = calendar[0]
     sessions = rebalance_sessions(calendar, start, rebalance_days)
+    max_sessions = len(sessions)
+
+    if sip_duration_days is not None:
+        if sip_duration_days < rebalance_days:
+            raise ValueError(
+                f"SIP duration ({sip_duration_days} days) is less than rebalance_days ({rebalance_days}); "
+                f"no SIP installments would occur."
+            )
+        duration_cutoff = start + dt.timedelta(days=sip_duration_days)
+        if duration_cutoff > calendar[-1]:
+            raise ValueError(
+                f"SIP duration of {sip_duration_days} days (until {duration_cutoff}) exceeds available "
+                f"calendar end date ({calendar[-1]}). Maximum possible duration for this data is "
+                f"{(calendar[-1] - start).days} days."
+            )
+        derived_max_sips = sip_duration_days // rebalance_days
+        if no_of_sip is not None and no_of_sip > derived_max_sips:
+            raise ValueError(
+                f"Requested SIP count ({no_of_sip}) exceeds the {derived_max_sips} installments "
+                f"possible within duration ({sip_duration_days} days) for rebalance_days={rebalance_days}."
+            )
+        if no_of_sip is None:
+            no_of_sip = derived_max_sips
+
+    if no_of_sip is not None and no_of_sip > max_sessions:
+        raise ValueError(
+            f"Requested SIP count ({no_of_sip}) exceeds the {max_sessions} available rebalance sessions "
+            f"for rebalance_days={rebalance_days} between {start} and {calendar[-1]}. "
+            f"Either reduce --no-of-sip <= {max_sessions} or decrease --rebalance-days."
+        )
 
     qty: dict[str, int] = {s: 0 for s in symbols}
     last_close: dict[str, float] = {}

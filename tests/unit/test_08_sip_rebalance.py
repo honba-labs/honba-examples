@@ -184,3 +184,49 @@ def test_time_weighted_return_handles_cash_inflow() -> None:
     )
     assert adjusted["total_return_pct"] == pytest.approx(0.0)
     assert adjusted["sharpe"] == 0.0
+
+
+def test_sip_count_exceeds_available_sessions_raises(ex) -> None:
+    days = weekdays(dt.date(2026, 6, 1), 10)
+    bars = [bar("AAA", d, 100.0) for d in days]
+
+    # 10 weekdays with rebalance_days=3 has ~3 rebalances, so sip_count=11 exceeds it
+    with pytest.raises(ValueError, match="exceeds the .* available rebalance sessions"):
+        ex.simulate(
+            bars,
+            ["AAA"],
+            start=days[0],
+            capital=100_000.0,
+            rebalance_days=3,
+            sip_amount=10_000.0,
+            no_of_sip=11,
+        )
+
+
+def test_sip_duration_validation_checks(ex) -> None:
+    days = weekdays(dt.date(2026, 6, 1), 10)
+    bars = [bar("AAA", d, 100.0) for d in days]
+
+    # Duration shorter than rebalance_days
+    with pytest.raises(ValueError, match="less than rebalance_days"):
+        ex.simulate(
+            bars,
+            ["AAA"],
+            start=days[0],
+            capital=100_000.0,
+            rebalance_days=5,
+            sip_amount=10_000.0,
+            sip_duration_days=2,
+        )
+
+    # Duration exceeding available calendar
+    with pytest.raises(ValueError, match="exceeds available calendar end date"):
+        ex.simulate(
+            bars,
+            ["AAA"],
+            start=days[0],
+            capital=100_000.0,
+            rebalance_days=3,
+            sip_amount=10_000.0,
+            sip_duration_days=100,
+        )
