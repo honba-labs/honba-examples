@@ -55,6 +55,15 @@ def test_alpha30_constituents_print_members(capsys: pytest.CaptureFixture[str]) 
     assert "Symbol" in out and "Exchange" in out and members[0].symbol in out
 
 
+def test_03_alpha30_constituents_print_members(capsys: pytest.CaptureFixture[str]) -> None:
+    module = _load("03_alpha30_constituents.py", "ex_03_a30")
+    members = module.load_alpha30()
+    module.print_members(members)
+    out = capsys.readouterr().out
+    assert f"{len(members)} instruments" in out
+    assert "Symbol" in out and "Exchange" in out and members[0].symbol in out
+
+
 def test_07_summary_is_a_metrics_table(capsys: pytest.CaptureFixture[str]) -> None:
     module = _load("07_alpha30_backtest.py", "ex07_tbl")
     cfg = {
@@ -149,4 +158,3 @@ def test_08_summary_is_a_metrics_table(capsys: pytest.CaptureFixture[str]) -> No
         "Equity curve",
     ):
         assert needle in text
-

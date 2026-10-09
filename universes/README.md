@@ -3,16 +3,38 @@
 Walk these files in order. Each step builds on the previous one and ends
 with a production-ready catalog strategy.
 
-| #  | File                                          | What you learn                                                  |
-|----|-----------------------------------------------|-----------------------------------------------------------------|
-| 01 | `01_nifty50_constituents.py`                  | Resolve a static named universe; print an InstrumentId table   |
-| 02 | `02_banknifty_constituents.py`                | Sector / thematic universes — same API, different name          |
-| 03 | `alpha30_constituents.py`                     | Nifty200 Alpha 30 seed + `load_alpha30()` helper                |
-| 04 | `04_alpha30_generic_rebalancer.py`            | Generic equal-weight rebalancer (any universe, any exchange)       |
-| 05 | `05_alpha30_custom_universe.py`               | Build and register your own InstrumentId list as a universe     |
-| 06 | `06_alpha30_equal_weight_demo.py`             | Runnable end-to-end demo of the Alpha 30 equal-weight strategy  |
-| 07 | `07_alpha30_backtest.py`                      | Honba-native backtest: next-open fills, date-aware T+N, run.json |
-| 08 | `08_alpha30_union_ewr_backtest.py`            | Hand-rolled equal-weight rebalancer (close fills, flat fee)      |
+Every example here resolves members from the universe map bundled with Honba (or
+from a local seed list), so nothing needs an adapter or the network and the output
+is deterministic. Examples 07–08 read local Parquet bars and run the reference and
+hand-rolled equal-weight backtests.
+
+## At a glance
+
+| #  | File                               | Strategy class                                   | What you learn                                                  |
+|----|------------------------------------|--------------------------------------------------|-----------------------------------------------------------------|
+| 01 | `01_nifty50_constituents.py`       | —                                                | Resolve a static named universe; print an InstrumentId table    |
+| 02 | `02_banknifty_constituents.py`     | —                                                | Sector / thematic universes — same API, different name          |
+| 03 | `03_alpha30_constituents.py`       | —                                                | Nifty200 Alpha 30 seed + `load_alpha30()` helper (`alpha30_constituents.py` alias) |
+| 04 | `04_alpha30_generic_rebalancer.py` | `UniverseEqualWeightRebalance`                   | Generic equal-weight rebalancer (any universe, any exchange)    |
+| 05 | `05_alpha30_custom_universe.py`    | `UniverseEqualWeightRebalance` (reused)          | Build and register your own InstrumentId list as a universe     |
+| 06 | `06_alpha30_equal_weight_demo.py`  | `Alpha30EqualWeightRebalance`                    | Alpha 30 specialization of generic rebalancer 04                |
+| 07 | `07_alpha30_backtest.py`           | catalog `EqualWeightRebalance` (`equal_weight`)  | Honba-native backtest: next-open fills, date-aware T+N, run.json |
+| 08 | `08_alpha30_union_ewr_backtest.py` | `Alpha30EWRExample` (hand-rolled)                | Hand-rolled equal-weight rebalancer (close fills, flat fee)      |
+
+## Running them
+
+```bash
+python universes/01_nifty50_constituents.py
+python universes/02_banknifty_constituents.py
+python universes/03_alpha30_constituents.py
+python universes/04_alpha30_generic_rebalancer.py
+python universes/05_alpha30_custom_universe.py
+python universes/06_alpha30_equal_weight_demo.py
+python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \
+    --out-dir /tmp/alpha30
+python universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
+pytest tests/unit -q -k "table_output or 08_adds_sells or 08_settlement"
+```
 
 ## 01 – 03  Core concepts
 
@@ -68,9 +90,9 @@ through `resolve_universe()`.  Plug `CUSTOM_UNIVERSE_NAME` straight into
 
 `06_alpha30_equal_weight_demo.py`
 
-Runnable end-to-end demo — equal-weight Nifty200 Alpha 30, rebalanced
-every 15 trading days.  Membership is always re-fetched from the engine
-API so index joiners/leavers are applied automatically.
+Runnable Alpha 30 specialization inheriting from `UniverseEqualWeightRebalance`
+(04), rebalanced every 15 trading days. Demonstrates how to specialize the generic
+rebalancer specifically for Alpha 30 without duplicating strategy code.
 
 ### 07 — Backtest pipeline
 
