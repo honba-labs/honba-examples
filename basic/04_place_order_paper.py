@@ -71,7 +71,7 @@ def serialize_trade(trade: Trade) -> dict[str, Any]:
 
 
 async def _run_async(adapter: str = "fake", **config: Any) -> dict[str, Any]:
-    inst = resolve_adapter(adapter, **config)
+    inst: Any = resolve_adapter(adapter, **config)
     await inst.connect()
 
     try:

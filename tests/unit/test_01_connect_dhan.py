@@ -15,6 +15,7 @@ _PATH = Path(__file__).resolve().parents[2] / "basic" / "01_connect_dhan.py"
 @pytest.fixture(scope="module")
 def example():
     spec = importlib.util.spec_from_file_location("connect_dhan", _PATH)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
