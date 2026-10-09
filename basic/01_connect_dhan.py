@@ -1,20 +1,5 @@
-"""01_connect_dhan: connect to a broker through Honba's adapter registry.
-
-An adapter is looked up by name in ``honba.adapters.registry``, connected, and asked for
-the two things a runner needs before it trades: the ``SessionInfo`` it authenticated with
-and the ``AdapterCapabilities`` that bound what it can do. The default adapter is
-``fake``: deterministic and offline, so the example runs anywhere. Point it at a real
-broker with ``--adapter dhan --config client_id=... --config access_token=...``.
-
-Everything past the adapter boundary is a Honba type; no broker wire format shows up
-here. Output is structured JSON so a research workflow or an LLM agent can consume it.
-
-Run::
-
-    python basic/01_connect_dhan.py
-    python basic/01_connect_dhan.py --out connection.json
-    python basic/01_connect_dhan.py --adapter dhan --config client_id=... --config access_token=...
-"""
+#!/usr/bin/env python3
+"""basic/01_connect_dhan: connect an adapter through the registry (default fake, offline)."""
 
 from __future__ import annotations
 
@@ -25,75 +10,83 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba.adapters.errors import AdapterNotFound
-from honba.adapters.registry import default_registry
+from honba.adapters import (
+    AdapterNotFound,
+    available_adapters,
+    register_adapter,
+    resolve_adapter,
+)
 from honba.adapters.testing import FakeAdapter
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from honba_examples.jsonable import jsonable
-
-
-def _registry():
-    registry = default_registry()
-    if "fake" not in registry.available():
-        registry.register("fake", FakeAdapter)
-    return registry
-
-
-async def _connect(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
-    adapter = _registry().create(adapter_name, **config)
-    session = await adapter.connect()
+# Ensure reference fake is registered for testing and offline development
+if "fake" not in available_adapters():
     try:
-        report = {
-            "adapter": adapter_name,
-            "connected": adapter.is_connected(),
-            "adapter_class": type(adapter).__name__,
-            "session": jsonable(session),
-            "capabilities": jsonable(adapter.capabilities()),
+        register_adapter("fake", FakeAdapter)
+    except Exception:  # noqa: BLE001, S110
+        pass
+
+
+async def _run_async(adapter: str = "fake", **config: Any) -> dict[str, Any]:
+    inst = resolve_adapter(adapter, **config)
+    session = await inst.connect()
+    caps = inst.capabilities()
+    try:
+        return {
+            "connected": inst.is_connected(),
+            "adapter": adapter,
+            "session": {
+                "user_id": session.user_id,
+                "mode": session.mode.value,
+                "accounts": list(session.accounts),
+                "expires_at": session.expires_at.isoformat() if session.expires_at else None,
+            },
+            "capabilities": {
+                "name": caps.name,
+                "exchanges": sorted(caps.exchanges),
+                "order_types": sorted(t.value for t in caps.order_types),
+                "products": sorted(p.value for p in caps.products),
+                "features": sorted(f.value for f in caps.features),
+                "time_in_force": sorted(tif.value for tif in caps.time_in_force),
+                "stream_modes": sorted(sm.value for sm in caps.stream_modes),
+            },
         }
     finally:
-        await adapter.disconnect()
-    return report
+        await inst.disconnect()
 
 
-def run(adapter: str = "fake", config: dict[str, str] | None = None) -> dict[str, Any]:
-    """Connect an adapter and return a JSON-serializable, deterministically ordered result."""
-    return asyncio.run(_connect(adapter, config or {}))
-
-
-def _parse_config(pairs: list[str]) -> dict[str, str]:
-    config: dict[str, str] = {}
-    for pair in pairs:
-        key, sep, value = pair.partition("=")
-        if not sep or not key:
-            raise SystemExit(f"--config expects KEY=VALUE, got {pair!r}")
-        config[key] = value
-    return config
+def run(adapter: str = "fake", **config: Any) -> dict[str, Any]:
+    """Connect to the named adapter, retrieve its session and capabilities, and disconnect."""
+    return asyncio.run(_run_async(adapter, **config))
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--adapter", default="fake", help="registered adapter name")
-    parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    parser = argparse.ArgumentParser(
+        description="Connect an adapter through the registry and inspect session and capabilities."
+    )
+    parser.add_argument(
+        "--adapter",
+        default="fake",
+        help="Adapter name to connect to (default: fake)",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Optional path to write the JSON result to.",
+    )
+
     args = parser.parse_args(argv)
 
     try:
-        result = run(args.adapter, _parse_config(args.config))
-    except AdapterNotFound as exc:
-        raise SystemExit(str(exc))
+        result = run(adapter=args.adapter)
+    except AdapterNotFound as err:
+        sys.exit(str(err))
 
     text = json.dumps(result, indent=2)
     if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
+        Path(args.out).write_text(text)
     print(text)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

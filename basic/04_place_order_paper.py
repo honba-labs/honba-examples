@@ -1,26 +1,5 @@
-"""04_place_order_paper: turn an OrderIntent into an OrderReport and read the books back.
-
-An ``OrderIntent`` is what the strategy wants; the ``OrderReport`` that comes back is what
-the broker says happened. A market order fills at the touch, a limit that cannot cross the
-touch rests as ``ACCEPTED`` until it is cancelled, and a broker refusal comes back as
-``status=REJECTED`` with a ``reject_reason`` - data the run journals, never an exception.
-``client_order_id`` makes placement idempotent, ``orders()`` and ``trades()`` are the day's
-books, and ``funds()`` shows the cash the fill moved. The default adapter is ``fake``:
-deterministic and offline, so the example runs anywhere; it echoes ``client_order_id`` as
-``order_id`` while a real broker returns its own id. Point it at a real broker with
-``--adapter dhan --config client_id=... --config access_token=...``.
-
-The result is JSON-serialisable and deterministic: ``adapter``, ``product``,
-``market_buy``/``resting_limit``/``rejected_buy`` (each an ``intent`` beside the ``report``
-it produced), ``idempotent_repeat`` (the same placement twice, with the book counts taken
-right after it, which prove nothing was booked twice), ``orders`` (the day's order book),
-``trades`` (its fills) and ``funds`` (cash after the fill).
-
-Run::
-
-    python basic/04_place_order_paper.py
-    python basic/04_place_order_paper.py --out paper_orders.json
-"""
+#!/usr/bin/env python3
+"""basic/04_place_order_paper: intent -> report, fills, a cancel, a reject, the books."""
 
 from __future__ import annotations
 
@@ -31,116 +10,171 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba.adapters.errors import AdapterNotFound
-from honba.adapters.models import Product
-from honba.adapters.registry import default_registry
+from honba.adapters import (
+    OrderReport,
+    Product,
+    available_adapters,
+    register_adapter,
+    resolve_adapter,
+)
 from honba.adapters.testing import FakeAdapter
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderIntent
+from honba.domain.trade import Trade
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from honba_examples.jsonable import jsonable
-
-#: The two instruments the fake adapter serves; a real run picks its own.
-_RELIANCE = InstrumentId("RELIANCE", "NSE")
-_TCS = InstrumentId("TCS", "NSE")
-
-
-def _registry():
-    registry = default_registry()
-    if "fake" not in registry.available():
-        registry.register("fake", FakeAdapter)
-    return registry
-
-
-async def _place_orders(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
-    adapter = _registry().create(adapter_name, **config)
-    await adapter.connect()
+# Ensure reference fake is registered for testing and offline development
+if "fake" not in available_adapters():
     try:
-        market_intent = OrderIntent.market_buy(_RELIANCE, 10)
-        first = await adapter.place_order(
+        register_adapter("fake", FakeAdapter)
+    except Exception:  # noqa: BLE001, S110
+        pass
+
+
+def serialize_intent(intent: OrderIntent) -> dict[str, Any]:
+    return {
+        "instrument_id": {
+            "symbol": intent.instrument_id.symbol,
+            "exchange": intent.instrument_id.exchange,
+        },
+        "side": intent.side.value,
+        "quantity": intent.quantity,
+        "order_type": intent.order_type.value,
+        "price": intent.price,
+    }
+
+
+def serialize_report(report: OrderReport) -> dict[str, Any]:
+    return {
+        "order_id": report.order_id,
+        "status": report.status.value,
+        "product": report.product.value if report.product else None,
+        "quantity": report.quantity,
+        "filled_quantity": report.filled_quantity,
+        "average_price": report.average_price,
+        "price": report.price,
+        "reject_reason": report.reject_reason,
+        "ts_event": report.ts_event,
+    }
+
+
+def serialize_trade(trade: Trade) -> dict[str, Any]:
+    return {
+        "order_id": trade.order_id,
+        "instrument_id": {
+            "symbol": trade.instrument_id.symbol,
+            "exchange": trade.instrument_id.exchange,
+        },
+        "side": trade.side.value,
+        "quantity": trade.quantity,
+        "price": trade.price,
+    }
+
+
+async def _run_async(adapter: str = "fake", **config: Any) -> dict[str, Any]:
+    inst = resolve_adapter(adapter, **config)
+    await inst.connect()
+
+    try:
+        reliance = InstrumentId("RELIANCE", "NSE")
+        tcs = InstrumentId("TCS", "NSE")
+
+        # 1. Market buy that fills at the ask
+        market_intent = OrderIntent.market_buy(reliance, 10.0)
+        fill = await inst.place_order(
             market_intent, product=Product.DELIVERY, client_order_id="reliance-buy"
         )
-        repeat = await adapter.place_order(
+
+        # 2. Idempotent repeat with same client_order_id
+        repeat_fill = await inst.place_order(
             market_intent, product=Product.DELIVERY, client_order_id="reliance-buy"
         )
-        idempotent = {
+        orders_snapshot = await inst.orders()
+        trades_snapshot = await inst.trades()
+        idempotent_repeat = {
             "client_order_id": "reliance-buy",
-            "same_report": jsonable(first) == jsonable(repeat),
-            "order_count": len(await adapter.orders()),
-            "trade_count": len(await adapter.trades()),
+            "same_report": repeat_fill == fill,
+            "order_count": len(orders_snapshot),
+            "trade_count": len(trades_snapshot),
         }
 
-        limit_intent = OrderIntent.limit_buy(_RELIANCE, 5, 2400.0)
-        resting = await adapter.place_order(
+        # 3. Non-marketable limit rests then cancels
+        limit_intent = OrderIntent.limit_buy(reliance, 1.0, 2400.0)
+        accepted = await inst.place_order(
             limit_intent, product=Product.DELIVERY, client_order_id="reliance-limit"
         )
-        await adapter.cancel_order(resting.order_id)
-        cancelled = await adapter.order_status(resting.order_id)
+        await inst.cancel_order(accepted.order_id)
+        cancelled = await inst.order_status(accepted.order_id)
 
-        oversized_intent = OrderIntent.market_buy(_TCS, 1000)
-        rejected = await adapter.place_order(
-            oversized_intent, product=Product.DELIVERY, client_order_id="tcs-oversized"
+        # 4. Oversized buy rejected as data, not an exception
+        rejected_intent = OrderIntent.market_buy(tcs, 1000.0)
+        rejected = await inst.place_order(
+            rejected_intent, product=Product.DELIVERY, client_order_id="tcs-oversized"
         )
 
+        # 5. Orders, trades, funds
+        orders = await inst.orders()
+        trades = await inst.trades()
+        funds = await inst.funds()
+
         return {
-            "adapter": adapter.name,
-            "product": Product.DELIVERY.value,
-            "market_buy": {"intent": jsonable(market_intent), "report": jsonable(first)},
-            "idempotent_repeat": idempotent,
-            "resting_limit": {
-                "intent": jsonable(limit_intent),
-                "accepted": jsonable(resting),
-                "cancelled": jsonable(cancelled),
+            "adapter": adapter,
+            "product": "delivery",
+            "market_buy": {
+                "intent": serialize_intent(market_intent),
+                "report": serialize_report(fill),
             },
-            "rejected_buy": {"intent": jsonable(oversized_intent), "report": jsonable(rejected)},
-            "orders": jsonable(await adapter.orders()),
-            "trades": jsonable(await adapter.trades()),
-            "funds": jsonable(await adapter.funds()),
+            "idempotent_repeat": idempotent_repeat,
+            "resting_limit": {
+                "intent": serialize_intent(limit_intent),
+                "accepted": serialize_report(accepted),
+                "cancelled": serialize_report(cancelled),
+            },
+            "rejected_buy": {
+                "intent": serialize_intent(rejected_intent),
+                "report": serialize_report(rejected),
+            },
+            "orders": [serialize_report(o) for o in orders],
+            "trades": [serialize_trade(t) for t in trades],
+            "funds": {
+                "available_cash": funds.available_cash,
+                "opening_balance": funds.opening_balance,
+                "currency": funds.currency,
+                "margin_used": funds.margin_used,
+            },
         }
     finally:
-        await adapter.disconnect()
+        await inst.disconnect()
 
 
-def run(adapter: str = "fake", config: dict[str, str] | None = None) -> dict[str, Any]:
-    """Place one order of each outcome, then read the books back: a JSON-serializable,
-    deterministic result (shape documented in the module docstring)."""
-    return asyncio.run(_place_orders(adapter, config or {}))
-
-
-def _parse_config(pairs: list[str]) -> dict[str, str]:
-    config: dict[str, str] = {}
-    for pair in pairs:
-        key, sep, value = pair.partition("=")
-        if not sep or not key:
-            raise SystemExit(f"--config expects KEY=VALUE, got {pair!r}")
-        config[key] = value
-    return config
+def run(adapter: str = "fake", **config: Any) -> dict[str, Any]:
+    """Execute a paper order sequence and return the intents, reports, and books."""
+    return asyncio.run(_run_async(adapter, **config))
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--adapter", default="fake", help="registered adapter name")
-    parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    parser = argparse.ArgumentParser(
+        description="Place a sequence of paper orders and record the lifecycle results."
+    )
+    parser.add_argument(
+        "--adapter",
+        default="fake",
+        help="Adapter name (default: fake)",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Optional path to write the JSON result to.",
+    )
+
     args = parser.parse_args(argv)
+    result = run(adapter=args.adapter)
 
-    try:
-        result = run(args.adapter, _parse_config(args.config))
-    except AdapterNotFound as exc:
-        raise SystemExit(str(exc))
-
-    text = json.dumps(result, indent=2)
+    text = json.dumps(result, indent=2) + "\n"
     if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+        Path(args.out).write_text(text)
+    sys.stdout.write(text)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
