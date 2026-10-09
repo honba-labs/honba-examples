@@ -1,24 +1,29 @@
 # 07 Mutual Funds – NAV handling and SIP backtests
 
-Mutual fund examples use the AMFI NAV feed (`honba_examples.amfi`) and Honba's
-mutual-fund instrument type (`InstrumentKind.MUTUAL_FUND`). All runs are offline
-with recorded NAV fixtures.
+Mutual-fund examples use the AMFI NAV feed (`honba_examples.amfi`) and Honba's
+mutual-fund instrument type (`InstrumentKind.MUTUAL_FUND`). They are data and
+analytics workflows, not trading strategies — none defines a `Strategy` subclass.
+All runs are offline and deterministic, reading recorded NAV fixtures from the
+local Parquet store; no network or wall clock is involved. Catalog equivalents
+live in `honba-strategies/mutual_funds/*`.
 
-| #  | File                              | What you learn                                                          |
-|----|-----------------------------------|-------------------------------------------------------------------------|
-| 01 | `01_fetch_nav.py`                 | Download/load AMFI NAV history; resample to daily; handle missing days  |
-| 02 | `02_sip_backtest.py`              | SIP simulation: fixed-date monthly investment, units at NAV, XIRR       |
-| 03 | `03_category_analysis.py`         | Category-level stats: rolling returns, risk metrics, quartile ranking   |
-| 04 | `04_portfolio_optimization.py`    | Mean-variance optimization on fund NAVs; constraint-aware allocation    |
+## At a glance
+
+| #  | File                            | Strategy / focus | What you learn                                                         |
+|----|---------------------------------|------------------|------------------------------------------------------------------------|
+| 01 | `01_fetch_nav.py`               | —                | Download/load AMFI NAV history; resample to daily; handle missing days |
+| 02 | `02_sip_backtest.py`            | —                | SIP simulation: fixed-date monthly investment, units at NAV, XIRR      |
+| 03 | `03_category_analysis.py`       | —                | Category-level stats: rolling returns, risk metrics, quartile ranking  |
+| 04 | `04_portfolio_optimization.py`  | —                | Mean-variance optimization on fund NAVs; constraint-aware allocation   |
 
 ## The AMFI NAV feed
 
 `honba_examples.amfi.AmfiNavLoader` provides:
-- `load(scheme_code: str) -> list[NavPoint]` — NAV series from local Parquet or AMFI CSV
-- `load_category(category: str) -> dict[str, list[NavPoint]]` — all schemes in a category
-- `latest_nav(scheme_code: str) -> NavPoint` — most recent NAV (for live SIP)
+- `load(scheme_code: str, start, end) -> list[NavPoint]` — NAV series from the local Parquet store
+- `load_category(category: str) -> dict[str, list[NavPoint]]` — schemes in a category (loader stub: returns `{}` today)
+- `latest_nav(scheme_code: str) -> NavPoint | None` — most recent NAV (for live SIP)
 
-Each `NavPoint` has `date: dt.date`, `nav: float`, `scheme_code: str`, `scheme_name: str`.
+Each `NavPoint` has `date: dt.date` and `nav: float`.
 
 ## Running them
 

@@ -1,12 +1,15 @@
-"""mutual_funds/01_fetch_nav: Download and explore AMFI NAV history.
+"""mutual_funds/01_fetch_nav: Load and explore AMFI NAV history.
 
-Uses `honba_examples.amfi.AmfiNavLoader` to fetch NAV data for a scheme.
-Demonstrates loading, resampling, and handling missing days.
+Uses `honba_examples.amfi.AmfiNavLoader` to read NAV series for a scheme from the
+local Parquet store, resample to daily bars, and surface missing days. Teaches the
+NAV-as-bar model (`open=high=low=close=nav`, zero volume) the other mutual-fund
+examples build on. There is no `Strategy` here — runs are offline and deterministic
+on recorded NAV fixtures.
 
 Run::
 
     python mutual_funds/01_fetch_nav.py --scheme 120503 --start 2023-01-01 --end 2024-12-31
-    python mutual_funds/01_fetch_nav.py --category "Equity:Large Cap" --latest
+    python mutual_funds/01_fetch_nav.py --scheme 120503 --latest
 """
 
 from __future__ import annotations

@@ -1,7 +1,9 @@
 """mutual_funds/03_category_analysis: Category-level stats and ranking.
 
-Loads all schemes in an AMFI category, computes rolling returns, risk metrics,
-and quartile rankings. Demonstrates batch NAV loading and metric computation.
+Loads the schemes of an AMFI category, computes rolling CAGR, drawdown and Sharpe
+metrics, and buckets schemes into quartiles. Teaches batch NAV loading, metric
+computation and universe ranking. No `Strategy` subclass — runs are offline and
+deterministic on recorded NAV fixtures.
 
 Run::
 

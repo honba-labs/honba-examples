@@ -1,11 +1,15 @@
 """mutual_funds/04_portfolio_optimization: Mean-variance optimization on fund NAVs.
 
-Loads NAV history for multiple schemes, computes expected returns and covariance,
-runs mean-variance optimization with constraints (max weight, min allocation).
+Loads NAV history for several schemes, aligns the series, estimates annualized
+expected returns and covariance, then maximises w·mu - (lambda/2)·w'·cov·w with
+per-fund weight bounds via SLSQP. Teaches constraint-aware allocation from NAV
+data. No `Strategy` subclass — runs are offline and deterministic on recorded NAV
+fixtures.
 
 Run::
 
-    python mutual_funds/04_portfolio_optimization.py --schemes 120503,120504,120505 --start 2022-01-01
+    python mutual_funds/04_portfolio_optimization.py \
+        --schemes 120503,120504,120505 --start 2022-01-01
 """
 
 from __future__ import annotations

@@ -1,7 +1,11 @@
 """mutual_funds/02_sip_backtest: SIP simulation with fixed-date monthly investment.
 
-Simulates a Systematic Investment Plan: invest a fixed amount on a fixed
-calendar date each month, buy units at that day's NAV, track units and XIRR.
+Simulates a Systematic Investment Plan: invest a fixed amount on a fixed calendar
+date each month, buy units at that day's NAV (falling back to the nearest trading
+day), and track units, invested amount, current value and return. Teaches the
+units-at-NAV accounting behind SIP returns; the XIRR helper lives in
+`honba_examples.metrics`. No `Strategy` subclass — runs are offline and
+deterministic on recorded NAV fixtures.
 
 Run::
 
