@@ -1,7 +1,10 @@
-"""options/04_backtest_iron_condor: Backtest iron condor (4-leg credit spread).
+"""options/04_backtest_iron_condor: Backtest an iron condor (4-leg credit spread).
 
-Sell OTM put spread + sell OTM call spread. Max profit = net credit.
-Max loss = spread width - credit. Profit zone between short strikes.
+Strategy: sell an OTM put spread and an OTM call spread, i.e. four legs total.
+Teaches a defined-risk, range-bound payoff: max profit is the net credit, max loss
+is the wider spread width minus the credit, with profit between the short strikes.
+Legs are hand-rolled here — no `Strategy` subclass; runs are offline and
+deterministic.
 
 Run::
 

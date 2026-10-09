@@ -1,16 +1,23 @@
 # 08 Options – chain, Greeks, and strategy backtests
 
 Options examples use Honba's option chain (`OptionChain`, `OptionContract`) and
-Greeks engine (`honba.analytics.greeks`). All examples run offline with synthetic
-or recorded chain data.
+Greeks engine (`honba.analytics.greeks`). They hand-roll their legs directly —
+there is no `Strategy` subclass. All runs are offline and deterministic, on
+synthetic or recorded chain data by default; no network or wall clock is involved.
+Catalog equivalents live in `honba-strategies/options/*`.
 
-| #  | File                                 | What you learn                                                         |
-|----|--------------------------------------|------------------------------------------------------------------------|
-| 01 | `01_option_chain.py`                 | Load/construct option chain; filter by expiry, strike, moneyness       |
-| 02 | `02_greeks_calculation.py`           | Black-Scholes Greeks (delta, gamma, theta, vega, rho) per contract     |
-| 03 | `03_backtest_straddle.py`            | Backtest long straddle: buy ATM call+put, hold to expiry               |
-| 04 | `04_backtest_iron_condor.py`         | Backtest iron condor: 4-leg credit spread, P&L zones                   |
-| 05 | `05_expiry_day_strategy.py`          | Intraday expiry-day strategy: gamma scalping / theta decay capture     |
+## At a glance
+
+| #  | File                            | Strategy / focus      | What you learn                                                      |
+|----|---------------------------------|-----------------------|---------------------------------------------------------------------|
+| 01 | `01_option_chain.py`            | —                     | Load/construct option chain; filter by expiry, strike, moneyness    |
+| 02 | `02_greeks_calculation.py`      | —                     | Black-Scholes Greeks (delta, gamma, theta, vega, rho) per contract  |
+| 03 | `03_backtest_straddle.py`       | Long ATM straddle     | Backtest long straddle: buy ATM call+put, hold to expiry            |
+| 04 | `04_backtest_iron_condor.py`    | Iron condor           | Backtest iron condor: 4-leg credit spread, P&L zones                |
+| 05 | `05_expiry_day_strategy.py`     | Expiry-day scalp      | Intraday expiry-day strategy: gamma scalping / theta decay capture  |
+
+Catalog equivalents: `options/nifty_short_straddle`, `options/banknifty_iron_condor`,
+`options/expiry_day_scalp`.
 
 ## Option chain structure
 
@@ -31,6 +38,9 @@ python options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
 python options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
 pytest tests/unit -q -k "option or greeks or straddle or iron_condor"
 ```
+
+> There are no dedicated option unit tests in `tests/unit` yet; the `-k` filter
+> above is a placeholder that also picks up these examples' names once tests land.
 
 ## Key concepts
 

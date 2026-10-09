@@ -1,7 +1,9 @@
 """options/01_option_chain: Load and explore option chain data.
 
-Constructs a synthetic option chain for an index, filters by expiry/strike/moneyness,
-and prints a summary table.
+Constructs a synthetic option chain for an index, filters by expiry, strike and
+moneyness, and prints a summary table. Teaches the `OptionChain`/`OptionContract`
+model used by the option strategy examples. No `Strategy` subclass — runs are
+offline and deterministic on a synthetic chain.
 
 Run::
 

@@ -1,8 +1,10 @@
 """options/05_expiry_day_strategy: Intraday expiry-day gamma/theta strategy.
 
-On expiry day, gamma spikes near ATM while theta accelerates. This example
-simulates a delta-neutral gamma scalping strategy: straddle at open, rebalance
-delta intraday, capture theta decay.
+Strategy: on expiry day gamma spikes near ATM while theta accelerates, so this
+example simulates a delta-neutral gamma-scalping position — straddle at the open,
+rebalance delta intraday, and capture theta decay. Legs are hand-rolled here — no
+`Strategy` subclass; the intraday path is a seeded GBM, so runs are offline and
+deterministic.
 
 Run::
 

@@ -1,7 +1,9 @@
-"""options/03_backtest_straddle: Backtest long ATM straddle.
+"""options/03_backtest_straddle: Backtest a long ATM straddle.
 
-Buy ATM call + put at entry, hold to expiry, compute P&L vs underlying moves.
-P&L zones: breakeven at strike ± total_premium.
+Strategy: buy the ATM call and put at entry, hold to expiry, and compute P&L across
+underlying moves. Teaches a long-volatility payoff: max loss is the premium paid,
+breakeven at strike ± total premium, unlimited upside. Legs are hand-rolled here —
+no `Strategy` subclass; runs are offline and deterministic.
 
 Run::
 

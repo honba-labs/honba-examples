@@ -1,7 +1,9 @@
 """options/02_greeks_calculation: Black-Scholes Greeks per contract.
 
-Computes delta, gamma, theta, vega, rho for European options using
-`honba.analytics.greeks.bs_greeks`. Demonstrates Greeks surface across strikes.
+Computes delta, gamma, theta, vega and rho for European options with
+`honba.analytics.greeks.bs_greeks`, and builds the Greeks surface across strikes.
+Teaches how each Greek varies with moneyness around an ATM reference. No `Strategy`
+subclass — runs are offline and deterministic.
 
 Run::
 
