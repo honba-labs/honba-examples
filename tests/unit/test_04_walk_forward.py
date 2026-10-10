@@ -26,11 +26,20 @@ def test_run_returns_windows(example):
     assert "windows" in result
     assert len(result["windows"]) > 0
     for w in result["windows"]:
-        assert set(w) == {"window", "train_range", "test_range", "best_fast", "best_slow", "train_score", "test_score"}
+        assert set(w) == {
+            "window",
+            "train_range",
+            "test_range",
+            "best_fast",
+            "best_slow",
+            "train_score",
+            "test_score",
+        }
 
 
 def test_deterministic_across_two_runs(example):
     import json as _json
+
     first = _json.dumps(example.run(), sort_keys=True, default=str)
     second = _json.dumps(example.run(), sort_keys=True, default=str)
     assert first == second

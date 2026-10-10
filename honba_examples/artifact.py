@@ -79,8 +79,7 @@ def write_run_json(
         body = str(run_result)
 
     u_symbols = [
-        getattr(u, "symbol", u) if not isinstance(u, dict) else u.get("symbol", u)
-        for u in universe
+        getattr(u, "symbol", u) if not isinstance(u, dict) else u.get("symbol", u) for u in universe
     ]
     b_digest = bars_digest(bars)
     input_hash = canonical_hash({"config": dict(config), "universe": u_symbols, "bars": b_digest})
@@ -102,7 +101,7 @@ def write_run_json(
         artifact["paths"] = dict(paths)
 
     path = out_dir / "run.json"
-    path.write_text(json.dumps(artifact, indent=2, sort_keys=False, default=str) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(artifact, indent=2, sort_keys=False, default=str) + "\n", encoding="utf-8"
+    )
     return artifact
-
-

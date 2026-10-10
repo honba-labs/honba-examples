@@ -91,11 +91,14 @@ def _backtest(bars_list: list, fast: int, slow: int) -> dict[str, Any]:
 
     # Format for curve_metrics
     from datetime import datetime, timezone
+
     metric_curve = [
         {
-            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=timezone.utc).date().isoformat(),
+            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=timezone.utc)
+            .date()
+            .isoformat(),
             "value": c["value"],
-            "cash": c["cash"]
+            "cash": c["cash"],
         }
         for c in curve
     ]
@@ -119,12 +122,17 @@ def run(
     workers: int = 4,
 ) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     # Generate parameter grid
-    params = [(f, s) for f in range(fast_range[0], fast_range[1] + 1, 2)
-              for s in range(slow_range[0], slow_range[1] + 1, 5)
-              if f < s]
+    params = [
+        (f, s)
+        for f in range(fast_range[0], fast_range[1] + 1, 2)
+        for s in range(slow_range[0], slow_range[1] + 1, 5)
+        if f < s
+    ]
 
     # Concurrent execution
     results = []
@@ -148,7 +156,12 @@ def run(
             best_ret = r["return_pct"]
 
     return {
-        "config": {"bars": bars, "fast_range": fast_range, "slow_range": slow_range, "workers": workers},
+        "config": {
+            "bars": bars,
+            "fast_range": fast_range,
+            "slow_range": slow_range,
+            "workers": workers,
+        },
         "total_combinations": len(params),
         "best_by_sharpe": best_sharpe,
         "pareto_frontier": pareto,

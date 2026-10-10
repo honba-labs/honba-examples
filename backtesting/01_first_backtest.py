@@ -69,7 +69,9 @@ def run(
     capital: float = 100_000.0,
 ) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     strat = SmaBacktest(fast=fast, slow=slow)
 

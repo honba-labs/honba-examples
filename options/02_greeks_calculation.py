@@ -47,14 +47,16 @@ def run(
     surface = []
     for s in strikes:
         g = bs_greeks(kind_enum, spot, s, tau, iv, r)
-        surface.append({
-            "strike": s,
-            "delta": g.delta,
-            "gamma": g.gamma,
-            "theta": g.theta,
-            "vega": g.vega,
-            "rho": g.rho,
-        })
+        surface.append(
+            {
+                "strike": s,
+                "delta": g.delta,
+                "gamma": g.gamma,
+                "theta": g.theta,
+                "vega": g.vega,
+                "rho": g.rho,
+            }
+        )
 
     return {
         "config": {

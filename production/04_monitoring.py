@@ -66,24 +66,24 @@ def generate_metrics() -> str:
     orders_sent = random.randint(0, 50)
     orders_filled = random.randint(0, orders_sent)
     orders_rejected = orders_sent - orders_filled
-    lines.append(f'honba_orders_sent_total {orders_sent}')
-    lines.append(f'honba_orders_filled_total {orders_filled}')
-    lines.append(f'honba_orders_rejected_total {orders_rejected}')
+    lines.append(f"honba_orders_sent_total {orders_sent}")
+    lines.append(f"honba_orders_filled_total {orders_filled}")
+    lines.append(f"honba_orders_rejected_total {orders_rejected}")
 
     # Position drift (bps)
     drift_bps = random.uniform(-50, 50)
-    lines.append(f'honba_position_drift_bps {drift_bps:.2f}')
+    lines.append(f"honba_position_drift_bps {drift_bps:.2f}")
 
     # P&L
     pnl = random.uniform(-10000, 10000)
-    lines.append(f'honba_pnl_rupees {pnl:.2f}')
+    lines.append(f"honba_pnl_rupees {pnl:.2f}")
 
     # Capital utilization
     utilization = random.uniform(0.3, 0.9)
-    lines.append(f'honba_capital_utilization_pct {utilization:.2f}')
+    lines.append(f"honba_capital_utilization_pct {utilization:.2f}")
 
     # Session uptime
-    lines.append(f'honba_uptime_seconds {int(time.time())}')
+    lines.append(f"honba_uptime_seconds {int(time.time())}")
 
     return "\n".join(lines) + "\n"
 

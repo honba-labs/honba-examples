@@ -22,7 +22,13 @@ def example():
 
 def test_run_returns_sweep_results(example):
     result = example.run(bars=60, workers=2)
-    assert set(result) == {"config", "total_combinations", "best_by_sharpe", "pareto_frontier", "all"}
+    assert set(result) == {
+        "config",
+        "total_combinations",
+        "best_by_sharpe",
+        "pareto_frontier",
+        "all",
+    }
     assert result["total_combinations"] > 0
     assert "fast" in result["best_by_sharpe"]
     assert "slow" in result["best_by_sharpe"]
@@ -35,6 +41,7 @@ def test_pareto_frontier_non_empty(example):
 
 def test_deterministic_across_two_runs(example):
     import json as _json
+
     first = _json.dumps(example.run(workers=2), sort_keys=True, default=str)
     second = _json.dumps(example.run(workers=2), sort_keys=True, default=str)
     assert first == second

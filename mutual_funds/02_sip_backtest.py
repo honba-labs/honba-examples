@@ -80,15 +80,17 @@ def run(
         units = monthly / nav
         total_units += units
         total_invested += monthly
-        legs.append({
-            "sip_date": sip_date.isoformat(),
-            "effective_date": effective_date.isoformat(),
-            "nav": nav,
-            "units": units,
-            "amount": monthly,
-            "total_units": total_units,
-            "total_invested": total_invested,
-        })
+        legs.append(
+            {
+                "sip_date": sip_date.isoformat(),
+                "effective_date": effective_date.isoformat(),
+                "nav": nav,
+                "units": units,
+                "amount": monthly,
+                "total_units": total_units,
+                "total_invested": total_invested,
+            }
+        )
 
     final_nav = nav_points[-1].nav if nav_points else 0.0
     current_value = total_units * final_nav

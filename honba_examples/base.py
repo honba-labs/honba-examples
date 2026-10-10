@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from honba.domain.bar import Bar
-from honba.screener.coverage import DateInterval
 from honba.domain.instrument import InstrumentId
+from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.output import OutputFormat, OutputOptions, add_output_args, resolve_output
@@ -216,6 +216,7 @@ def format_timestamp(ts: int) -> str:
         return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).strftime("%Y-%m-%d")
     except (ValueError, OSError):
         return "?"
+
 
 def get_store(data_dir: Path | None = None) -> ParquetBarStore:
     """Parquet bar store at ``data_dir``, else the workspace data root found from this repo."""

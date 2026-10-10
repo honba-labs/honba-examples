@@ -37,6 +37,7 @@ def test_buy_and_sell_costs_differ_because_of_stt(example):
 
 def test_deterministic_across_two_runs(example):
     import json as _json
+
     first = _json.dumps(example.run(), sort_keys=True, default=str)
     second = _json.dumps(example.run(), sort_keys=True, default=str)
     assert first == second

@@ -75,7 +75,9 @@ def run(
     import datetime as dt
 
     start = dt.date(2026, 1, 1)
-    bars_list = [bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     strat = SmaCrossover(fast=fast, slow=slow, quantity=quantity)
     result = replay(strat, bars_list)

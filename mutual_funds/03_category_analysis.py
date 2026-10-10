@@ -88,18 +88,20 @@ def run(
         mdd = max_drawdown(curve) if len(curve) > 1 else 0.0
         sharpe = sharpe_ratio(curve, capital=100_000.0) if len(curve) > 2 else 0.0
 
-        results.append({
-            "scheme_code": scheme_code,
-            "scheme_name": nav_points[0].scheme_name if nav_points else "",
-            "nav_count": len(nav_points),
-            "cagr_1y": cagr_1y,
-            "cagr_3y": cagr_3y,
-            "cagr_5y": cagr_5y,
-            "max_drawdown_pct": mdd,
-            "sharpe": sharpe,
-            "mean_rolling_cagr": statistics.mean(rets) if rets else 0.0,
-            "std_rolling_cagr": statistics.stdev(rets) if len(rets) > 1 else 0.0,
-        })
+        results.append(
+            {
+                "scheme_code": scheme_code,
+                "scheme_name": nav_points[0].scheme_name if nav_points else "",
+                "nav_count": len(nav_points),
+                "cagr_1y": cagr_1y,
+                "cagr_3y": cagr_3y,
+                "cagr_5y": cagr_5y,
+                "max_drawdown_pct": mdd,
+                "sharpe": sharpe,
+                "mean_rolling_cagr": statistics.mean(rets) if rets else 0.0,
+                "std_rolling_cagr": statistics.stdev(rets) if len(rets) > 1 else 0.0,
+            }
+        )
 
     # Rank by 3y CAGR, then Sharpe
     results.sort(key=lambda x: (-x["cagr_3y"], -x["sharpe"]))

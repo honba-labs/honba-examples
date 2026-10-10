@@ -27,7 +27,7 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize  # pyright: ignore[reportMissingImports]
 
 from honba_examples.amfi import AmfiNavLoader
 
@@ -136,7 +136,9 @@ def run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    parser.add_argument("--schemes", type=lambda s: s.split(","), default=["120503", "120504", "120505"])
+    parser.add_argument(
+        "--schemes", type=lambda s: s.split(","), default=["120503", "120504", "120505"]
+    )
     parser.add_argument("--start", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--end", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--max-weight", type=float, default=0.5)

@@ -39,5 +39,3 @@ def resolve_settlement_days(
             return int(days), src
         except (ImportError, AttributeError, ValueError, TypeError):
             return 1, src
-
-

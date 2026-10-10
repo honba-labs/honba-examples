@@ -263,7 +263,11 @@ class Alpha30EWRExample(HonbaExample):
             print(f"[Data] missing bars for {len(missing)}: {', '.join(missing)}")
 
         settlement_days = self.resolve_settlement_days()
-        corpus = float(self.initial_corpus if self.initial_corpus is not None else (self.initial_capital if self.initial_capital is not None else STARTING_CAPITAL))
+        corpus = float(
+            self.initial_corpus
+            if self.initial_corpus is not None
+            else (self.initial_capital if self.initial_capital is not None else STARTING_CAPITAL)
+        )
         sip_duration_days = parse_duration_to_days(self.duration, start_date=self.start_date)
 
         result = simulate(

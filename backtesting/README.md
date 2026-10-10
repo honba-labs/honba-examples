@@ -23,6 +23,7 @@ from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 from honba_examples.metrics import curve_metrics
 
+
 class MyStrategy(Strategy):
     name = "my_strategy"
     warmup_bars = 30
@@ -43,9 +44,14 @@ class MyStrategy(Strategy):
         elif fast_val < slow_val and position >= 0 and position > 0:
             self.sell(bar.instrument_id, position)
 
+
 # Run with synthetic bars
 from tests.synthetic import bar as synth_bar, weekdays
-bars = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays(dt.date(2026, 1, 1), 60))]
+
+bars = [
+    synth_bar("RELIANCE", d, 2500.0 + i * 0.5)
+    for i, d in enumerate(weekdays(dt.date(2026, 1, 1), 60))
+]
 result = replay(MyStrategy(), bars)
 ```
 

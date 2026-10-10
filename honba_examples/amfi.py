@@ -158,9 +158,12 @@ class AmfiNavLoader:
 
         self._store = get_store(data_dir)
 
-    def load(self, scheme: str, start: dt.date | None = None, end: dt.date | None = None) -> list[NavPoint]:
+    def load(
+        self, scheme: str, start: dt.date | None = None, end: dt.date | None = None
+    ) -> list[NavPoint]:
         """Load NAV points for a single scheme."""
         from honba.screener.coverage import DateInterval
+
         inst = InstrumentId(symbol=scheme, exchange=EXCHANGE)
         start_d = start or dt.date(2000, 1, 1)
         end_d = end or dt.date(2099, 1, 1)
@@ -174,7 +177,9 @@ class AmfiNavLoader:
             for b in bars
         ]
 
-    def load_category(self, category: str, start: dt.date | None = None, end: dt.date | None = None) -> dict[str, list[NavPoint]]:
+    def load_category(
+        self, category: str, start: dt.date | None = None, end: dt.date | None = None
+    ) -> dict[str, list[NavPoint]]:
         """Load all schemes in an AMFI category.
 
         Note: This requires a category mapping file. For now returns empty dict

@@ -23,6 +23,7 @@ Create 3 new modules under `honba-examples/honba_examples/`. Add unit tests for 
 from __future__ import annotations
 from typing import Any, Tuple
 
+
 def resolve_settlement_days(
     exchange: str | None,
     as_of,
@@ -44,7 +45,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-def load_named(name: str, strategies_dir: Path | None = None, search_from: Path | None = None) -> Any:
+
+def load_named(
+    name: str, strategies_dir: Path | None = None, search_from: Path | None = None
+) -> Any:
     """Load a named catalog strategy (honba.strategies.loader.load_catalog_strategy/find_catalog)."""
 ```
 
@@ -61,7 +65,9 @@ import datetime as dt
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Tuple
 
+
 def bars_digest(bars: Sequence[Any]) -> str: ...
+
 
 def resolve_window(
     test_start: dt.date,

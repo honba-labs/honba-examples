@@ -24,13 +24,15 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.instrument import InstrumentId, InstrumentKind
+from honba.domain.instrument import InstrumentId
 from honba.domain.option import OptionChain, OptionContract, OptionKind, OptionStyle
 
 __all__ = ["main", "run"]
 
 
-def _synthetic_chain(underlying: str, expiry: dt.date, spot: float = 24000.0, step: float = 50.0) -> OptionChain:
+def _synthetic_chain(
+    underlying: str, expiry: dt.date, spot: float = 24000.0, step: float = 50.0
+) -> OptionChain:
     """Create a synthetic option chain around ATM."""
     iid = InstrumentId(symbol=underlying, exchange="NSE")
     contracts = []
@@ -46,19 +48,21 @@ def _synthetic_chain(underlying: str, expiry: dt.date, spot: float = 24000.0, st
             mid = intrinsic + time_val
             iv = 0.15 + abs(offset) * 0.005  # smile
 
-            contracts.append(OptionContract(
-                instrument_id=iid,
-                expiry=expiry,
-                strike=strike,
-                kind=kind,
-                style=OptionStyle.EUROPEAN,
-                bid=mid - 1.0,
-                ask=mid + 1.0,
-                mid=mid,
-                iv=iv,
-                open_interest=1000 + abs(offset) * 500,
-                volume=500 + abs(offset) * 200,
-            ))
+            contracts.append(
+                OptionContract(
+                    instrument_id=iid,
+                    expiry=expiry,
+                    strike=strike,
+                    kind=kind,
+                    style=OptionStyle.EUROPEAN,
+                    bid=mid - 1.0,
+                    ask=mid + 1.0,
+                    mid=mid,
+                    iv=iv,
+                    open_interest=1000 + abs(offset) * 500,
+                    volume=500 + abs(offset) * 200,
+                )
+            )
 
     return OptionChain(underlying=iid, expiry=expiry, spot=spot, contracts=contracts)
 
@@ -95,14 +99,22 @@ def run(
     strikes = sorted({c.strike for c in contracts})
     summary = []
     for strike in strikes:
-        call = next((c for c in contracts if c.kind == OptionKind.CALL and c.strike == strike), None)
+        call = next(
+            (c for c in contracts if c.kind == OptionKind.CALL and c.strike == strike), None
+        )
         put = next((c for c in contracts if c.kind == OptionKind.PUT and c.strike == strike), None)
-        summary.append({
-            "strike": strike,
-            "moneyness": _moneyness(OptionKind.CALL, strike, spot) if call else _moneyness(OptionKind.PUT, strike, spot),
-            "call": {"mid": call.mid, "iv": call.iv, "oi": call.open_interest} if call else None,
-            "put": {"mid": put.mid, "iv": put.iv, "oi": put.open_interest} if put else None,
-        })
+        summary.append(
+            {
+                "strike": strike,
+                "moneyness": _moneyness(OptionKind.CALL, strike, spot)
+                if call
+                else _moneyness(OptionKind.PUT, strike, spot),
+                "call": {"mid": call.mid, "iv": call.iv, "oi": call.open_interest}
+                if call
+                else None,
+                "put": {"mid": put.mid, "iv": put.iv, "oi": put.open_interest} if put else None,
+            }
+        )
 
     return {
         "config": {"underlying": underlying, "expiry": expiry.isoformat(), "spot": spot},

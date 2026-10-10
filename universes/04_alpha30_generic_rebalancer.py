@@ -153,7 +153,7 @@ class UniverseEqualWeightRebalance(Strategy):
 
             target_qty = whole_shares(target_notional, 1.0, px)
             diff = target_qty - self.position(iid)
-            if abs(diff) < 1:          # ignore sub-share noise
+            if abs(diff) < 1:  # ignore sub-share noise
                 continue
             if diff > 0:
                 self.buy(iid, diff)

@@ -25,7 +25,9 @@ Catalog equivalents: `options/nifty_short_straddle`, `options/banknifty_iron_con
 from honba.domain.option import OptionChain, OptionContract, OptionKind, OptionStyle
 
 chain: OptionChain  # underlying: InstrumentId, expiry: dt.date, contracts: list[OptionContract]
-contract: OptionContract  # strike, kind (CALL/PUT), style (EUROPEAN/AMERICAN), bid, ask, mid, iv, greeks
+contract: (
+    OptionContract  # strike, kind (CALL/PUT), style (EUROPEAN/AMERICAN), bid, ask, mid, iv, greeks
+)
 ```
 
 ## Running them

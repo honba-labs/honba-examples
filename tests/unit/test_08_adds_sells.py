@@ -207,12 +207,17 @@ def test_simulate_margin_call_check(ex) -> None:
 def test_cli_margin_arguments(ex) -> None:
     """Alpha30EWRExample parses margin CLI arguments properly."""
     example = ex.Alpha30EWRExample()
-    args = example.parse_args([
-        "--leverage", "2.5",
-        "--initial-margin", "0.4",
-        "--maintenance-margin", "0.2",
-        "--allow-short",
-    ])
+    args = example.parse_args(
+        [
+            "--leverage",
+            "2.5",
+            "--initial-margin",
+            "0.4",
+            "--maintenance-margin",
+            "0.2",
+            "--allow-short",
+        ]
+    )
     assert args.leverage == 2.5
     assert args.initial_margin == 0.4
     assert args.maintenance_margin == 0.2

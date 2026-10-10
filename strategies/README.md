@@ -24,6 +24,7 @@ from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma, Rsi, Atr
 from honba.strategies.testing import replay
 
+
 class MyStrategy(Strategy):
     name = "my_strategy"
     warmup_bars = 30  # bars before orders are allowed
@@ -31,6 +32,7 @@ class MyStrategy(Strategy):
     def on_bar(self, bar):
         # read price, update indicators, submit intents via self.buy/sell
         ...
+
 
 strat = MyStrategy(...)
 result = replay(strat, bars)  # or: StrategyRunner + LedgerContext in a real run

@@ -21,7 +21,9 @@ def test_config_overrides_market():
 
 
 def test_market_default():
-    days, src = settlement.resolve_settlement_days("NSE", as_of=None, cli_value=None, cfg_value=None)
+    days, src = settlement.resolve_settlement_days(
+        "NSE", as_of=None, cli_value=None, cfg_value=None
+    )
     # market default is 1 for NSE equity in this codebase
     assert days == 1
     assert src == "market"
@@ -37,6 +39,8 @@ def test_precedence_chain():
 
 
 def test_cfg_value_none_uses_market():
-    days, src = settlement.resolve_settlement_days("NSE", as_of=None, cli_value=None, cfg_value=None)
+    days, src = settlement.resolve_settlement_days(
+        "NSE", as_of=None, cli_value=None, cfg_value=None
+    )
     assert days == 1
     assert src == "market"

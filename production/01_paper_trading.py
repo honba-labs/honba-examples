@@ -24,7 +24,7 @@ try:
 except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.instrument import InstrumentId, InstrumentKind
+from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
@@ -77,7 +77,9 @@ def run(
 ) -> dict[str, Any]:
     # Generate synthetic bars
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     # Paper trading uses fake adapter with simulated fills
     from honba.strategies.testing import replay

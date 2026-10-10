@@ -31,15 +31,18 @@ from honba.domain.option import OptionKind
 __all__ = ["main", "run"]
 
 
-def _simulate_intraday_path(spot_open: float, drift: float, vol: float, steps: int, seed: int = 42) -> list[float]:
+def _simulate_intraday_path(
+    spot_open: float, drift: float, vol: float, steps: int, seed: int = 42
+) -> list[float]:
     """Generate intraday spot path with GBM."""
     import random
+
     random.seed(seed)
     dt_step = 1.0 / (steps * 365)  # daily fraction per step
     path = [spot_open]
     for _ in range(steps - 1):
         z = random.gauss(0, 1)
-        spot = path[-1] * (1 + drift * dt_step + vol * (dt_step ** 0.5) * z)
+        spot = path[-1] * (1 + drift * dt_step + vol * (dt_step**0.5) * z)
         path.append(spot)
     return path
 
@@ -90,14 +93,16 @@ def run(
             # Cash cost of adjustment
             call_price = bs_price(OptionKind.CALL, spot, strike, tau, iv, r)
             cash_flow -= adjustment * call_price * lot_size
-            rebalance_log.append({
-                "step": i,
-                "time_fraction": i / intraday_steps,
-                "spot": spot,
-                "net_delta_before": net_delta,
-                "adjustment": adjustment,
-                "cash_flow": -adjustment * call_price * lot_size,
-            })
+            rebalance_log.append(
+                {
+                    "step": i,
+                    "time_fraction": i / intraday_steps,
+                    "spot": spot,
+                    "net_delta_before": net_delta,
+                    "adjustment": adjustment,
+                    "cash_flow": -adjustment * call_price * lot_size,
+                }
+            )
 
     # Final P&L at expiry (assume spot ends at last path value)
     spot_expiry = path[-1]
@@ -114,7 +119,9 @@ def run(
         tau = max(1e-6, (intraday_steps - i) / intraday_steps * tau_open)
         call_greeks = bs_greeks(OptionKind.CALL, spot, strike, tau, iv, r)
         put_greeks = bs_greeks(OptionKind.PUT, spot, strike, tau, iv, r)
-        total_theta += (position["call"] * call_greeks.theta + position["put"] * put_greeks.theta) * lot_size
+        total_theta += (
+            position["call"] * call_greeks.theta + position["put"] * put_greeks.theta
+        ) * lot_size
 
     return {
         "config": {

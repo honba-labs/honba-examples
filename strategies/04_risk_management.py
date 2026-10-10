@@ -124,7 +124,9 @@ def run(
     max_position_pct: float = 0.20,
 ) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     strat = RiskManagedSma(
         fast=fast,

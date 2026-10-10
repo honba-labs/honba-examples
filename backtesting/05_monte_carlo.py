@@ -110,7 +110,9 @@ def run(
     random.seed(seed)
 
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     # Base backtest
     strat = SmaMonteCarlo(fast=fast, slow=slow)
@@ -131,11 +133,12 @@ def run(
             continue
         # Format for curve_metrics: dates must be ISO YYYY-MM-DD strings
         from datetime import datetime, timezone
+
         metric_curve = [
             {
                 "date": datetime.fromtimestamp(c["date"] / 1e9, tz=timezone.utc).date().isoformat(),
                 "value": c["value"],
-                "cash": c["cash"]
+                "cash": c["cash"],
             }
             for c in curve
         ]
@@ -148,9 +151,21 @@ def run(
         "config": {"bars": bars, "fast": fast, "slow": slow, "paths": paths, "seed": seed},
         "base": {"fills": len(base_fills)},
         "mc": {
-            "final_equity": {"mean": sum(final_equities) / len(final_equities), "p5": sorted(final_equities)[int(0.05 * len(final_equities))], "p95": sorted(final_equities)[int(0.95 * len(final_equities))]},
-            "max_drawdown_pct": {"mean": sum(max_drawdowns) / len(max_drawdowns), "p5": sorted(max_drawdowns)[int(0.05 * len(max_drawdowns))], "p95": sorted(max_drawdowns)[int(0.95 * len(max_drawdowns))]},
-            "sharpe": {"mean": sum(sharpes) / len(sharpes), "p5": sorted(sharpes)[int(0.05 * len(sharpes))], "p95": sorted(sharpes)[int(0.95 * len(sharpes))]},
+            "final_equity": {
+                "mean": sum(final_equities) / len(final_equities),
+                "p5": sorted(final_equities)[int(0.05 * len(final_equities))],
+                "p95": sorted(final_equities)[int(0.95 * len(final_equities))],
+            },
+            "max_drawdown_pct": {
+                "mean": sum(max_drawdowns) / len(max_drawdowns),
+                "p5": sorted(max_drawdowns)[int(0.05 * len(max_drawdowns))],
+                "p95": sorted(max_drawdowns)[int(0.95 * len(max_drawdowns))],
+            },
+            "sharpe": {
+                "mean": sum(sharpes) / len(sharpes),
+                "p5": sorted(sharpes)[int(0.05 * len(sharpes))],
+                "p95": sorted(sharpes)[int(0.95 * len(sharpes))],
+            },
         },
     }
 

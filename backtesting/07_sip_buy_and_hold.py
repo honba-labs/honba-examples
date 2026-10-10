@@ -20,8 +20,9 @@ import calendar
 import datetime as dt
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 try:
     import honba_examples  # noqa: F401
@@ -142,7 +143,7 @@ def ensure_instrument_data(
         store = ParquetBarStore(find_data_root(REPO_ROOT))
 
     start = start or dt.date(2022, 1, 1)
-    end = end or (dt.date.today() + dt.timedelta(days=1))
+    end = end or (dt.datetime.now(tz=dt.timezone.utc).date() + dt.timedelta(days=1))
     interval = DateInterval(start, end)
     inst = InstrumentId(symbol, exchange)
 
@@ -197,7 +198,7 @@ def run(
         root = data_dir if data_dir is not None else find_data_root(REPO_ROOT)
         store = ParquetBarStore(root)
         s_date = start or dt.date(2025, 1, 1)
-        e_date = end or (dt.date.today() + dt.timedelta(days=1))
+        e_date = end or (dt.datetime.now(tz=dt.timezone.utc).date() + dt.timedelta(days=1))
         bars_loaded = store.read(inst, "1D", DateInterval(s_date, e_date))
     else:
         bars_loaded = list(bars)
@@ -263,18 +264,20 @@ def run(
             cash -= cost + fee
             shares += units
             total_fees += fee
-            installments.append({
-                "installment": 0,
-                "type": "lump_sum",
-                "target_date": d0.isoformat(),
-                "execution_date": d0.isoformat(),
-                "price": round(bar0.open, 4),
-                "units": units,
-                "invested": initial_corpus,
-                "fee": round(fee, 4),
-                "shares_held": shares,
-                "cash_remaining": round(cash, 2),
-            })
+            installments.append(
+                {
+                    "installment": 0,
+                    "type": "lump_sum",
+                    "target_date": d0.isoformat(),
+                    "execution_date": d0.isoformat(),
+                    "price": round(bar0.open, 4),
+                    "units": units,
+                    "invested": initial_corpus,
+                    "fee": round(fee, 4),
+                    "shares_held": shares,
+                    "cash_remaining": round(cash, 2),
+                }
+            )
 
     # 2. Iterate through all trading days
     curve: list[dict[str, Any]] = []
@@ -295,27 +298,31 @@ def run(
                 cash -= cost + fee
                 shares += units
                 total_fees += fee
-                installments.append({
-                    "installment": idx,
-                    "type": "sip",
-                    "target_date": target.isoformat(),
-                    "execution_date": d.isoformat(),
-                    "price": round(bar.close, 4),
-                    "units": units,
-                    "invested": sip_amount,
-                    "fee": round(fee, 4),
-                    "shares_held": shares,
-                    "cash_remaining": round(cash, 2),
-                })
+                installments.append(
+                    {
+                        "installment": idx,
+                        "type": "sip",
+                        "target_date": target.isoformat(),
+                        "execution_date": d.isoformat(),
+                        "price": round(bar.close, 4),
+                        "units": units,
+                        "invested": sip_amount,
+                        "fee": round(fee, 4),
+                        "shares_held": shares,
+                        "cash_remaining": round(cash, 2),
+                    }
+                )
 
         portfolio_val = shares * bar.close + cash
-        curve.append({
-            "date": d.isoformat(),
-            "value": round(portfolio_val, 2),
-            "cash": round(cash, 2),
-            "shares": shares,
-            "close": round(bar.close, 4),
-        })
+        curve.append(
+            {
+                "date": d.isoformat(),
+                "value": round(portfolio_val, 2),
+                "cash": round(cash, 2),
+                "shares": shares,
+                "close": round(bar.close, 4),
+            }
+        )
 
     # 3. Compute summary and return metrics
     final_bar = bars_by_date[last_session]
@@ -341,11 +348,7 @@ def run(
         total_invested=total_invested,
     )
 
-    avg_price = (
-        (sum(i["units"] * i["price"] for i in installments) / shares)
-        if shares > 0
-        else 0.0
-    )
+    avg_price = (sum(i["units"] * i["price"] for i in installments) / shares) if shares > 0 else 0.0
 
     summary = {
         "symbol": symbol,
@@ -393,14 +396,24 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument(
-        "--symbol", "--instrument", dest="symbol", default="ALPHAETF", help="Instrument symbol (default: ALPHAETF)"
+        "--symbol",
+        "--instrument",
+        dest="symbol",
+        default="ALPHAETF",
+        help="Instrument symbol (default: ALPHAETF)",
     )
     parser.add_argument("--exchange", default="NSE", help="Exchange code (default: NSE)")
     parser.add_argument(
-        "--frequency", choices=["monthly", "weekly"], default="monthly", help="SIP frequency: monthly or weekly"
+        "--frequency",
+        choices=["monthly", "weekly"],
+        default="monthly",
+        help="SIP frequency: monthly or weekly",
     )
     parser.add_argument(
-        "--sip-amount", type=float, default=5000.0, help="SIP installment amount in INR (default: 5000.0)"
+        "--sip-amount",
+        type=float,
+        default=5000.0,
+        help="SIP installment amount in INR (default: 5000.0)",
     )
     parser.add_argument(
         "--initial-capital",
@@ -415,13 +428,24 @@ def main(argv: list[str] | None = None) -> int:
         "--sip-day", type=int, default=1, help="Day of month for monthly SIP (1-28, default: 1)"
     )
     parser.add_argument(
-        "--sip-weekday", type=int, default=0, help="Weekday for weekly SIP (0=Mon..4=Fri, default: 0)"
+        "--sip-weekday",
+        type=int,
+        default=0,
+        help="Weekday for weekly SIP (0=Mon..4=Fri, default: 0)",
     )
     parser.add_argument(
-        "--sip-count", "--no-of-sip", dest="sip_count", type=int, default=None, help="Maximum number of installments"
+        "--sip-count",
+        "--no-of-sip",
+        dest="sip_count",
+        type=int,
+        default=None,
+        help="Maximum number of installments",
     )
     parser.add_argument(
-        "--start", type=lambda s: dt.date.fromisoformat(s), default=None, help="Start date (YYYY-MM-DD)"
+        "--start",
+        type=lambda s: dt.date.fromisoformat(s),
+        default=None,
+        help="Start date (YYYY-MM-DD)",
     )
     parser.add_argument(
         "--end", type=lambda s: dt.date.fromisoformat(s), default=None, help="End date (YYYY-MM-DD)"
@@ -434,7 +458,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--out", type=Path, default=None, help="Output path for JSON report")
     parser.add_argument(
-        "--format", choices=["table", "json"], default="table", help="Output format (default: table)"
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
     )
 
     args = parser.parse_args(argv)
@@ -477,7 +504,9 @@ def main(argv: list[str] | None = None) -> int:
         print("=" * 64)
         print(f"       SIP Backtest: {s['symbol']}.{s['exchange']} ({s['frequency'].capitalize()})")
         print("=" * 64)
-        print(f"  Date Range          : {s['first_session']} to {s['last_session']} ({s['sessions_count']} sessions)")
+        print(
+            f"  Date Range          : {s['first_session']} to {s['last_session']} ({s['sessions_count']} sessions)"
+        )
         print(f"  SIP Frequency       : {s['frequency'].capitalize()}")
         print(f"  SIP Installment     : ₹{s['sip_amount']:,.2f}")
         print(f"  Initial Corpus      : ₹{s['initial_corpus']:,.2f}")

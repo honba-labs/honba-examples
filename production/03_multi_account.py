@@ -25,7 +25,7 @@ try:
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from honba.domain.instrument import InstrumentId, InstrumentKind
+from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
@@ -65,9 +65,13 @@ class SmaMulti(Strategy):
             self.sell(self.iid, position)
 
 
-def _run_one_account(account_id: str, capital: float, symbol: str, fast: int, slow: int, bars: int) -> dict[str, Any]:
+def _run_one_account(
+    account_id: str, capital: float, symbol: str, fast: int, slow: int, bars: int
+) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     from honba.strategies.testing import replay
 
@@ -117,7 +121,9 @@ def run(
     total_return = 0.0
 
     for acc in accounts:
-        res = _run_one_account(acc["id"], acc["capital"], acc["symbol"], acc["fast"], acc["slow"], bars)
+        res = _run_one_account(
+            acc["id"], acc["capital"], acc["symbol"], acc["fast"], acc["slow"], bars
+        )
         results.append(res)
         total_capital += res["capital"]
         total_final += res["final_equity"]

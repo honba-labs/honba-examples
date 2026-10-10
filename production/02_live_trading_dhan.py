@@ -144,7 +144,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--symbol", type=str, default="RELIANCE")
     parser.add_argument("--max-position-pct", type=float, default=0.1)
     parser.add_argument("--max-daily-loss", type=float, default=50_000.0)
-    parser.add_argument("--no-dry-run", action="store_true", help="Actually connect to Dhan (requires real credentials)")
+    parser.add_argument(
+        "--no-dry-run",
+        action="store_true",
+        help="Actually connect to Dhan (requires real credentials)",
+    )
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)
 

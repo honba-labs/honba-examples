@@ -71,7 +71,9 @@ def run(
     step: int = 20,
 ) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))]
+    bars_list = [
+        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
+    ]
 
     results = []
     for i in range(0, bars - window, step):
@@ -92,15 +94,17 @@ def run(
 
         # Test on out-of-sample
         test_score = _backtest(test_bars, *best_pair)
-        results.append({
-            "window": i // step,
-            "train_range": [i, i + window],
-            "test_range": [i + window, i + window + step],
-            "best_fast": best_pair[0],
-            "best_slow": best_pair[1],
-            "train_score": best_score,
-            "test_score": test_score,
-        })
+        results.append(
+            {
+                "window": i // step,
+                "train_range": [i, i + window],
+                "test_range": [i + window, i + window + step],
+                "best_fast": best_pair[0],
+                "best_slow": best_pair[1],
+                "train_score": best_score,
+                "test_score": test_score,
+            }
+        )
 
     return {"config": {"window": window, "step": step, "total_bars": bars}, "windows": results}
 

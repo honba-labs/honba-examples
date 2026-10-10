@@ -100,8 +100,8 @@ NAME = "equal_weight_rebalance"
 ALLOCATION = 0.995  # same cash buffer as the catalog strategy's config.toml
 
 
-def build_strategy(\
-    rebalance_days: int = 15, allocation: float = ALLOCATION, name: str = NAME\
+def build_strategy(
+    rebalance_days: int = 15, allocation: float = ALLOCATION, name: str = NAME
 ) -> PortfolioStrategy:
     """Equal-weight rebalance of the Alpha 30, composed from parts in code."""
     return PortfolioStrategy(
@@ -113,7 +113,7 @@ def build_strategy(\
     )
 
 
-def build_variant(\
+def build_variant(
     weighting: str = "equal",
     schedule: str = "every:15d",
     allocation: float = ALLOCATION,
@@ -168,7 +168,7 @@ def _replay_at_last_close(strategy: PortfolioStrategy, bars: list[Bar]) -> Repla
     return result
 
 
-def run(\
+def run(
     bars: int = 60,
     rebalance_days: int = 15,
     allocation: float = ALLOCATION,

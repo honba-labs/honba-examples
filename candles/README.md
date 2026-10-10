@@ -27,6 +27,7 @@ unit-tested on its own (`tests/unit/test_bars.py`):
 
 ```python
 from honba_examples.bars import aggregate, bucket_start, timeframe_seconds
+
 weekly = aggregate(minute_bars, "1w")
 ```
 

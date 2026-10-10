@@ -69,9 +69,17 @@ def run(
 
     # P&L at expiry
     pnl_zones = []
-    for spot_at_expiry in [spot_at_entry - 800, spot_at_entry - 500, spot_at_entry - 300,
-                           put_short_strike, spot_at_entry, call_short_strike,
-                           spot_at_entry + 300, spot_at_entry + 500, spot_at_entry + 800]:
+    for spot_at_expiry in [
+        spot_at_entry - 800,
+        spot_at_entry - 500,
+        spot_at_entry - 300,
+        put_short_strike,
+        spot_at_entry,
+        call_short_strike,
+        spot_at_entry + 300,
+        spot_at_entry + 500,
+        spot_at_entry + 800,
+    ]:
         put_short_payoff = max(0.0, put_short_strike - spot_at_expiry)
         put_long_payoff = max(0.0, put_long_strike - spot_at_expiry)
         call_short_payoff = max(0.0, spot_at_expiry - call_short_strike)
@@ -81,12 +89,14 @@ def run(
         call_pnl = (call_short - call_long - call_short_payoff + call_long_payoff) * lot_size
         total_pnl = put_pnl + call_pnl
 
-        pnl_zones.append({
-            "spot_at_expiry": spot_at_expiry,
-            "put_leg_pnl": put_pnl,
-            "call_leg_pnl": call_pnl,
-            "total_pnl": total_pnl,
-        })
+        pnl_zones.append(
+            {
+                "spot_at_expiry": spot_at_expiry,
+                "put_leg_pnl": put_pnl,
+                "call_leg_pnl": call_pnl,
+                "total_pnl": total_pnl,
+            }
+        )
 
     return {
         "config": {
