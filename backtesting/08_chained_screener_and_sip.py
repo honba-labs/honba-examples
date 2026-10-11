@@ -17,24 +17,25 @@ Inherits from:
 Stage 1 (In-Sample Screening):
     Evaluates historical bars strictly on or before `--asof <YYYY-MM-DD>` (up to `--train-years` back):
     - `multibagger`: Prospective "going-to-be" multibaggers in early Stage 2 breakout sweet spot
-      (1y return 15-95%, positive 3m momentum ignition, within 15% of 52w high, volume accumulation, ROCE).
+      (Price >= SMA50 >= SMA200, positive 3m momentum ignition, within 15% of 52w high, volume accumulation, ROCE).
       Crucially avoids already-exhausted parabolic runners (e.g. 300-500% late-stage tops).
     - `dividend`: High dividend yielders (yield >= 2.5%, FCF > 0) near 52-week low.
     - `value`: Deep value (low P/E & P/B, ROCE >= 10%, Debt/Eq <= 1.5) near 52-week low.
 
 Stage 2 (Out-of-Sample Forward Backtest & Confirmation):
     Simulates forward systematic investment strictly from `--asof` to till date:
-    - Initial capital (`--capital`) deployed equally across top candidates on the `asof` date.
-    - Monthly SIP (`--sip`) deployed equally across top candidates every subsequent month until till date.
+    - Initial capital (`--capital`) deployed across candidates on the `asof` date.
+    - Allocation model (`--allocation`): '52w-ratio' (closer to 52-week high = higher allocation), 'equal', or 'score'.
+    - Monthly SIP (`--sip`) deployed across candidates every subsequent month until till date.
     Calculates terminal valuation, net profit, return multiple, and exact annualized XIRR.
 
 Usage::
 
-    # 1. Screen prospective multibaggers as of 2026-05-10 with 2-yr base and backtest to till date:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 2 --asof 2026-05-10 --top 5 --capital 100000 --sip 10000
+    # 1. Screen prospective multibaggers as of 2026-05-10 with 3-yr base, 52w-ratio allocation, and SIP:
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2026-05-10 --top 5 --capital 100000 --sip 10000
 
-    # 2. Screen prospective multibaggers as of 2023-01-01 and verify forward out-of-sample confirmation:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --train-years 3 --top 5
+    # 2. Equal allocation benchmark:
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2026-05-10 --top 5 --capital 100000 --sip 10000 --allocation equal
 
     # 3. Screen prospective candidates as of today without backtesting:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
@@ -144,6 +145,7 @@ class ChainedScreenerSipExample(HonbaExample):
     train_years: int = 3
     sip_amount: float | None = None
     sip_mode: str = "portfolio"
+    allocation: str = "52w-ratio"
     top: int = 5
     screen_only: bool = False
     symbols: str | None = None
@@ -190,7 +192,13 @@ class ChainedScreenerSipExample(HonbaExample):
             dest="sip_mode",
             choices=["portfolio", "per-stock"],
             default=self.sip_mode,
-            help="How to interpret --sip: 'portfolio' (default, divided equally across top N) or 'per-stock'",
+            help="How to interpret --sip: 'portfolio' (default) or 'per-stock'",
+        )
+        parser.add_argument(
+            "--allocation",
+            choices=["52w-ratio", "equal", "score"],
+            default=self.allocation,
+            help="Portfolio capital allocation: '52w-ratio' (weighted by proximity to 52w high), 'equal', or 'score'",
         )
         parser.add_argument(
             "--top",
@@ -318,6 +326,23 @@ class ChainedScreenerSipExample(HonbaExample):
                 print(json.dumps({"stage": "screening", "candidates": candidates}, indent=2))
             return 0
 
+        # Compute portfolio allocation weights
+        weights: dict[str, float] = {}
+        if self.allocation == "52w-ratio" and candidates:
+            # Proximity / ratio to 52-week high: tighter consolidation base (smaller drop from 52w high) gets higher weight
+            raw_w = {
+                c["symbol"]: 1.0 / max(abs(float(c.get("pct_from_high", -5.0))), 0.1)
+                for c in candidates
+            }
+            tot_w = sum(raw_w.values())
+            weights = {s: v / tot_w for s, v in raw_w.items()}
+        elif self.allocation == "score" and candidates:
+            raw_w = {c["symbol"]: max(float(c.get("mb_score", 10.0)), 1.0) for c in candidates}
+            tot_w = sum(raw_w.values())
+            weights = {s: v / tot_w for s, v in raw_w.items()}
+        elif self.allocation == "equal" and candidates:
+            weights = {c["symbol"]: 1.0 / len(candidates) for c in candidates}
+
         # 4. Stage 2: Out-of-Sample Forward Backtest (initial capital on asof + monthly SIP to end_date)
         portfolio_results = simulate_portfolio_sip(
             catalog_dir=catalog_dir,
@@ -327,6 +352,7 @@ class ChainedScreenerSipExample(HonbaExample):
             initial_capital=init_capital_val,
             monthly_sip=self.sip_amount,
             sip_mode=self.sip_mode,
+            weights=weights,
         )
 
         combined_output = {
@@ -334,6 +360,7 @@ class ChainedScreenerSipExample(HonbaExample):
             "train_years": self.train_years,
             "end_date": end_eval_date.isoformat(),
             "strategy": self.strategy,
+            "allocation": self.allocation,
             "initial_capital": init_capital_val,
             "sip_amount": self.sip_amount,
             "sip_mode": self.sip_mode,
@@ -354,6 +381,7 @@ class ChainedScreenerSipExample(HonbaExample):
             portfolio_results,
             asof_eval_date,
             end_eval_date,
+            self.allocation,
         )
         return 0
 
@@ -429,6 +457,7 @@ class ChainedScreenerSipExample(HonbaExample):
         portfolio: dict[str, Any],
         asof_date: dt.date,
         end_date: dt.date,
+        allocation: str = "52w-ratio",
     ) -> None:
         """Render Rich terminal table and summary panel for Stage 2 out-of-sample forward backtest."""
         stocks: list[dict[str, Any]] = portfolio["stocks"]
@@ -448,9 +477,10 @@ class ChainedScreenerSipExample(HonbaExample):
 
         table = Table(title=header, border_style="green")
         table.add_column("Symbol", style="bold cyan")
+        table.add_column("Weight", justify="right", style="cyan")
         table.add_column("Months", justify="center")
         if init_capital > 0:
-            table.add_column("Init Cap", justify="right", style="cyan")
+            table.add_column("Init Cap", justify="right", style="dim")
         if tot_sip_invested > 0 or port_sip > 0:
             table.add_column("SIP / Mo", justify="right", style="dim")
         table.add_column("Total Invested", justify="right")
@@ -477,6 +507,7 @@ class ChainedScreenerSipExample(HonbaExample):
 
             row_data = [
                 r["symbol"],
+                f"{r.get('weight_pct', 0.0):.1f}%",
                 str(r["months"]),
             ]
             if init_capital > 0:
@@ -515,19 +546,26 @@ class ChainedScreenerSipExample(HonbaExample):
             else "0/0"
         )
 
-        sip_per_s = summary.get("monthly_sip_per_stock", port_sip / max(len(stocks), 1))
-        # Build informative summary panel lines
+        alloc_desc = (
+            "Proximity to 52-Week High (Ratio to Low from 52w High)"
+            if allocation == "52w-ratio"
+            else (
+                "Composite Multibagger Score" if allocation == "score" else "Equal Weighting (1/N)"
+            )
+        )
+
         panel_lines = [
             f"[bold]In-Sample Screening Date :[/bold] [cyan]{asof_date}[/cyan]",
             f"[bold]Out-of-Sample Test Window:[/bold] [yellow]{asof_date}[/yellow] to [yellow]{end_date}[/yellow] ({window_months} months)",
+            f"[bold]Capital Allocation Model :[/bold] [cyan]{alloc_desc}[/cyan]",
         ]
         if init_capital > 0:
             panel_lines.append(
-                f"[bold]Initial Capital Deployed :[/bold] ₹{init_capital:,.2f} (invested on {asof_date} equally across {len(stocks)} stocks: ₹{init_capital / len(stocks):,.2f}/stock)"
+                f"[bold]Initial Capital Deployed :[/bold] ₹{init_capital:,.2f} (invested on {asof_date} across {len(stocks)} stocks)"
             )
         if tot_sip_invested > 0 or port_sip > 0:
             panel_lines.append(
-                f"[bold]Monthly SIP Installment  :[/bold] ₹{port_sip:,.2f}/month portfolio (₹{sip_per_s:,.2f}/month per stock over {window_months} months)"
+                f"[bold]Monthly SIP Installment  :[/bold] ₹{port_sip:,.2f}/month portfolio over {window_months} months"
             )
             panel_lines.append(
                 f"[bold]Total SIP Invested       :[/bold] ₹{tot_sip_invested:,.2f} ({window_months} months × ₹{port_sip:,.2f})"

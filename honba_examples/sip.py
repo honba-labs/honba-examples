@@ -2,6 +2,7 @@
 
 Simulates recurring monthly systematic investment and initial capital deployment on forward price bars:
 - Deploys initial capital lump sum on `--asof` date across screened candidates.
+- Supports customizable portfolio weighting (equal weighting or ratio to 52-week high).
 - Executes monthly systematic investment plan (SIP) installments for every subsequent month until till date.
 - Prunes DuckDB queries strictly to target symbol Parquet files for sub-50ms execution.
 - Computes volume-weighted average purchase price and share accumulation.
@@ -55,6 +56,7 @@ def simulate_portfolio_sip(
     initial_capital: float | None = None,
     monthly_sip: float | None = None,
     sip_mode: str = "portfolio",
+    weights: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Simulate initial capital deployment on start_date and monthly SIP until end_date via DuckDB SQL."""
     import duckdb
@@ -131,26 +133,24 @@ def simulate_portfolio_sip(
 
     n_syms = len(symbols)
 
-    # Initial lump-sum capital per stock deployed on start_date
-    if initial_capital is not None and initial_capital > 0:
-        init_per_stock = float(initial_capital) / n_syms
-    else:
-        init_per_stock = 0.0
+    # Normalize weights across available symbols
+    effective_weights: dict[str, float] = {}
+    if weights:
+        sum_w = sum(weights.get(s, 0.0) for s in symbols)
+        if sum_w > 0:
+            effective_weights = {s: weights.get(s, 0.0) / sum_w for s in symbols}
+    if not effective_weights:
+        effective_weights = {s: 1.0 / n_syms for s in symbols}
 
-    # Monthly SIP installment: either portfolio-level (divided equally) or per-stock
+    # Monthly portfolio SIP base amount
     if monthly_sip is not None and monthly_sip > 0:
         if sip_mode == "portfolio":
-            sip_per_stock = float(monthly_sip) / n_syms
             port_monthly_sip = float(monthly_sip)
         else:
-            sip_per_stock = float(monthly_sip)
             port_monthly_sip = float(monthly_sip) * n_syms
-    elif init_per_stock == 0.0:
-        # Fallback default if neither initial capital nor SIP is specified
+    elif initial_capital is None or initial_capital <= 0:
         port_monthly_sip = 10000.0
-        sip_per_stock = port_monthly_sip / n_syms if sip_mode == "portfolio" else 10000.0
     else:
-        sip_per_stock = 0.0
         port_monthly_sip = 0.0
 
     # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
@@ -201,6 +201,23 @@ def simulate_portfolio_sip(
         term_price, last_date, init_price, first_date, peak_price = term_map[sym]
         buys = buys_by_sym.get(sym, [])
 
+        w = effective_weights.get(sym, 1.0 / n_syms)
+
+        # Allocate initial capital and monthly SIP based on weight
+        init_stock_amt = (
+            (float(initial_capital) * w)
+            if (initial_capital is not None and initial_capital > 0)
+            else 0.0
+        )
+        if port_monthly_sip > 0:
+            sip_stock_amt = (
+                (port_monthly_sip * w)
+                if sip_mode == "portfolio"
+                else (float(monthly_sip or 10000.0))
+            )
+        else:
+            sip_stock_amt = 0.0
+
         shares = 0.0
         total_invested = 0.0
         init_invested = 0.0
@@ -208,15 +225,14 @@ def simulate_portfolio_sip(
         cfs: list[tuple[dt.date, float]] = []
 
         # Step 1: Deploy initial capital lump-sum on first trading date (on/after start_date)
-        if init_per_stock > 0 and init_price > 0:
-            shares += init_per_stock / init_price
-            total_invested += init_per_stock
-            init_invested = init_per_stock
-            cfs.append((first_date, -init_per_stock))
-            portfolio_cfs[first_date] = portfolio_cfs.get(first_date, 0.0) - init_per_stock
+        if init_stock_amt > 0 and init_price > 0:
+            shares += init_stock_amt / init_price
+            total_invested += init_stock_amt
+            init_invested = init_stock_amt
+            cfs.append((first_date, -init_stock_amt))
+            portfolio_cfs[first_date] = portfolio_cfs.get(first_date, 0.0) - init_stock_amt
 
         # Step 2: Execute monthly SIP installments for each period
-        # If initial capital was deployed in the starting month, SIP starts in subsequent months
         if init_invested > 0:
             sip_buys = [
                 b for b in buys if (b[0].year, b[0].month) > (first_date.year, first_date.month)
@@ -225,16 +241,16 @@ def simulate_portfolio_sip(
             sip_buys = buys
 
         executed_sip_count = 0
-        if sip_per_stock > 0:
+        if sip_stock_amt > 0:
             for b_date, p in sip_buys:
                 if p <= 0:
                     continue
-                shares += sip_per_stock / p
-                total_invested += sip_per_stock
-                sip_invested += sip_per_stock
+                shares += sip_stock_amt / p
+                total_invested += sip_stock_amt
+                sip_invested += sip_stock_amt
                 executed_sip_count += 1
-                cfs.append((b_date, -sip_per_stock))
-                portfolio_cfs[b_date] = portfolio_cfs.get(b_date, 0.0) - sip_per_stock
+                cfs.append((b_date, -sip_stock_amt))
+                portfolio_cfs[b_date] = portfolio_cfs.get(b_date, 0.0) - sip_stock_amt
 
         final_val = shares * term_price
         profit = final_val - total_invested
@@ -266,9 +282,10 @@ def simulate_portfolio_sip(
         results.append(
             {
                 "symbol": sym,
+                "weight_pct": round(w * 100.0, 1),
                 "months": display_months,
                 "init_capital": init_invested,
-                "sip_amount": sip_per_stock,
+                "sip_amount": sip_stock_amt,
                 "sip_count": executed_sip_count,
                 "total_invested": total_invested,
                 "shares_held": shares,
@@ -312,7 +329,7 @@ def simulate_portfolio_sip(
         "initial_capital": tot_init_capital,
         "monthly_sip": port_monthly_sip,
         "portfolio_monthly_sip": port_monthly_sip,
-        "monthly_sip_per_stock": sip_per_stock,
+        "monthly_sip_per_stock": (port_monthly_sip / n_syms) if n_syms > 0 else 0.0,
         "sip_amount": port_monthly_sip,
         "sip_mode": sip_mode,
         "total_sip_invested": tot_sip_invested,
