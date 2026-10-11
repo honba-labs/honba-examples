@@ -16,7 +16,6 @@ Run::
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -31,8 +30,6 @@ from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar as synth_bar
-from tests.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 
@@ -67,11 +64,11 @@ def run(
     fast: int = 10,
     slow: int = 30,
     capital: float = 100_000.0,
+    symbol: str = "RELIANCE",
 ) -> dict[str, Any]:
-    start = dt.date(2026, 1, 1)
-    bars_list = [
-        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
-    ]
+    from tests.synthetic import get_bars
+
+    bars_list = get_bars(symbol, count=bars)
 
     strat = SmaBacktest(fast=fast, slow=slow)
 

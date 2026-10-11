@@ -121,7 +121,7 @@ def test_subscribe_for_an_unknown_instrument_raises_adapter_error(example):
         try:
             with pytest.raises(AdapterError, match="unknown instrument"):
                 await adapter.subscribe(
-                    instruments=(InstrumentId("INFY", "NSE"),),
+                    instruments=(InstrumentId("ZZZ_UNKNOWN", "NSE"),),
                     mode=StreamMode.QUOTE,
                     callback=lambda event: None,
                 )

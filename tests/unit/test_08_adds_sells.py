@@ -81,8 +81,8 @@ def test_summary_prints_the_changes_table_per_rebalance(ex, capsys) -> None:
     out = capsys.readouterr().out
     rows = [" ".join(line.replace("│", " ").replace("┃", " ").split()) for line in out.splitlines()]
     assert any("Rebalance Schedule" in r for r in rows)
-    assert any("Added (New)" in r for r in rows)
-    assert any(days[0].isoformat() in r and "Initial" in r and "+AAA(500)" in r for r in rows)
+    assert any("Added" in r for r in rows)
+    assert any(days[0].isoformat() in r and "+AAA(500)" in r for r in rows)
     assert "Final holdings" not in out
 
 

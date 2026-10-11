@@ -110,7 +110,7 @@ def test_an_unsupported_timeframe_raises_adapter_error(example):
 
 def test_an_unknown_instrument_raises_adapter_error(example):
     with pytest.raises(AdapterError, match="unknown instrument"):
-        example.run(instrument="INFY")
+        example.run(instrument="ZZZ_UNKNOWN")
 
 
 def test_output_is_deterministic_across_two_calls(example):
