@@ -169,9 +169,7 @@ India cost model.
 | 05 | `05_monte_carlo.py` | `SmaMonteCarlo` | Bootstrap equity curves (final equity, DD, Sharpe) |
 | 06 | `06_concurrent_backtest.py` | `SmaSweep` | Thread-pool parameter sweep, Pareto frontier |
 | 07 | `07_sip_buy_and_hold.py` | — | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD |
-| 08 | `08_multibagger_screener.py` | — | Point-in-time multibagger screener (`--asof`), Stage 2 momentum, ROCE overlay |
-| 09 | `09_multibagger_sip_backtest.py` | — | Forward monthly SIP backtest (₹10k/mo) on screened candidates, XIRR |
-| 10 | `10_value_dividend_screener.py` | — | Point-in-time value & high dividend screener for stocks near 52w low, ROCE |
+| 08 | `08_chained_screener_and_sip.py` | — | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
 
 Run them:
 
@@ -183,12 +181,9 @@ python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
 python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
-python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5
-python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01 --top 5
-python backtesting/10_value_dividend_screener.py --asof 2023-01-01 --mode dividend --top 5
-
-# Or chain screener directly into backtester via Unix pipes:
-python backtesting/10_value_dividend_screener.py --asof 2023-01-01 --top 5 --format symbols | python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01
+python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
+python backtesting/08_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
+python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
 ```
 
 ### `mutual_funds/` — NAV and SIP
