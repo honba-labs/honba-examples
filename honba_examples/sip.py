@@ -54,7 +54,7 @@ def simulate_portfolio_sip(
     *,
     initial_capital: float | None = None,
     monthly_sip: float | None = None,
-    sip_mode: str = "per-stock",
+    sip_mode: str = "portfolio",
 ) -> dict[str, Any]:
     """Simulate initial capital deployment on start_date and monthly SIP until end_date via DuckDB SQL."""
     import duckdb
@@ -78,6 +78,8 @@ def simulate_portfolio_sip(
                 "window_months": window_months,
                 "initial_capital": 0.0,
                 "monthly_sip": monthly_sip or 0.0,
+                "portfolio_monthly_sip": monthly_sip or 0.0,
+                "monthly_sip_per_stock": 0.0,
                 "sip_amount": monthly_sip or 0.0,
                 "sip_mode": sip_mode,
                 "total_sip_invested": 0.0,
@@ -135,17 +137,21 @@ def simulate_portfolio_sip(
     else:
         init_per_stock = 0.0
 
-    # Monthly SIP installment per stock deployed recurringly
+    # Monthly SIP installment: either portfolio-level (divided equally) or per-stock
     if monthly_sip is not None and monthly_sip > 0:
         if sip_mode == "portfolio":
             sip_per_stock = float(monthly_sip) / n_syms
+            port_monthly_sip = float(monthly_sip)
         else:
             sip_per_stock = float(monthly_sip)
+            port_monthly_sip = float(monthly_sip) * n_syms
     elif init_per_stock == 0.0:
         # Fallback default if neither initial capital nor SIP is specified
-        sip_per_stock = 10000.0
+        port_monthly_sip = 10000.0
+        sip_per_stock = port_monthly_sip / n_syms if sip_mode == "portfolio" else 10000.0
     else:
         sip_per_stock = 0.0
+        port_monthly_sip = 0.0
 
     # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
     term_query = f"""
@@ -304,8 +310,10 @@ def simulate_portfolio_sip(
         "end_date": end_str,
         "window_months": window_months,
         "initial_capital": tot_init_capital,
-        "monthly_sip": sip_per_stock,
-        "sip_amount": sip_per_stock,
+        "monthly_sip": port_monthly_sip,
+        "portfolio_monthly_sip": port_monthly_sip,
+        "monthly_sip_per_stock": sip_per_stock,
+        "sip_amount": port_monthly_sip,
         "sip_mode": sip_mode,
         "total_sip_invested": tot_sip_invested,
         "total_invested": tot_invested,

@@ -24,8 +24,8 @@ Stage 1 (In-Sample Screening):
 
 Stage 2 (Out-of-Sample Forward Backtest & Confirmation):
     Simulates forward systematic investment strictly from `--asof` to till date:
-    - Initial capital (`--capital`) deployed across candidates on the `asof` date.
-    - Monthly SIP (`--sip`) deployed every subsequent month until the terminal date.
+    - Initial capital (`--capital`) deployed equally across top candidates on the `asof` date.
+    - Monthly SIP (`--sip`) deployed equally across top candidates every subsequent month until till date.
     Calculates terminal valuation, net profit, return multiple, and exact annualized XIRR.
 
 Usage::
@@ -143,7 +143,7 @@ class ChainedScreenerSipExample(HonbaExample):
     end_date_str: str | None = None
     train_years: int = 3
     sip_amount: float | None = None
-    sip_mode: str = "per-stock"
+    sip_mode: str = "portfolio"
     top: int = 5
     screen_only: bool = False
     symbols: str | None = None
@@ -183,14 +183,14 @@ class ChainedScreenerSipExample(HonbaExample):
             dest="sip_amount",
             type=float,
             default=None,
-            help="Monthly SIP installment in INR (default: ₹10,000 per stock)",
+            help="Monthly SIP installment in INR (default: ₹10,000 total portfolio SIP)",
         )
         parser.add_argument(
             "--sip-mode",
             dest="sip_mode",
-            choices=["per-stock", "portfolio"],
+            choices=["portfolio", "per-stock"],
             default=self.sip_mode,
-            help="How to interpret --sip: 'per-stock' (default) or 'portfolio' (divided equally among screened candidates)",
+            help="How to interpret --sip: 'portfolio' (default, divided equally across top N) or 'per-stock'",
         )
         parser.add_argument(
             "--top",
@@ -434,23 +434,24 @@ class ChainedScreenerSipExample(HonbaExample):
         stocks: list[dict[str, Any]] = portfolio["stocks"]
         summary: dict[str, Any] = portfolio["summary"]
         init_capital = summary.get("initial_capital", 0.0)
-        sip_amount = summary.get("monthly_sip", 0.0)
+        port_sip = summary.get("portfolio_monthly_sip", summary.get("monthly_sip", 0.0))
+        tot_sip_invested = summary.get("total_sip_invested", 0.0)
         window_months = summary.get("window_months", 1)
 
         console.print()
-        if init_capital > 0 and sip_amount > 0:
-            header = f"Stage 2 (Out-of-Sample Forward Confirmation): Initial Capital ₹{init_capital:,.0f} + Monthly SIP ₹{sip_amount:,.0f}/mo ({asof_date} to {end_date})"
+        if init_capital > 0 and tot_sip_invested > 0:
+            header = f"Stage 2 (Out-of-Sample Forward Confirmation): Initial Capital ₹{init_capital:,.0f} + Monthly SIP ₹{port_sip:,.0f}/mo ({asof_date} to {end_date})"
         elif init_capital > 0:
             header = f"Stage 2 (Out-of-Sample Forward Confirmation): Initial Capital ₹{init_capital:,.0f} Lump Sum ({asof_date} to {end_date})"
         else:
-            header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP ₹{sip_amount:,.0f}/mo ({asof_date} to {end_date})"
+            header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP ₹{port_sip:,.0f}/mo ({asof_date} to {end_date})"
 
         table = Table(title=header, border_style="green")
         table.add_column("Symbol", style="bold cyan")
         table.add_column("Months", justify="center")
         if init_capital > 0:
             table.add_column("Init Cap", justify="right", style="cyan")
-        if sip_amount > 0:
+        if tot_sip_invested > 0 or port_sip > 0:
             table.add_column("SIP / Mo", justify="right", style="dim")
         table.add_column("Total Invested", justify="right")
         table.add_column("Final Valuation", justify="right", style="bold green")
@@ -480,7 +481,7 @@ class ChainedScreenerSipExample(HonbaExample):
             ]
             if init_capital > 0:
                 row_data.append(f"₹{r.get('init_capital', 0.0):,.0f}")
-            if sip_amount > 0:
+            if tot_sip_invested > 0 or port_sip > 0:
                 row_data.append(f"₹{r['sip_amount']:,.0f}")
             row_data.extend(
                 [
@@ -514,6 +515,7 @@ class ChainedScreenerSipExample(HonbaExample):
             else "0/0"
         )
 
+        sip_per_s = summary.get("monthly_sip_per_stock", port_sip / max(len(stocks), 1))
         # Build informative summary panel lines
         panel_lines = [
             f"[bold]In-Sample Screening Date :[/bold] [cyan]{asof_date}[/cyan]",
@@ -521,15 +523,18 @@ class ChainedScreenerSipExample(HonbaExample):
         ]
         if init_capital > 0:
             panel_lines.append(
-                f"[bold]Initial Capital Deployed :[/bold] ₹{init_capital:,.2f} (invested on {asof_date} across {len(stocks)} stocks)"
+                f"[bold]Initial Capital Deployed :[/bold] ₹{init_capital:,.2f} (invested on {asof_date} equally across {len(stocks)} stocks: ₹{init_capital / len(stocks):,.2f}/stock)"
             )
-        if sip_amount > 0:
+        if tot_sip_invested > 0 or port_sip > 0:
             panel_lines.append(
-                f"[bold]Monthly SIP Installment  :[/bold] ₹{sip_amount:,.2f}/month per stock (Total SIP: ₹{summary['total_sip_invested']:,.2f} over {window_months} months)"
+                f"[bold]Monthly SIP Installment  :[/bold] ₹{port_sip:,.2f}/month portfolio (₹{sip_per_s:,.2f}/month per stock over {window_months} months)"
+            )
+            panel_lines.append(
+                f"[bold]Total SIP Invested       :[/bold] ₹{tot_sip_invested:,.2f} ({window_months} months × ₹{port_sip:,.2f})"
             )
         panel_lines.extend(
             [
-                f"[bold]Total Capital Deployed   :[/bold] ₹{summary['total_invested']:,.2f} (Initial Capital + Forward SIP from {asof_date})",
+                f"[bold]Total Capital Invested   :[/bold] [bold]₹{summary['total_invested']:,.2f}[/bold] (₹{init_capital:,.0f} initial + {window_months} × ₹{port_sip:,.0f} SIP)",
                 f"[bold]Terminal Portfolio Value :[/bold] [bold green]₹{summary['total_value']:,.2f}[/bold green]",
                 f"[bold]Total Net Profit         :[/bold] [bold green]₹{summary['total_profit']:+,.2f}[/bold green] ([green]{p_profit_pct:+.1f}%[/green])",
                 f"[bold]Overall Portfolio Mult   :[/bold] [bold yellow]{summary['portfolio_multiple']:.2f}x[/bold yellow]",
