@@ -1,10 +1,11 @@
 """honba_examples.sip: Generic Systematic Investment Plan (SIP) Backtesting Engine.
 
-Simulates recurring monthly systematic investment and initial capital on forward price bars:
+Simulates recurring monthly systematic investment on forward price bars:
 - Extracts monthly first trading session executions using DuckDB SQL.
-- Supports initial capital / lump-sum corpus allocation on day 1.
+- Calculates total capital deployed purely from the monthly SIP starting from start_date.
+- Supports capital budget sizing (--capital) across candidates and months.
 - Computes volume-weighted average purchase price and share accumulation.
-- Calculates terminal valuation, net PnL, and SIP return multiple.
+- Calculates terminal valuation, net PnL, peak multiple, and SIP return multiple.
 - Computes exact annualized XIRR via bisection search.
 """
 
@@ -48,10 +49,10 @@ def simulate_portfolio_sip(
     symbols: list[str],
     start_date: dt.date,
     end_date: dt.date,
-    monthly_amt: float = 10000.0,
-    initial_capital: float = 0.0,
+    monthly_amt: float | None = 10000.0,
+    capital_budget: float | None = None,
 ) -> dict[str, Any]:
-    """Simulate a multi-stock forward monthly SIP with optional initial capital via DuckDB SQL."""
+    """Simulate a multi-stock forward monthly SIP starting from start_date via DuckDB SQL."""
     import duckdb
 
     if not symbols:
@@ -60,8 +61,7 @@ def simulate_portfolio_sip(
                 "candidate_count": 0,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
-                "initial_capital": initial_capital,
-                "sip_amount": monthly_amt,
+                "sip_amount": monthly_amt or 0.0,
                 "total_invested": 0.0,
                 "total_value": 0.0,
                 "total_profit": 0.0,
@@ -84,7 +84,7 @@ def simulate_portfolio_sip(
     end_str = end_date.isoformat()
     con = duckdb.connect()
 
-    # 1. Fetch monthly buys
+    # 1. Fetch monthly buys starting from start_date
     buys_query = f"""
     WITH forward_bars AS (
         SELECT 
@@ -102,6 +102,25 @@ def simulate_portfolio_sip(
     ORDER BY symbol, bar_date;
     """
     buy_rows = con.execute(buys_query).fetchall()
+
+    # Group buys by symbol
+    buys_by_sym: dict[str, list[tuple[dt.date, float]]] = {}
+    for sym, b_date, price in buy_rows:
+        buys_by_sym.setdefault(sym, []).append((b_date, float(price)))
+
+    # Determine monthly installment per stock
+    max_months = max((len(b) for b in buys_by_sym.values()), default=1)
+    if (
+        capital_budget is not None
+        and capital_budget > 0
+        and (monthly_amt is None or monthly_amt <= 0)
+    ):
+        # Size monthly SIP installment dynamically from the capital budget
+        effective_monthly_amt = round(capital_budget / (max_months * len(symbols)), 2)
+    else:
+        effective_monthly_amt = float(
+            monthly_amt if monthly_amt is not None and monthly_amt > 0 else 10000.0
+        )
 
     # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
     term_query = f"""
@@ -142,14 +161,8 @@ def simulate_portfolio_sip(
         for r in con.execute(term_query).fetchall()
     }
 
-    # Group buys by symbol
-    buys_by_sym: dict[str, list[tuple[dt.date, float]]] = {}
-    for sym, b_date, price in buy_rows:
-        buys_by_sym.setdefault(sym, []).append((b_date, float(price)))
-
     results: list[dict[str, Any]] = []
     portfolio_cfs: dict[dt.date, float] = {}
-    stock_initial = (initial_capital / len(symbols)) if (initial_capital > 0 and symbols) else 0.0
 
     for sym in symbols:
         if sym not in term_map:
@@ -157,14 +170,9 @@ def simulate_portfolio_sip(
         term_price, last_date, init_price, first_date, peak_price = term_map[sym]
         buys = buys_by_sym.get(sym, [])
 
-        init_shares = (
-            (stock_initial / init_price) if (stock_initial > 0 and init_price > 0) else 0.0
-        )
-        sip_shares = sum(monthly_amt / p for _, p in buys if p > 0) if monthly_amt > 0 else 0.0
-        shares = init_shares + sip_shares
-
-        sip_invested = len(buys) * monthly_amt if monthly_amt > 0 else 0.0
-        total_invested = stock_initial + sip_invested
+        # Capital deployed strictly through systematic installments from start_date
+        shares = sum(effective_monthly_amt / p for _, p in buys if p > 0)
+        total_invested = len(buys) * effective_monthly_amt
         final_val = shares * term_price
         profit = final_val - total_invested
         sip_mult = final_val / total_invested if total_invested > 0 else 1.0
@@ -183,12 +191,7 @@ def simulate_portfolio_sip(
         else:
             confirmation = "Declined"
 
-        cfs: list[tuple[dt.date, float]] = []
-        if stock_initial > 0:
-            cfs.append((first_date, -stock_initial))
-        if monthly_amt > 0:
-            for d, _ in buys:
-                cfs.append((d, -monthly_amt))
+        cfs: list[tuple[dt.date, float]] = [(d, -effective_monthly_amt) for d, _ in buys]
         cfs.append((last_date, final_val))
         xirr_val = calculate_xirr(cfs)
 
@@ -199,8 +202,7 @@ def simulate_portfolio_sip(
             {
                 "symbol": sym,
                 "months": len(buys),
-                "initial_capital": stock_initial,
-                "sip_invested": sip_invested,
+                "sip_amount": effective_monthly_amt,
                 "total_invested": total_invested,
                 "shares_held": shares,
                 "avg_price": total_invested / shares if shares > 0 else 0.0,
@@ -234,8 +236,7 @@ def simulate_portfolio_sip(
         "candidate_count": len(results),
         "start_date": start_str,
         "end_date": end_str,
-        "initial_capital": initial_capital,
-        "sip_amount": monthly_amt,
+        "sip_amount": effective_monthly_amt,
         "total_invested": tot_invested,
         "total_value": tot_val,
         "total_profit": tot_profit,

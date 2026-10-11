@@ -22,25 +22,23 @@ Stage 1 (In-Sample Screening):
     - `value`: Deep value (low P/E & P/B, ROCE >= 10%, Debt/Eq <= 1.5) near 52-week low.
 
 Stage 2 (Out-of-Sample Forward Backtest & Confirmation):
-    Simulates forward systematic investment from `--asof` to the present (or `--end`),
-    supporting initial capital allocation (`--capital` / `--initial-capital`) and recurring
-    monthly SIP (`--sip-amount`), verifying whether prospective candidates actually confirmed
-    into multibaggers (>= 2x or >= 3x return) without lookahead bias.
+    Simulates forward systematic investment from `--start` / `--asof` to the present (or `--end`),
+    deploying capital strictly through monthly SIP installments starting from the backtest start date.
+    Calculates terminal valuation, net profit, return multiple, and exact annualized XIRR.
 
 Usage::
 
     # 1. Screen prospective multibaggers as of 2023-01-01 and verify forward out-of-sample confirmation:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --train-years 3 --top 5
 
-    # 2. Allocate initial capital (₹500,000) + monthly SIP (₹10,000/mo) across candidates:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --capital 500000 --sip-amount 10000 --top 5
+    # 2. Allocate total capital budget (₹500,000) deployed via monthly SIP from start-date across candidates:
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --start 2023-01-01 --capital 500000 --top 5
 
-    # 3. Screen high dividend yielders at 52-week low as of 2023-01-01:
-    python backtesting/08_chained_screener_and_sip.py --strategy dividend --asof 2023-01-01 --top 5
+    # 3. Specify custom monthly SIP installment amount (₹15,000/mo per stock):
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --sip-amount 15000 --top 5
 
     # 4. Find prospective candidates as of today without backtesting:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
-    python backtesting/08_chained_screener_and_sip.py --strategy value --screen-only --top 5
 """
 
 from __future__ import annotations
@@ -102,7 +100,7 @@ class SipPortfolioStrategy(Strategy):
         min=0.0,
         max=100000000.0,
         step=10000.0,
-        description="Initial lump-sum capital corpus in INR",
+        description="Total capital budget in INR",
     )
 
     def __init__(self, monthly_amount: float = 10000.0, initial_capital: float = 0.0) -> None:
@@ -110,16 +108,11 @@ class SipPortfolioStrategy(Strategy):
         self._monthly_amount = monthly_amount
         self._initial_capital = initial_capital
         self._last_month: int | None = None
-        self._initial_invested: bool = False
 
     def on_bar(self, bar: Any) -> None:
         bar_date = getattr(bar, "date", None)
         if bar_date is None:
             return
-        if not self._initial_invested and self._initial_capital > 0:
-            self._initial_invested = True
-            self.buy(bar.instrument_id, 1)
-
         if self._last_month != bar_date.month and self._monthly_amount > 0:
             self._last_month = bar_date.month
             self.buy(bar.instrument_id, 1)
@@ -129,7 +122,7 @@ class ChainedScreenerSipExample(HonbaExample):
     """Chained In-Sample Screener and Out-of-Sample Forward SIP Backtest.
 
     Inherits from HonbaExample to provide standardized CLI configuration:
-    - `--capital` / `--initial-capital`: Starting capital / portfolio corpus
+    - `--capital` / `--initial-capital`: Capital budget deployed via SIP from start-date
     - `--universe`, `--exchange`, `--timeframe`
     - `--start` / `--asof`: In-sample screening evaluation date
     - `--end`: Out-of-sample forward backtest terminal date
@@ -149,7 +142,7 @@ class ChainedScreenerSipExample(HonbaExample):
     strategy: str = "multibagger"
     asof_date: dt.date | None = None
     train_years: int = 3
-    sip_amount: float = 10000.0
+    sip_amount: float | None = None
     top: int = 5
     screen_only: bool = False
     symbols: str | None = None
@@ -186,8 +179,8 @@ class ChainedScreenerSipExample(HonbaExample):
         parser.add_argument(
             "--sip-amount",
             type=float,
-            default=self.sip_amount,
-            help="Monthly SIP installment per stock in INR (default: 10000.0)",
+            default=None,
+            help="Monthly SIP installment per stock in INR. If omitted, sized dynamically from --capital / default ₹10,000",
         )
         parser.add_argument(
             "--top",
@@ -317,14 +310,14 @@ class ChainedScreenerSipExample(HonbaExample):
                 print(json.dumps({"stage": "screening", "candidates": candidates}, indent=2))
             return 0
 
-        # 4. Stage 2: Out-of-Sample Forward Backtest
+        # 4. Stage 2: Out-of-Sample Forward SIP Backtest (strictly starting from asof_eval_date)
         portfolio_results = simulate_portfolio_sip(
             catalog_dir=catalog_dir,
             symbols=target_symbols,
             start_date=asof_eval_date,
             end_date=end_eval_date,
             monthly_amt=self.sip_amount,
-            initial_capital=initial_cap,
+            capital_budget=initial_cap if initial_cap > 0 else None,
         )
 
         combined_output = {
@@ -333,7 +326,6 @@ class ChainedScreenerSipExample(HonbaExample):
             "end_date": end_eval_date.isoformat(),
             "strategy": self.strategy,
             "initial_capital": initial_cap,
-            "sip_amount": self.sip_amount,
             "screening_candidates": candidates,
             "portfolio_backtest": portfolio_results,
         }
@@ -349,8 +341,6 @@ class ChainedScreenerSipExample(HonbaExample):
 
         self._render_backtest_table(
             portfolio_results,
-            self.sip_amount,
-            initial_cap,
             asof_eval_date,
             end_eval_date,
         )
@@ -426,26 +416,21 @@ class ChainedScreenerSipExample(HonbaExample):
     @staticmethod
     def _render_backtest_table(
         portfolio: dict[str, Any],
-        sip_amount: float,
-        initial_capital: float,
         asof_date: dt.date,
         end_date: dt.date,
     ) -> None:
         """Render Rich terminal table and summary panel for Stage 2 out-of-sample forward backtest."""
         stocks: list[dict[str, Any]] = portfolio["stocks"]
         summary: dict[str, Any] = portfolio["summary"]
+        sip_amount = summary.get("sip_amount", 10000.0)
 
         console.print()
-        header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP (₹{sip_amount:,.0f}/mo"
-        if initial_capital > 0:
-            header += f" + ₹{initial_capital:,.0f} Initial Corpus"
-        header += f" from {asof_date} to {end_date})"
+        header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP (₹{sip_amount:,.0f}/mo from {asof_date} to {end_date})"
 
         table = Table(title=header, border_style="green")
         table.add_column("Symbol", style="bold cyan")
         table.add_column("Months", justify="center")
-        if initial_capital > 0:
-            table.add_column("Initial Cap", justify="right", style="dim")
+        table.add_column("SIP / Mo", justify="right", style="dim")
         table.add_column("Total Invested", justify="right")
         table.add_column("Final Valuation", justify="right", style="bold green")
         table.add_column("Net Profit (₹)", justify="right")
@@ -468,25 +453,19 @@ class ChainedScreenerSipExample(HonbaExample):
             else:
                 conf_style = "dim"
 
-            row = [
+            table.add_row(
                 r["symbol"],
                 str(r["months"]),
-            ]
-            if initial_capital > 0:
-                row.append(f"₹{r['initial_capital']:,.0f}")
-            row.extend(
-                [
-                    f"₹{r['total_invested']:,.0f}",
-                    f"₹{r['final_val']:,.0f}",
-                    f"[{profit_style}]₹{r['profit']:+,.0f}[/{profit_style}]",
-                    f"{r['sip_multiple']:.2f}x",
-                    f"{r['lump_multiple']:.2f}x",
-                    f"{r.get('peak_multiple', r['lump_multiple']):.2f}x",
-                    xirr_str,
-                    f"[{conf_style}]{conf}[/{conf_style}]",
-                ]
+                f"₹{r['sip_amount']:,.0f}",
+                f"₹{r['total_invested']:,.0f}",
+                f"₹{r['final_val']:,.0f}",
+                f"[{profit_style}]₹{r['profit']:+,.0f}[/{profit_style}]",
+                f"{r['sip_multiple']:.2f}x",
+                f"{r['lump_multiple']:.2f}x",
+                f"{r.get('peak_multiple', r['lump_multiple']):.2f}x",
+                xirr_str,
+                f"[{conf_style}]{conf}[/{conf_style}]",
             )
-            table.add_row(*row)
 
         console.print(table)
 
@@ -507,23 +486,18 @@ class ChainedScreenerSipExample(HonbaExample):
             else "0/0"
         )
         console.print()
-        cap_line = (
-            f"[bold]Initial Capital Corpus   :[/bold] ₹{initial_capital:,.2f}\n"
-            if initial_capital > 0
-            else ""
-        )
         console.print(
             Panel(
                 f"[bold]In-Sample Screening Date :[/bold] [cyan]{asof_date}[/cyan]\n"
-                f"[bold]Out-of-Sample Test Window:[/bold] [yellow]{asof_date}[/yellow] to [yellow]{end_date}[/yellow] ({months_count} months)\n"
-                f"{cap_line}"
-                f"[bold]Total Capital Deployed   :[/bold] ₹{summary['total_invested']:,.2f} (across {summary['candidate_count']} stocks)\n"
+                f"[bold]Out-of-Sample SIP Window :[/bold] [yellow]{asof_date}[/yellow] to [yellow]{end_date}[/yellow] ({months_count} months)\n"
+                f"[bold]Monthly SIP Installment  :[/bold] ₹{sip_amount:,.2f}/month per stock\n"
+                f"[bold]Total Capital Deployed   :[/bold] ₹{summary['total_invested']:,.2f} (strictly from SIP installments from {asof_date})\n"
                 f"[bold]Terminal Portfolio Value :[/bold] [bold green]₹{summary['total_value']:,.2f}[/bold green]\n"
                 f"[bold]Total Net Profit         :[/bold] [bold green]₹{summary['total_profit']:+,.2f}[/bold green] ([green]{p_profit_pct:+.1f}%[/green])\n"
                 f"[bold]Overall SIP Multiple     :[/bold] [bold yellow]{summary['portfolio_multiple']:.2f}x[/bold yellow]\n"
                 f"[bold]Portfolio Annual XIRR    :[/bold] [bold magenta]{p_xirr_str}[/bold magenta]\n"
                 f"[bold]Multibagger Confirmation :[/bold] [bold green]{conf_rate} confirmed as >=2x/3x multibaggers![/bold green]",
-                title="In-Sample Hypothesis vs Out-of-Sample Confirmation Summary",
+                title="In-Sample Hypothesis vs Out-of-Sample SIP Confirmation",
                 border_style="magenta",
             )
         )

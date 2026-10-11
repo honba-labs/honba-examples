@@ -67,10 +67,10 @@ def test_simulate_portfolio_sip_empty():
         symbols=[],
         start_date=dt.date(2023, 1, 1),
         end_date=dt.date(2023, 6, 1),
-        initial_capital=500000.0,
+        capital_budget=500000.0,
     )
     assert res["summary"]["candidate_count"] == 0
-    assert res["summary"]["initial_capital"] == 500000.0
+    assert res["summary"]["total_invested"] == 0.0
     assert res["stocks"] == []
 
 
@@ -185,6 +185,6 @@ def test_main_with_capital_options(example, tmp_path):
     assert out_file.exists()
     data = json.loads(out_file.read_text(encoding="utf-8"))
     summary = data["portfolio_backtest"]["summary"]
-    assert summary["initial_capital"] == 500000.0
+    assert data["initial_capital"] == 500000.0
     assert summary["sip_amount"] == 5000.0
     assert summary["total_invested"] > 0
