@@ -66,7 +66,11 @@ def main() -> None:
             {"symbol": iid.symbol, "exchange": iid.exchange}
             for iid in sorted(resolved, key=lambda x: x.symbol)
         ],
-        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+        [
+            Column("symbol", "Symbol", style="cyan"),
+            Column("exchange", "Exchange", style="magenta"),
+        ],
+        title=f"{CUSTOM_UNIVERSE_NAME.upper()} ({len(resolved)} symbols)",
     )
     print(
         "\nPass universe_name=CUSTOM_UNIVERSE_NAME to UniverseEqualWeightRebalance "

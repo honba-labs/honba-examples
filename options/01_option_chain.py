@@ -8,6 +8,7 @@ offline and deterministic on a synthetic chain.
 Run::
 
     python options/01_option_chain.py --underlying NIFTY --expiry 2024-12-26
+    python options/01_option_chain.py --format json
 """
 
 from __future__ import annotations
@@ -136,6 +137,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--spot", type=float, default=24000.0)
     parser.add_argument("--filter-moneyness", type=str, choices=["ITM", "ATM", "OTM"], default=None)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--format",
+        choices=["auto", "table", "json"],
+        default="auto",
+        help="output format (default auto: rich table in interactive terminal, json for pipes/exchange)",
+    )
     args = parser.parse_args(argv)
 
     result = run(
@@ -145,11 +152,71 @@ def main(argv: list[str] | None = None) -> int:
         filter_moneyness=args.filter_moneyness,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    is_table = (args.format == "table") or (
+        args.format == "auto" and sys.stdout.isatty() and not args.out
+    )
+
+    if is_table:
+        from honba.display import Column, render_kv, render_table
+
+        chain_info = result.get("chain", {})
+        render_kv(
+            [
+                ("Underlying", chain_info.get("underlying")),
+                ("Expiry", chain_info.get("expiry")),
+                ("Spot Price", f"₹{chain_info.get('spot', 0):,.2f}"),
+                (
+                    "Contracts",
+                    f"{result.get('filtered_count')} / {chain_info.get('contract_count')}",
+                ),
+            ],
+            title="Option Chain Overview",
+        )
+
+        rows = []
+        for s in result.get("strikes", []):
+            call = s.get("call") or {}
+            put = s.get("put") or {}
+            rows.append(
+                {
+                    "call_oi": f"{call.get('oi', 0):,}" if call else "-",
+                    "call_iv": f"{call.get('iv', 0) * 100:.1f}%"
+                    if call and call.get("iv")
+                    else "-",
+                    "call_mid": f"₹{call.get('mid', 0):.2f}"
+                    if call and call.get("mid") is not None
+                    else "-",
+                    "strike": f"{s['strike']:,.0f}",
+                    "moneyness": s.get("moneyness", "-"),
+                    "put_mid": f"₹{put.get('mid', 0):.2f}"
+                    if put and put.get("mid") is not None
+                    else "-",
+                    "put_iv": f"{put.get('iv', 0) * 100:.1f}%" if put and put.get("iv") else "-",
+                    "put_oi": f"{put.get('oi', 0):,}" if put else "-",
+                }
+            )
+
+        cols = [
+            Column("call_oi", "Call OI", align="right", style="cyan"),
+            Column("call_iv", "Call IV", align="right", style="cyan"),
+            Column("call_mid", "Call Mid", align="right", style="green"),
+            Column("strike", "Strike", align="center", style="bold yellow"),
+            Column("moneyness", "Type", align="center", style="white"),
+            Column("put_mid", "Put Mid", align="right", style="red"),
+            Column("put_iv", "Put IV", align="right", style="magenta"),
+            Column("put_oi", "Put OI", align="right", style="magenta"),
+        ]
+        render_table(
+            rows,
+            cols,
+            title=f"Option Chain: {chain_info.get('underlying')} ({chain_info.get('expiry')})",
+        )
+    else:
+        text = json.dumps(result, indent=2, default=str)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n")
+        print(text)
     return 0
 
 

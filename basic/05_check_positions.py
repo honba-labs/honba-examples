@@ -21,6 +21,7 @@ Run::
 
     python basic/05_check_positions.py
     python basic/05_check_positions.py --out positions.json
+    python basic/05_check_positions.py --format json
 """
 
 from __future__ import annotations
@@ -150,6 +151,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--adapter", default="fake", help="registered adapter name")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    parser.add_argument(
+        "--format",
+        choices=["auto", "table", "json"],
+        default="auto",
+        help="output format (default auto: rich table in interactive terminal, json for pipes/exchange)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -157,11 +164,77 @@ def main(argv: list[str] | None = None) -> int:
     except AdapterNotFound as exc:
         raise SystemExit(str(exc))
 
-    text = json.dumps(result, indent=2)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    is_table = (args.format == "table") or (
+        args.format == "auto" and sys.stdout.isatty() and not args.out
+    )
+
+    if is_table:
+        from honba.display import Column, render_kv, render_table
+
+        funds = result.get("funds", {})
+        render_kv(
+            [
+                ("Adapter", result.get("adapter")),
+                ("Available Cash", f"₹{funds.get('available_cash', 0):,.2f}"),
+                ("Opening Balance", f"₹{funds.get('opening_balance', 0):,.2f}"),
+                ("Currency", funds.get("currency", "INR")),
+            ],
+            title="Account Funds",
+        )
+
+        pos_rows = [
+            {
+                "symbol": p["instrument_id"]["symbol"],
+                "exchange": p["instrument_id"]["exchange"],
+                "side": p["side"].upper(),
+                "quantity": p["quantity"],
+                "avg_price": f"₹{p['avg_price']:,.2f}",
+                "realized_pnl": f"₹{p.get('realized_pnl_rupees', 0.0):+,.2f}",
+            }
+            for p in result.get("positions", [])
+        ]
+        if pos_rows:
+            render_table(
+                pos_rows,
+                [
+                    Column("symbol", "Symbol", style="cyan"),
+                    Column("exchange", "Exchange", style="magenta"),
+                    Column("side", "Side", style="bold yellow"),
+                    Column("quantity", "Quantity", align="right"),
+                    Column("avg_price", "Avg Price", align="right", style="green"),
+                    Column("realized_pnl", "Realized P&L", align="right", style="magenta"),
+                ],
+                title="Open Positions",
+            )
+
+        trade_rows = [
+            {
+                "symbol": t["instrument_id"]["symbol"],
+                "exchange": t["instrument_id"]["exchange"],
+                "side": t["side"].upper(),
+                "quantity": t["quantity"],
+                "price": f"₹{t['price']:,.2f}",
+            }
+            for t in result.get("trades", [])
+        ]
+        if trade_rows:
+            render_table(
+                trade_rows,
+                [
+                    Column("symbol", "Symbol", style="cyan"),
+                    Column("exchange", "Exchange", style="magenta"),
+                    Column("side", "Side", style="bold yellow"),
+                    Column("quantity", "Quantity", align="right"),
+                    Column("price", "Price", align="right", style="green"),
+                ],
+                title="Executed Trades",
+            )
+    else:
+        text = json.dumps(result, indent=2)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n")
+        print(text)
     return 0
 
 

@@ -96,7 +96,11 @@ def print_members(members: list[InstrumentId]) -> None:
             {"symbol": iid.symbol, "exchange": iid.exchange}
             for iid in sorted(members, key=lambda x: x.symbol)
         ],
-        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+        [
+            Column("symbol", "Symbol", style="cyan"),
+            Column("exchange", "Exchange", style="magenta"),
+        ],
+        title=f"Nifty200 Alpha 30 ({len(members)} instruments)",
     )
 
 

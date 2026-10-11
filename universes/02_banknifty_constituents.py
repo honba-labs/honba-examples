@@ -28,7 +28,11 @@ def main() -> None:
             {"symbol": iid.symbol, "exchange": iid.exchange}
             for iid in sorted(members, key=lambda x: x.symbol)
         ],
-        [Column("symbol", "Symbol"), Column("exchange", "Exchange")],
+        [
+            Column("symbol", "Symbol", style="cyan"),
+            Column("exchange", "Exchange", style="magenta"),
+        ],
+        title=f"{UNIVERSE_NAME.upper()} Constituents ({len(members)} symbols)",
     )
 
 

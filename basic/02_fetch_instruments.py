@@ -6,12 +6,13 @@ adapter is ``fake``: deterministic and offline, so the example runs anywhere. Po
 real broker with ``--adapter dhan --config client_id=... --config access_token=...``.
 
 Everything past the adapter boundary is a Honba ``Instrument``; no broker wire format shows up
-here. Output is structured JSON so a research workflow or an LLM agent can consume it.
+here. Output is structured JSON for machine data-exchange, or a rich table in interactive terminals.
 
 Run::
 
     python basic/02_fetch_instruments.py
     python basic/02_fetch_instruments.py --query RELIANCE --out instruments.json
+    python basic/02_fetch_instruments.py --format json
 """
 
 from __future__ import annotations
@@ -59,11 +60,13 @@ async def _fetch(adapter_name: str, query: str | None, config: dict[str, str]) -
 
 
 def run(
-    adapter: str = "fake", query: str | None = None, config: dict[str, str] | None = None
+    adapter: str = "fake",
+    query: str | None = None,
+    config: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Fetch instruments and return a JSON-serializable, deterministically ordered result."""
+    """Fetch instruments and return a structured summary."""
     instruments = asyncio.run(_fetch(adapter, query, config or {}))
-    rows = sorted((_row(i) for i in instruments), key=lambda r: (r["symbol"], r["exchange"]))
+    rows = sorted((_row(inst) for inst in instruments), key=lambda r: r["symbol"])
     return {
         "adapter": adapter,
         "query": query,
@@ -89,14 +92,43 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--query", default=None, help="symbol substring to search for")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
     parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    parser.add_argument(
+        "--format",
+        choices=["auto", "table", "json"],
+        default="auto",
+        help="output format (default auto: rich table in interactive terminal, json for pipes/exchange)",
+    )
     args = parser.parse_args(argv)
 
     result = run(args.adapter, args.query, _parse_config(args.config))
-    text = json.dumps(result, indent=2)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+
+    is_table = (args.format == "table") or (
+        args.format == "auto" and sys.stdout.isatty() and not args.out
+    )
+
+    if is_table:
+        from honba.display import Column, render_kv, render_table
+
+        render_kv([("Adapter", result["adapter"]), ("Total Instruments", result["count"])])
+        cols = [
+            Column("symbol", "Symbol", style="cyan"),
+            Column("exchange", "Exchange", style="magenta"),
+            Column("kind", "Kind", style="yellow"),
+            Column("lot_size", "Lot Size", align="right", style="green"),
+            Column("tick_size", "Tick Size", align="right", style="white"),
+            Column("currency", "Currency", style="dim"),
+        ]
+        render_table(
+            result["instruments"],
+            cols,
+            title=f"Instruments ({result['count']} loaded)",
+        )
+    else:
+        text = json.dumps(result, indent=2)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n")
+        print(text)
     return 0
 
 

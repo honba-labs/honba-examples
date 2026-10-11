@@ -245,7 +245,10 @@ def print_metrics(metrics: Mapping[str, Any], opts: OutputOptions | None = None)
     keys += sorted(k for k in metrics if k not in _METRIC_ORDER)
     text = [{"metric": _metric_label(k), "value": _metric_text(k, metrics[k])} for k in keys]
     raw = [{"metric": k, "value": metrics[k]} for k in keys]
-    cols = [Column("metric", "Metric"), Column("value", "Value", align="right")]
+    cols = [
+        Column("metric", "Metric", style="cyan"),
+        Column("value", "Value", align="right", style="bold yellow"),
+    ]
     _table("metrics", "Metrics", cols, text, opts, raw=raw)
 
 
@@ -280,13 +283,13 @@ def print_changes(
                 }
             )
     cols = [
-        Column("date", "Date"),
-        Column("symbol", "Symbol"),
-        Column("side", "Side"),
+        Column("date", "Date", style="dim"),
+        Column("symbol", "Symbol", style="cyan"),
+        Column("side", "Side", style="bold yellow"),
         Column("net_shares", "Net shares", fmt=_signed),
-        Column("price", "Price", fmt=_num),
-        Column("notional", "Notional", fmt=_num),
-        Column("cost", "Cost", fmt=_num),
+        Column("price", "Price", fmt=_num, style="green"),
+        Column("notional", "Notional", fmt=_num, style="magenta"),
+        Column("cost", "Cost", fmt=_num, style="red"),
     ]
     _table("changes", "Changes per rebalance", cols, raw, opts)
 
@@ -350,27 +353,16 @@ def print_rebalance_schedule(
         rebalanced_items.sort(key=lambda x: -x[0])
         rebalanced = [item[1] for item in rebalanced_items]
 
-        if idx == 0:
-            event = "Initial"
-            if len(added) >= 10:
-                added_str = f"{len(added)} basket names"
-            elif added:
-                added_str = ", ".join(added)
-            else:
-                added_str = "—"
-            removed_str = "—"
-            rebalanced_str = "—"
+        if idx == 0 and not removed and not rebalanced:
+            event = "Day 0 Funding"
+            added_str = f"{len(added)} symbols" if len(added) > 5 else ", ".join(added)
+            removed_str = "-"
+            rebalanced_str = "-"
         else:
-            sip_inj = g.get("sip_injected", 0.0)
-            event = "Rebal + SIP" if sip_inj > 0 else "Rebalance"
-            added_str = ", ".join(added) if added else "—"
-            removed_str = ", ".join(removed) if removed else "—"
-            if len(rebalanced) > 4:
-                rebalanced_str = f"{', '.join(rebalanced[:4])} (+{len(rebalanced) - 4} more)"
-            elif rebalanced:
-                rebalanced_str = ", ".join(rebalanced)
-            else:
-                rebalanced_str = "—"
+            event = f"Rebalance #{idx}" if idx > 0 else "Rebalance"
+            added_str = ", ".join(added) if added else "-"
+            removed_str = ", ".join(removed) if removed else "-"
+            rebalanced_str = ", ".join(rebalanced) if rebalanced else "-"
 
         raw.append(
             {
@@ -384,12 +376,12 @@ def print_rebalance_schedule(
         )
 
     cols = [
-        Column("date", "Date"),
-        Column("event", "Event"),
-        Column("added", "Added (New)"),
-        Column("removed", "Removed (Exit)"),
-        Column("rebalanced", "Rebalanced (Trim / Top-up)"),
-        Column("notional", "Notional", align="right", fmt=_num),
+        Column("date", "Date", style="dim"),
+        Column("event", "Event", style="bold cyan"),
+        Column("added", "Added (New)", style="green"),
+        Column("removed", "Removed (Exit)", style="red"),
+        Column("rebalanced", "Rebalanced (Trim / Top-up)", style="yellow"),
+        Column("notional", "Notional", align="right", style="magenta", fmt=_num),
     ]
     _table("schedule", "Rebalance Schedule", cols, raw, opts)
 
@@ -410,9 +402,12 @@ def print_holdings(
             row["price"] = px
             row["value"] = None if px is None else px * holdings[sym]
         raw.append(row)
-    cols = [Column("symbol", "Symbol"), Column("shares", "Shares")]
+    cols = [Column("symbol", "Symbol", style="cyan"), Column("shares", "Shares")]
     if prices is not None:
-        cols += [Column("price", "Price", fmt=_num), Column("value", "Value", fmt=_num)]
+        cols += [
+            Column("price", "Price", fmt=_num, style="green"),
+            Column("value", "Value", fmt=_num, style="bold green"),
+        ]
     _table("holdings", "Final holdings", cols, raw, opts)
 
 
@@ -424,11 +419,11 @@ def print_rejections(
     keys = ("date", "symbol", "side", "quantity", "reason")
     raw = [{k: r.get(k) for k in keys} for r in rejections]
     cols = [
-        Column("date", "Date"),
-        Column("symbol", "Symbol"),
-        Column("side", "Side"),
+        Column("date", "Date", style="dim"),
+        Column("symbol", "Symbol", style="cyan"),
+        Column("side", "Side", style="bold yellow"),
         Column("quantity", "Quantity"),
-        Column("reason", "Reason"),
+        Column("reason", "Reason", style="red"),
     ]
     _table("rejections", "Rejections", cols, raw, opts)
 
