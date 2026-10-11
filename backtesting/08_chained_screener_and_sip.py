@@ -2,11 +2,11 @@
 
 Demonstrates point-in-time strategy screening with in-sample training data and
 subsequent out-of-sample forward backtesting:
-    [Stage 1: Screener (3-5 Years In-Sample Training Data)]
-                             │
-                      (top candidates)
-                             ▼
-    [Stage 2: Out-of-Sample Forward Monthly SIP Backtest (As-Of to Till Date)]
+    [Stage 1: Prospective Screener (3-5 Years In-Sample Base & Sweet-Spot Momentum)]
+                                      │
+                               (top candidates)
+                                      ▼
+    [Stage 2: Out-of-Sample Forward Backtest for Multibagger Confirmation]
 
 Inherits from:
 - `honba.strategies.base.Strategy` (Honba Strategy ABC) for the systematic execution model.
@@ -15,19 +15,21 @@ Inherits from:
 
 Stage 1 (In-Sample Screening):
     Evaluates up to 3-5 years of historical bars strictly on or before `--asof <YYYY-MM-DD>` (or `--start`):
-    - `multibagger`: Stage 2 momentum (1y return > 35%, price > 200 SMA rising, near 52w high).
+    - `multibagger`: Prospective "going-to-be" multibaggers in early Stage 2 breakout sweet spot
+      (1y return 15-95%, positive 3m momentum ignition, within 15% of 52w high, volume accumulation, ROCE).
+      Crucially avoids already-exhausted parabolic runners (e.g. 300-500% late-stage tops).
     - `dividend`: High dividend yielders (yield >= 2.5%, FCF > 0) near 52-week low.
     - `value`: Deep value (low P/E & P/B, ROCE >= 10%, Debt/Eq <= 1.5) near 52-week low.
 
-Stage 2 (Out-of-Sample Forward Backtest):
+Stage 2 (Out-of-Sample Forward Backtest & Confirmation):
     Simulates forward systematic investment from `--asof` to the present (or `--end`),
     supporting initial capital allocation (`--capital` / `--initial-capital`) and recurring
-    monthly SIP (`--sip-amount`), calculating terminal valuation, net profit, return multiple,
-    and exact annualized XIRR.
+    monthly SIP (`--sip-amount`), verifying whether prospective candidates actually confirmed
+    into multibaggers (>= 2x or >= 3x return) without lookahead bias.
 
 Usage::
 
-    # 1. Screen multibaggers with 3-yr training data as of 2023-01-01 and backtest forward SIP:
+    # 1. Screen prospective multibaggers as of 2023-01-01 and verify forward out-of-sample confirmation:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --train-years 3 --top 5
 
     # 2. Allocate initial capital (₹500,000) + monthly SIP (₹10,000/mo) across candidates:
@@ -36,12 +38,9 @@ Usage::
     # 3. Screen high dividend yielders at 52-week low as of 2023-01-01:
     python backtesting/08_chained_screener_and_sip.py --strategy dividend --asof 2023-01-01 --top 5
 
-    # 4. Find candidates as of today without backtesting:
+    # 4. Find prospective candidates as of today without backtesting:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
     python backtesting/08_chained_screener_and_sip.py --strategy value --screen-only --top 5
-
-    # 5. Custom list of symbols with forward backtest:
-    python backtesting/08_chained_screener_and_sip.py --symbols TVSMOTOR,MAZDOCK,CGPOWER --asof 2023-01-01
 """
 
 from __future__ import annotations
@@ -162,7 +161,7 @@ class ChainedScreenerSipExample(HonbaExample):
             "--strategy",
             choices=["multibagger", "dividend", "value", "all"],
             default=self.strategy,
-            help="Screener strategy: 'multibagger' (momentum), 'dividend' (yield at 52w low), or 'value' (low P/E at 52w low)",
+            help="Screener strategy: 'multibagger' (prospective momentum), 'dividend', or 'value'",
         )
         parser.add_argument(
             "--asof",
@@ -268,12 +267,15 @@ class ChainedScreenerSipExample(HonbaExample):
                         "asof_date": asof_eval_date.isoformat(),
                         "close": 0.0,
                         "ret_1y": 0.0,
+                        "ret_3m": 0.0,
                         "train_ret_pct": 0.0,
                         "pct_from_high": 0.0,
                         "sma200": 0.0,
                         "sma200_rising": True,
+                        "vol_surge": 1.0,
                         "roce_pct": None,
                         "debt_to_equity": None,
+                        "mb_score": 100.0,
                     }
                 )
         else:
@@ -360,32 +362,31 @@ class ChainedScreenerSipExample(HonbaExample):
     ) -> None:
         """Render Rich terminal table for Stage 1 screened candidates."""
         if strategy == "multibagger":
-            title = f"Stage 1 (In-Sample): Screened Multibaggers as of {asof_date} ({train_years}-Yr Training Data)"
+            title = f"Stage 1 (In-Sample): Prospective 'Going-to-Be' Multibaggers as of {asof_date} ({train_years}-Yr Base Window)"
             table = Table(title=title, border_style="cyan")
             table.add_column("Symbol", style="bold cyan")
             table.add_column("Price (₹)", justify="right")
             table.add_column("1-Yr Ret", justify="right", style="green")
-            table.add_column(f"{train_years}-Yr Train Ret", justify="right", style="bold green")
+            table.add_column("3-Mo Surge", justify="right", style="bold green")
             table.add_column("From 52w High", justify="right", style="magenta")
+            table.add_column("Vol Surge", justify="right", style="yellow")
             table.add_column("200 SMA", justify="right", style="dim")
-            table.add_column("Trend Status", style="green")
             table.add_column("ROCE %", justify="right", style="yellow")
-            table.add_column("Debt/Eq", justify="right")
+            table.add_column("MB Score", justify="right", style="bold cyan")
 
             for c in candidates:
                 roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
-                de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-                trend_s = "Stage 2 Strong" if c.get("sma200_rising") else "Stage 2 Base"
+                vol_s = f"{c['vol_surge']:.2f}x" if c.get("vol_surge") is not None else "-"
                 table.add_row(
                     c["symbol"],
                     f"₹{c['close']:,.2f}",
                     f"{c['ret_1y']:+.1f}%",
-                    f"{c['train_ret_pct']:+.1f}%",
+                    f"{c.get('ret_3m', 0.0):+.1f}%",
                     f"{c['pct_from_high']:+.1f}%",
+                    vol_s,
                     f"₹{c['sma200']:,.2f}",
-                    trend_s,
                     roce_s,
-                    de_s,
+                    f"{c.get('mb_score', 0.0):.1f}",
                 )
             console.print(table)
         else:
@@ -435,7 +436,7 @@ class ChainedScreenerSipExample(HonbaExample):
         summary: dict[str, Any] = portfolio["summary"]
 
         console.print()
-        header = f"Stage 2 (Out-of-Sample Forward Backtest): Monthly SIP (₹{sip_amount:,.0f}/mo"
+        header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP (₹{sip_amount:,.0f}/mo"
         if initial_capital > 0:
             header += f" + ₹{initial_capital:,.0f} Initial Corpus"
         header += f" from {asof_date} to {end_date})"
@@ -448,13 +449,25 @@ class ChainedScreenerSipExample(HonbaExample):
         table.add_column("Total Invested", justify="right")
         table.add_column("Final Valuation", justify="right", style="bold green")
         table.add_column("Net Profit (₹)", justify="right")
-        table.add_column("Return Mult", justify="right", style="bold yellow")
+        table.add_column("SIP Mult", justify="right", style="bold yellow")
+        table.add_column("Lump Mult", justify="right", style="bold green")
+        table.add_column("Peak Mult", justify="right", style="magenta")
         table.add_column("XIRR (p.a.)", justify="right", style="bold magenta")
-        table.add_column("Lump Sum Mult", justify="right", style="dim")
+        table.add_column("Confirmation Status", justify="center", style="bold cyan")
 
+        confirmed_count = 0
         for r in stocks:
             profit_style = "green" if r["profit"] >= 0 else "red"
             xirr_str = f"{r['xirr_pct']:+.1f}%" if r["xirr_pct"] is not None else "N/A"
+            conf = r.get("confirmation", "N/A")
+            if "Multibagger" in conf:
+                confirmed_count += 1
+                conf_style = "bold green"
+            elif "Outperformer" in conf:
+                conf_style = "green"
+            else:
+                conf_style = "dim"
+
             row = [
                 r["symbol"],
                 str(r["months"]),
@@ -467,8 +480,10 @@ class ChainedScreenerSipExample(HonbaExample):
                     f"₹{r['final_val']:,.0f}",
                     f"[{profit_style}]₹{r['profit']:+,.0f}[/{profit_style}]",
                     f"{r['sip_multiple']:.2f}x",
-                    xirr_str,
                     f"{r['lump_multiple']:.2f}x",
+                    f"{r.get('peak_multiple', r['lump_multiple']):.2f}x",
+                    xirr_str,
+                    f"[{conf_style}]{conf}[/{conf_style}]",
                 ]
             )
             table.add_row(*row)
@@ -486,6 +501,11 @@ class ChainedScreenerSipExample(HonbaExample):
             else 0.0
         )
         months_count = stocks[0]["months"] if stocks else 0
+        conf_rate = (
+            f"{confirmed_count}/{len(stocks)} ({(confirmed_count / len(stocks)) * 100:.0f}%)"
+            if stocks
+            else "0/0"
+        )
         console.print()
         cap_line = (
             f"[bold]Initial Capital Corpus   :[/bold] ₹{initial_capital:,.2f}\n"
@@ -500,9 +520,10 @@ class ChainedScreenerSipExample(HonbaExample):
                 f"[bold]Total Capital Deployed   :[/bold] ₹{summary['total_invested']:,.2f} (across {summary['candidate_count']} stocks)\n"
                 f"[bold]Terminal Portfolio Value :[/bold] [bold green]₹{summary['total_value']:,.2f}[/bold green]\n"
                 f"[bold]Total Net Profit         :[/bold] [bold green]₹{summary['total_profit']:+,.2f}[/bold green] ([green]{p_profit_pct:+.1f}%[/green])\n"
-                f"[bold]Overall Return Multiple  :[/bold] [bold yellow]{summary['portfolio_multiple']:.2f}x[/bold yellow]\n"
-                f"[bold]Portfolio Annual XIRR    :[/bold] [bold magenta]{p_xirr_str}[/bold magenta]",
-                title="In-Sample vs Out-of-Sample Performance Comparison",
+                f"[bold]Overall SIP Multiple     :[/bold] [bold yellow]{summary['portfolio_multiple']:.2f}x[/bold yellow]\n"
+                f"[bold]Portfolio Annual XIRR    :[/bold] [bold magenta]{p_xirr_str}[/bold magenta]\n"
+                f"[bold]Multibagger Confirmation :[/bold] [bold green]{conf_rate} confirmed as >=2x/3x multibaggers![/bold green]",
+                title="In-Sample Hypothesis vs Out-of-Sample Confirmation Summary",
                 border_style="magenta",
             )
         )

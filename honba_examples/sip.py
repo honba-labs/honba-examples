@@ -71,11 +71,17 @@ def simulate_portfolio_sip(
             "stocks": [],
         }
 
-    catalog_glob = str(catalog_dir / "*" / "*.parquet")
+    # Prune Parquet files strictly to target symbols for instant query speed
+    target_files: list[str] = []
+    for s in symbols:
+        sym_dir = catalog_dir / s
+        if sym_dir.is_dir():
+            target_files.extend([str(f) for f in sym_dir.glob("*.parquet")])
+    if not target_files:
+        target_files = [str(catalog_dir / "*" / "*.parquet")]
+
     start_str = start_date.isoformat()
     end_str = end_date.isoformat()
-    sym_in = ", ".join([f"'{s}'" for s in symbols])
-
     con = duckdb.connect()
 
     # 1. Fetch monthly buys
@@ -85,9 +91,8 @@ def simulate_portfolio_sip(
             regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,
             epoch_ms(ts // 1000000)::DATE as bar_date,
             open, close
-        FROM read_parquet('{catalog_glob}', filename=true)
+        FROM read_parquet({target_files}, filename=true)
         WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'
-          AND regexp_extract(filename, 'NSE/([^/]+)/', 1) IN ({sym_in})
     )
     SELECT symbol, bar_date, open as sip_price
     FROM (
@@ -98,16 +103,15 @@ def simulate_portfolio_sip(
     """
     buy_rows = con.execute(buys_query).fetchall()
 
-    # 2. Fetch terminal and initial prices
+    # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
     term_query = f"""
     WITH forward_bars AS (
         SELECT 
             regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,
             epoch_ms(ts // 1000000)::DATE as bar_date,
-            open, close
-        FROM read_parquet('{catalog_glob}', filename=true)
+            open, close, high
+        FROM read_parquet({target_files}, filename=true)
         WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'
-          AND regexp_extract(filename, 'NSE/([^/]+)/', 1) IN ({sym_in})
     ),
     terms AS (
         SELECT symbol, close as terminal_price, bar_date as end_date
@@ -122,13 +126,20 @@ def simulate_portfolio_sip(
             SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date ASC) as rn
             FROM forward_bars
         ) WHERE rn = 1
+    ),
+    peaks AS (
+        SELECT symbol, MAX(high) as peak_price
+        FROM forward_bars
+        GROUP BY symbol
     )
-    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date
+    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date, p.peak_price
     FROM terms t
-    JOIN inits i ON t.symbol = i.symbol;
+    JOIN inits i ON t.symbol = i.symbol
+    JOIN peaks p ON t.symbol = p.symbol;
     """
     term_map = {
-        r[0]: (float(r[1]), r[2], float(r[3]), r[4]) for r in con.execute(term_query).fetchall()
+        r[0]: (float(r[1]), r[2], float(r[3]), r[4], float(r[5]))
+        for r in con.execute(term_query).fetchall()
     }
 
     # Group buys by symbol
@@ -143,7 +154,7 @@ def simulate_portfolio_sip(
     for sym in symbols:
         if sym not in term_map:
             continue
-        term_price, last_date, init_price, first_date = term_map[sym]
+        term_price, last_date, init_price, first_date, peak_price = term_map[sym]
         buys = buys_by_sym.get(sym, [])
 
         init_shares = (
@@ -158,6 +169,19 @@ def simulate_portfolio_sip(
         profit = final_val - total_invested
         sip_mult = final_val / total_invested if total_invested > 0 else 1.0
         lump_mult = term_price / init_price if init_price > 0 else 1.0
+        peak_mult = peak_price / init_price if init_price > 0 else 1.0
+
+        # Confirmation badge
+        if lump_mult >= 3.0:
+            confirmation = "★ 3x+ Multibagger"
+        elif lump_mult >= 2.0:
+            confirmation = "★ 2x Multibagger"
+        elif lump_mult >= 1.5:
+            confirmation = "Outperformer (1.5x+)"
+        elif lump_mult >= 1.0:
+            confirmation = "Modest Gain"
+        else:
+            confirmation = "Declined"
 
         cfs: list[tuple[dt.date, float]] = []
         if stock_initial > 0:
@@ -180,12 +204,16 @@ def simulate_portfolio_sip(
                 "total_invested": total_invested,
                 "shares_held": shares,
                 "avg_price": total_invested / shares if shares > 0 else 0.0,
+                "initial_price": init_price,
                 "final_price": term_price,
+                "peak_price": peak_price,
                 "final_val": final_val,
                 "profit": profit,
                 "sip_multiple": sip_mult,
                 "lump_multiple": lump_mult,
+                "peak_multiple": peak_mult,
                 "xirr_pct": xirr_val,
+                "confirmation": confirmation,
                 "first_date": first_date.isoformat(),
                 "last_date": last_date.isoformat(),
             }
