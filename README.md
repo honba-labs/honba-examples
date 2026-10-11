@@ -168,6 +168,9 @@ India cost model.
 | 04 | `04_walk_forward.py` | `SmaWalk` | Rolling in-sample → out-of-sample windows |
 | 05 | `05_monte_carlo.py` | `SmaMonteCarlo` | Bootstrap equity curves (final equity, DD, Sharpe) |
 | 06 | `06_concurrent_backtest.py` | `SmaSweep` | Thread-pool parameter sweep, Pareto frontier |
+| 07 | `07_sip_buy_and_hold.py` | — | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD |
+| 08 | `08_multibagger_screener.py` | — | Point-in-time multibagger screener (`--asof`), Stage 2 momentum, ROCE overlay |
+| 09 | `09_multibagger_sip_backtest.py` | — | Forward monthly SIP backtest (₹10k/mo) on screened candidates, XIRR |
 
 Run them:
 
@@ -178,6 +181,9 @@ python backtesting/03_latency_modeling.py
 python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
+python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5
+python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01 --top 5
 ```
 
 ### `mutual_funds/` — NAV and SIP

@@ -5,15 +5,17 @@ the local Parquet catalog.
 
 ## At a glance
 
-| #  | File                        | Strategy class    | What you learn                                                             |
-|----|-----------------------------|-------------------|----------------------------------------------------------------------------|
-| 01 | `01_first_backtest.py`      | `SmaBacktest`     | Minimal backtest: SMA crossover, next-open fills, India equity costs       |
-| 02 | `02_cost_modeling.py`       | —                 | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST)   |
-| 03 | `03_latency_modeling.py`    | `SmaLatency`      | Compare fill models: bar_close / next_open / next_close                    |
-| 04 | `04_walk_forward.py`        | `SmaWalk`         | Rolling window optimization/validation (in-sample → out-of-sample)         |
-| 05 | `05_monte_carlo.py`         | `SmaMonteCarlo`   | Bootstrap equity curves for risk distribution (final equity, DD, Sharpe)   |
-| 06 | `06_concurrent_backtest.py` | `SmaSweep`        | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe         |
-| 07 | `07_sip_buy_and_hold.py`    | —                 | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD    |
+| #  | File                             | Strategy class | What you learn                                                             |
+|----|----------------------------------|----------------|----------------------------------------------------------------------------|
+| 01 | `01_first_backtest.py`           | `SmaBacktest`  | Minimal backtest: SMA crossover, next-open fills, India equity costs       |
+| 02 | `02_cost_modeling.py`            | —              | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST)   |
+| 03 | `03_latency_modeling.py`         | `SmaLatency`   | Compare fill models: bar_close / next_open / next_close                    |
+| 04 | `04_walk_forward.py`             | `SmaWalk`      | Rolling window optimization/validation (in-sample → out-of-sample)         |
+| 05 | `05_monte_carlo.py`              | `SmaMonteCarlo`| Bootstrap equity curves for risk distribution (final equity, DD, Sharpe)   |
+| 06 | `06_concurrent_backtest.py`      | `SmaSweep`     | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe         |
+| 07 | `07_sip_buy_and_hold.py`         | —              | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD    |
+| 08 | `08_multibagger_screener.py`     | —              | Point-in-time multibagger screener (`--asof`), Stage 2 momentum, ROCE      |
+| 09 | `09_multibagger_sip_backtest.py` | —              | Forward monthly SIP backtest (₹10k/mo) on screened candidates, XIRR        |
 
 ## The common pattern
 
@@ -65,6 +67,8 @@ python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
 python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5
+python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01 --top 5
 pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest or sip_buy_and_hold"
 ```
 
@@ -77,6 +81,7 @@ pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or 
 5. **Monte Carlo** — Resample fills with replacement to estimate distribution of outcomes
 6. **Concurrent sweep** — `ThreadPoolExecutor` over parameter grid; deterministic ordering preserved
 7. **Systematic investment plan (SIP)** — Monthly/weekly cash inflows, rupee cost averaging, XIRR and drawdown metrics
+8. **Point-in-time screening & forward backtesting** — Zero lookahead candidate selection evaluated strictly as of `--asof` with subsequent out-of-sample forward SIP compounding
 
 ## From here to production backtests
 
