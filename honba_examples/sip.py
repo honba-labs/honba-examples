@@ -26,6 +26,9 @@ def calculate_xirr(cash_flows: list[tuple[dt.date, float]]) -> float | None:
         return None
 
     d0 = cash_flows[0][0]
+    if (cash_flows[-1][0] - d0).days < 1:
+        return 0.0 if abs(sum(amounts)) < 1e-4 else None
+
     years = [(d - d0).days / 365.25 for d, _ in cash_flows]
 
     def npv(rate: float) -> float:
@@ -109,21 +112,7 @@ def simulate_portfolio_sip(
 
     # 1. Fetch monthly first trading session executions
     buys_query = f"""
-    WITH forward_bars AS (
-        SELECT 
-            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,
-            epoch_ms(ts // 1000000)::DATE as bar_date,
-            open, close
-        FROM read_parquet({target_files}, filename=true)
-        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'
-    )
-    SELECT symbol, bar_date, open as sip_price
-    FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol, date_trunc('month', bar_date) ORDER BY bar_date ASC) as rn
-        FROM forward_bars
-    ) WHERE rn = 1
-    ORDER BY symbol, bar_date;
-    """
+    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'\n    )\n    SELECT symbol, bar_date, open as sip_price\n    FROM (\n        SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol, date_trunc('month', bar_date) ORDER BY bar_date ASC) as rn\n        FROM forward_bars\n    ) WHERE rn = 1\n    ORDER BY symbol, bar_date;\n    """
     buy_rows = con.execute(buys_query).fetchall()
 
     # Group buys by symbol
@@ -155,42 +144,28 @@ def simulate_portfolio_sip(
 
     # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
     term_query = f"""
-    WITH forward_bars AS (
-        SELECT 
-            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,
-            epoch_ms(ts // 1000000)::DATE as bar_date,
-            open, close, high
-        FROM read_parquet({target_files}, filename=true)
-        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'
-    ),
-    terms AS (
-        SELECT symbol, close as terminal_price, bar_date as end_date
-        FROM (
-            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date DESC) as rn
-            FROM forward_bars
-        ) WHERE rn = 1
-    ),
-    inits AS (
-        SELECT symbol, open as initial_price, bar_date as first_date
-        FROM (
-            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date ASC) as rn
-            FROM forward_bars
-        ) WHERE rn = 1
-    ),
-    peaks AS (
-        SELECT symbol, MAX(high) as peak_price
-        FROM forward_bars
-        GROUP BY symbol
-    )
-    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date, p.peak_price
-    FROM terms t
-    JOIN inits i ON t.symbol = i.symbol
-    JOIN peaks p ON t.symbol = p.symbol;
-    """
+    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close, high\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'\n    ),\n    terms AS (\n        SELECT symbol, close as terminal_price, bar_date as end_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date DESC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    inits AS (\n        SELECT symbol, open as initial_price, bar_date as first_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date ASC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    peaks AS (\n        SELECT symbol, MAX(high) as peak_price\n        FROM forward_bars\n        GROUP BY symbol\n    )\n    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date, p.peak_price\n    FROM terms t\n    JOIN inits i ON t.symbol = i.symbol\n    JOIN peaks p ON t.symbol = p.symbol;\n    """
     term_map = {
         r[0]: (float(r[1]), r[2], float(r[3]), r[4], float(r[5]))
         for r in con.execute(term_query).fetchall()
     }
+
+    # For symbols missing from forward_bars (e.g. asof on a weekend/latest data date)
+    missing_syms = [s for s in symbols if s not in term_map]
+    if missing_syms:
+        missing_files = []
+        for s in missing_syms:
+            sym_dir = catalog_dir / s
+            if sym_dir.is_dir():
+                missing_files.extend([str(f) for f in sym_dir.glob("*.parquet")])
+        if missing_files:
+            latest_query = f"""
+            SELECT symbol, close, bar_date\n            FROM (\n                SELECT \n                    regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n                    epoch_ms(ts // 1000000)::DATE as bar_date,\n                    close,\n                    ROW_NUMBER() OVER (PARTITION BY regexp_extract(filename, 'NSE/([^/]+)/', 1) ORDER BY ts DESC) as rn\n                FROM read_parquet({missing_files}, filename=true)\n                WHERE epoch_ms(ts // 1000000)::DATE <= '{start_str}'\n            )\n            WHERE rn = 1;\n            """
+            for row in con.execute(latest_query).fetchall():
+                sym = row[0]
+                px = float(row[1])
+                b_date = row[2]
+                term_map[sym] = (px, b_date, px, b_date, px)
 
     results: list[dict[str, Any]] = []
     portfolio_cfs: dict[dt.date, float] = {}
@@ -270,20 +245,17 @@ def simulate_portfolio_sip(
         else:
             confirmation = "Declined"
 
-        if total_invested > 0:
+        if total_invested > 0 and final_val > 0:
             cfs.append((last_date, final_val))
             xirr_val = calculate_xirr(cfs)
         else:
             xirr_val = None
 
-        # Displayed months reflects executed SIP cycles, or window span
-        display_months = executed_sip_count if executed_sip_count > 0 else window_months
-
         results.append(
             {
                 "symbol": sym,
                 "weight_pct": round(w * 100.0, 1),
-                "months": display_months,
+                "months": window_months,
                 "init_capital": init_invested,
                 "sip_amount": sip_stock_amt,
                 "sip_count": executed_sip_count,
@@ -304,6 +276,45 @@ def simulate_portfolio_sip(
                 "last_date": last_date.isoformat(),
             }
         )
+
+    if not results and symbols:
+        for sym in symbols:
+            w = effective_weights.get(sym, 1.0 / n_syms)
+            init_stock_amt = (
+                (float(initial_capital) * w)
+                if (initial_capital is not None and initial_capital > 0)
+                else 0.0
+            )
+            sip_stock_amt = (
+                (port_monthly_sip * w)
+                if sip_mode == "portfolio"
+                else (float(monthly_sip or 10000.0))
+            )
+            results.append(
+                {
+                    "symbol": sym,
+                    "weight_pct": round(w * 100.0, 1),
+                    "months": 1,
+                    "init_capital": init_stock_amt,
+                    "sip_amount": sip_stock_amt,
+                    "sip_count": 0,
+                    "total_invested": init_stock_amt,
+                    "shares_held": 0.0,
+                    "avg_price": 0.0,
+                    "initial_price": 0.0,
+                    "final_price": 0.0,
+                    "peak_price": 0.0,
+                    "final_val": init_stock_amt,
+                    "profit": 0.0,
+                    "sip_multiple": 1.0,
+                    "lump_multiple": 1.0,
+                    "peak_multiple": 1.0,
+                    "xirr_pct": 0.0,
+                    "confirmation": "Modest Gain",
+                    "first_date": start_str,
+                    "last_date": end_str,
+                }
+            )
 
     results.sort(key=lambda x: x["final_val"], reverse=True)
 
