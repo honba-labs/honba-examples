@@ -16,6 +16,7 @@ the local Parquet catalog.
 | 07 | `07_sip_buy_and_hold.py`         | —              | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD    |
 | 08 | `08_multibagger_screener.py`     | —              | Point-in-time multibagger screener (`--asof`), Stage 2 momentum, ROCE      |
 | 09 | `09_multibagger_sip_backtest.py` | —              | Forward monthly SIP backtest (₹10k/mo) on screened candidates, XIRR        |
+| 10 | `10_value_dividend_screener.py`  | —              | Point-in-time value & high dividend screener for stocks near 52w low, ROCE |
 
 ## The common pattern
 
@@ -69,6 +70,8 @@ python backtesting/06_concurrent_backtest.py --workers 4
 python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
 python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5
 python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01 --top 5
+python backtesting/10_value_dividend_screener.py --asof 2023-01-01 --mode dividend --top 5
+python backtesting/10_value_dividend_screener.py --asof 2023-01-01 --format symbols | python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01
 pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest or sip_buy_and_hold"
 ```
 
