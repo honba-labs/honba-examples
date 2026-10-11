@@ -344,16 +344,38 @@ class ChainedScreenerSipExample(HonbaExample):
             weights = {c["symbol"]: 1.0 / len(candidates) for c in candidates}
 
         # 4. Stage 2: Out-of-Sample Forward Backtest (initial capital on asof + monthly SIP to end_date)
-        portfolio_results = simulate_portfolio_sip(
-            catalog_dir=catalog_dir,
-            symbols=target_symbols,
-            start_date=asof_eval_date,
-            end_date=end_eval_date,
-            initial_capital=init_capital_val,
-            monthly_sip=self.sip_amount,
-            sip_mode=self.sip_mode,
-            weights=weights,
-        )
+        # 4. Stage 2: Out-of-Sample Forward Backtest or Live Execution Plan
+        has_forward_window = asof_eval_date < end_eval_date
+        if has_forward_window:
+            portfolio_results = simulate_portfolio_sip(
+                catalog_dir=catalog_dir,
+                symbols=target_symbols,
+                start_date=asof_eval_date,
+                end_date=end_eval_date,
+                initial_capital=init_capital_val,
+                monthly_sip=self.sip_amount,
+                sip_mode=self.sip_mode,
+                weights=weights,
+            )
+        else:
+            portfolio_results = {
+                "summary": {
+                    "candidate_count": len(target_symbols),
+                    "start_date": asof_eval_date.isoformat(),
+                    "end_date": end_eval_date.isoformat(),
+                    "window_months": 0,
+                    "initial_capital": init_capital_val or 0.0,
+                    "monthly_sip": self.sip_amount or 0.0,
+                    "portfolio_monthly_sip": self.sip_amount or 0.0,
+                    "total_sip_invested": 0.0,
+                    "total_invested": init_capital_val or 0.0,
+                    "total_value": init_capital_val or 0.0,
+                    "total_profit": 0.0,
+                    "portfolio_multiple": 1.0,
+                    "portfolio_xirr": None,
+                },
+                "stocks": [],
+            }
 
         combined_output = {
             "asof_date": asof_eval_date.isoformat(),
@@ -377,13 +399,130 @@ class ChainedScreenerSipExample(HonbaExample):
             print(json.dumps(combined_output, indent=2))
             return 0
 
-        self._render_backtest_table(
-            portfolio_results,
-            asof_eval_date,
-            end_eval_date,
-            self.allocation,
-        )
+        if has_forward_window and portfolio_results["stocks"]:
+            self._render_backtest_table(
+                portfolio_results,
+                asof_eval_date,
+                end_eval_date,
+                self.allocation,
+            )
+        else:
+            self._render_live_allocation_table(
+                candidates,
+                weights,
+                asof_eval_date,
+                end_eval_date,
+                init_capital_val,
+                self.sip_amount,
+                self.allocation,
+            )
         return 0
+
+    @staticmethod
+    def _render_live_allocation_table(
+        candidates: list[dict[str, Any]],
+        weights: dict[str, float],
+        asof_date: dt.date,
+        latest_date: dt.date,
+        initial_capital: float | None,
+        monthly_sip: float | None,
+        allocation: str = "52w-ratio",
+    ) -> None:
+        """Render Rich terminal table and summary panel for live allocation when asof is today."""
+        init_cap = initial_capital or 0.0
+        port_sip = monthly_sip or 0.0
+
+        console.print()
+        header = f"Stage 2: Live Portfolio Capital Deployment & SIP Plan (As-of {asof_date})"
+        table = Table(title=header, border_style="cyan")
+        table.add_column("Symbol", style="bold cyan")
+        table.add_column("Price (₹)", justify="right")
+        table.add_column("Weight", justify="right", style="cyan")
+        if init_cap > 0:
+            table.add_column("Initial Capital (₹)", justify="right", style="bold green")
+            table.add_column("Est. Shares", justify="right", style="green")
+        if port_sip > 0:
+            table.add_column("Monthly SIP (₹)", justify="right", style="bold yellow")
+            table.add_column("Est. Shares/Mo", justify="right", style="yellow")
+        table.add_column("Strategy Rationale", style="dim")
+
+        for c in candidates:
+            sym = c["symbol"]
+            px = c.get("close", 0.0)
+            w = weights.get(sym, 1.0 / len(candidates))
+            stock_init = init_cap * w
+            stock_shares = int(stock_init // px) if px > 0 else 0
+            stock_sip = port_sip * w
+            stock_sip_shares = (stock_sip / px) if px > 0 else 0.0
+
+            row_data = [
+                sym,
+                f"₹{px:,.2f}",
+                f"{w * 100:.1f}%",
+            ]
+            if init_cap > 0:
+                row_data.extend(
+                    [
+                        f"₹{stock_init:,.0f}",
+                        f"{stock_shares:,}",
+                    ]
+                )
+            if port_sip > 0:
+                row_data.extend(
+                    [
+                        f"₹{stock_sip:,.0f}",
+                        f"{stock_sip_shares:.1f}",
+                    ]
+                )
+
+            if c.get("mb_score"):
+                rationale = (
+                    f"MB Score: {c['mb_score']:.1f} | 3M Surge: {c.get('ret_3m', 0.0):+.1f}%"
+                )
+            else:
+                rationale = f"From 52w High: {c.get('pct_from_high', 0.0):.1f}%"
+            row_data.append(rationale)
+
+            table.add_row(*row_data)
+
+        console.print(table)
+
+        alloc_desc = (
+            "Proximity to 52-Week High (Ratio to Low from 52w High)"
+            if allocation == "52w-ratio"
+            else (
+                "Composite Multibagger Score" if allocation == "score" else "Equal Weighting (1/N)"
+            )
+        )
+
+        panel_lines = [
+            f"[bold]In-Sample Screening Date :[/bold] [cyan]{asof_date}[/cyan] (Latest available market close: [yellow]{latest_date}[/yellow])",
+            f"[bold]Capital Allocation Model :[/bold] [cyan]{alloc_desc}[/cyan]",
+        ]
+        if init_cap > 0:
+            panel_lines.append(
+                f"[bold]Initial Capital Deployed :[/bold] [bold green]₹{init_cap:,.2f}[/bold green] (allocated across top {len(candidates)} prospective multibaggers)"
+            )
+        if port_sip > 0:
+            panel_lines.append(
+                f"[bold]Monthly SIP Plan         :[/bold] [bold yellow]₹{port_sip:,.2f}/month[/bold yellow] (distributed according to allocation weights)"
+            )
+        panel_lines.extend(
+            [
+                f"[bold]Out-of-Sample Status     :[/bold] [yellow]Live / Ongoing Portfolio[/yellow] (0 forward sessions elapsed since {asof_date})",
+                "",
+                "[italic dim]💡 Tip: To run a historical out-of-sample forward backtest, specify a past as-of date (e.g. [bold cyan]--asof 2026-05-10[/bold cyan] to test the 5-month forward confirmation period through October 2026).[/italic dim]",
+            ]
+        )
+
+        console.print()
+        console.print(
+            Panel(
+                "\n".join(panel_lines),
+                title="Live Portfolio Deployment & Execution Plan",
+                border_style="cyan",
+            )
+        )
 
     @staticmethod
     def _render_screener_table(
