@@ -11,16 +11,14 @@ Evaluates out-of-sample forward compounding:
 - SIP return multiple and exact annualized XIRR
 - Portfolio aggregate performance metrics
 
-Usage::
+Supports Unix pipe chaining:
+    # Pipe symbols directly from screener:
+    python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \
+      | python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01
 
-    # Backtest screened candidates from 2023-01-01 to present:
-    python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01
-
-    # Backtest with custom monthly SIP amount and limit to top 5:
-    python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01 --sip-amount 15000 --top 5
-
-    # Backtest custom list of symbols:
-    python backtesting/09_multibagger_sip_backtest.py --symbols SOLARINDS,TVSMOTOR,CUMMINSIND --asof 2023-01-01
+    # Pipe JSON payload from screener:
+    python backtesting/08_multibagger_screener.py --asof 2023-01-01 --top 5 --format json \
+      | python backtesting/09_multibagger_sip_backtest.py --asof 2023-01-01
 """
 
 from __future__ import annotations
@@ -204,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         "--symbols",
         type=str,
         default=None,
-        help="Optional comma-separated list of symbols (if omitted, auto-screens as of --asof)",
+        help="Optional comma-separated list of symbols (use '-' or pipe via stdin to stream)",
     )
     parser.add_argument(
         "--sip-amount",
@@ -262,20 +260,53 @@ def main(argv: list[str] | None = None) -> int:
     else:
         end_date = get_latest_market_date(catalog_dir)
 
-    # 1. Resolve symbols: either explicit or auto-screened as of asof_date
-    if args.symbols:
+    # 1. Resolve symbols: from explicit args, stdin pipe, or auto-screened
+    target_symbols: list[str] = []
+    if args.symbols and args.symbols != "-":
         target_symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
-        console.print(
+        err_console.print(
             f"[dim]Running backtest on {len(target_symbols)} specified symbols from {asof_date} to {end_date}...[/dim]"
         )
+    elif args.symbols == "-" or not sys.stdin.isatty():
+        # Ingest from stdin pipe (supports whitespace, comma, or JSON stream)
+        raw_stdin = sys.stdin.read().strip()
+        if raw_stdin:
+            if raw_stdin.startswith(("{", "[")):
+                try:
+                    parsed = json.loads(raw_stdin)
+                    if isinstance(parsed, list):
+                        for item in parsed:
+                            if isinstance(item, str):
+                                target_symbols.append(item.strip().upper())
+                            elif isinstance(item, dict) and "symbol" in item:
+                                target_symbols.append(str(item["symbol"]).strip().upper())
+                    elif isinstance(parsed, dict):
+                        if "candidates" in parsed and isinstance(parsed["candidates"], list):
+                            for c in parsed["candidates"]:
+                                if isinstance(c, dict) and "symbol" in c:
+                                    target_symbols.append(str(c["symbol"]).strip().upper())
+                                elif isinstance(c, str):
+                                    target_symbols.append(c.strip().upper())
+                        elif "symbols" in parsed and isinstance(parsed["symbols"], list):
+                            target_symbols = [str(s).strip().upper() for s in parsed["symbols"]]
+                except json.JSONDecodeError:
+                    pass
+            if not target_symbols:
+                target_symbols = [
+                    s.strip().upper() for s in raw_stdin.replace(",", " ").split() if s.strip()
+                ]
+            err_console.print(
+                f"[dim]Piped {len(target_symbols)} symbols from standard input. Running SIP backtest from {asof_date} to {end_date}...[/dim]"
+            )
     else:
         screened = screen_multibaggers(catalog_dir=catalog_dir, asof_date=asof_date)
-        if args.top and args.top > 0:
-            screened = screened[: args.top]
         target_symbols = [s["symbol"] for s in screened]
-        console.print(
+        err_console.print(
             f"[dim]Auto-screened {len(target_symbols)} candidates as of {asof_date}. Running SIP backtest till {end_date}...[/dim]"
         )
+
+    if args.top and args.top > 0:
+        target_symbols = target_symbols[: args.top]
 
     if not target_symbols:
         err_console.print("[yellow]No candidates found for backtest.[/yellow]")
