@@ -1,26 +1,26 @@
-"""ai_research/03_nl_screener: End-to-end Natural Language Stock Screener.
+"""ai_research/03_nl_screener: End-to-end Natural Language Stock Screener & Historical Backtester.
 
 Translates free-text trader queries into validated filter expressions and executable
 Python predicates, then executes them across the local stock universe (Parquet bars & fundamentals).
 
-Flow:
-    Natural Language Query
-         ↓
-    Local Llama / LLM (KnowledgePack guided)
-         ↓
-    [Tier 1] Filter Syntax: `volume > 500000 AND close > sma50`
-    [Tier 2] Python Predicate: `def match(row): return ...`
-         ↓
-    Evaluator (Parquet OHLCV store + fundamental metrics)
-         ↓
-    Interactive Rich Table Results (CMP, Market Cap, Volume, Indicators, Yield)
+Supports:
+1. Latest Market Screening: Evaluates live/latest bar snapshot.
+2. Point-in-Time Historical Screening (`--asof` or "5 years ago"): Slices bar history to that
+   exact date without lookahead bias.
+3. Forward Backtesting & Multibagger Tracking: For historical screens, tracks the forward
+   performance of every matched stock up to today, computing Total Return %, CAGR %, and
+   Bag Multipliers (2x, 5x, 10x).
 
 Run::
 
-    python ai_research/03_nl_screener.py --query "market_cap > 25000Cr and close above 50-day moving average"
-    python ai_research/03_nl_screener.py --query "volume > 500k and close above 50-day moving average"
-    python ai_research/03_nl_screener.py --query "dividend yield > 2% and price > 200"
-    python ai_research/03_nl_screener.py --format json
+    # Point-in-time screen 5 years ago with forward multibagger backtest
+    python ai_research/03_nl_screener.py --asof 2021-10-11 --query "market_cap > 25000Cr and close above 50-day moving average"
+
+    # Natural language historical backtest query
+    python ai_research/03_nl_screener.py --query "close above 50-day moving average and volume > 500k 5 years ago"
+
+    # Latest live screen
+    python ai_research/03_nl_screener.py --query "volume > 500k and rsi < 40"
 """
 
 from __future__ import annotations
@@ -159,12 +159,17 @@ class RuleBasedLlamaTranslator(LlmPort):
     ) -> str:
         user_msg = messages[-1]["content"].lower()
 
+        # Clean out temporal words from condition parser
+        cleaned_msg = re.sub(r"\b\d+\s*years?\s*ago\b", "", user_msg)
+        cleaned_msg = re.sub(r"\bas of \d{4}-\d{2}-\d{2}\b", "", cleaned_msg)
+        cleaned_msg = re.sub(r"\bin 201\d|in 202\d\b", "", cleaned_msg)
+
         parts = []
 
         # Market Cap (handles Cr, Crore, Lk, Lakh, M, B, etc.)
         mcap_match = re.search(
             r"(?:market_cap|market\s*cap|mcap)\s*(?:>|>=|<|<=|above|over|exceeding|in excess of|at least|below|under)?\s*([\d,]+(?:\.\d+)?)\s*(k|m|mn|b|bn|l|lk|lac|lakh|lakhs|cr|crore|crores)?",
-            user_msg,
+            cleaned_msg,
         )
         if mcap_match:
             raw_val = mcap_match.group(1).replace(",", "")
@@ -192,24 +197,24 @@ class RuleBasedLlamaTranslator(LlmPort):
 
         # Moving Averages
         if (
-            "close above 50" in user_msg
-            or "above 50-day" in user_msg
-            or "close > sma50" in user_msg
+            "close above 50" in cleaned_msg
+            or "above 50-day" in cleaned_msg
+            or "close > sma50" in cleaned_msg
         ):
             parts.append("close > sma50")
-        elif "close below 50" in user_msg or "below 50-day" in user_msg:
+        elif "close below 50" in cleaned_msg or "below 50-day" in cleaned_msg:
             parts.append("close < sma50")
 
         if (
-            "close above 20" in user_msg
-            or "above 20-day" in user_msg
-            or "close > sma20" in user_msg
+            "close above 20" in cleaned_msg
+            or "above 20-day" in cleaned_msg
+            or "close > sma20" in cleaned_msg
         ):
             parts.append("close > sma20")
 
         # Volume
         vol_match = re.search(
-            r"volume\s*(?:>|above|over|at least)\s*([\d,]+)\s*(k|m|l|cr)?", user_msg
+            r"volume\s*(?:>|above|over|at least)\s*([\d,]+)\s*(k|m|l|cr)?", cleaned_msg
         )
         if vol_match:
             raw_val = vol_match.group(1).replace(",", "")
@@ -227,32 +232,32 @@ class RuleBasedLlamaTranslator(LlmPort):
                 else 1
             )
             parts.append(f"volume > {int(val * mult)}")
-        elif "volume >" in user_msg:
-            v = re.search(r"volume\s*>\s*([\d,]+)", user_msg)
+        elif "volume >" in cleaned_msg:
+            v = re.search(r"volume\s*>\s*([\d,]+)", cleaned_msg)
             if v:
                 parts.append(f"volume > {v.group(1).replace(',', '')}")
 
         # Price / Close
         px_match = re.search(
             r"(?:price|close)\s*(?:>|above|over)\s*(\d[\d,]*(?:\.\d+)?)\b(?!\s*[-]?\s*day)",
-            user_msg,
+            cleaned_msg,
         )
         if px_match:
             parts.append(f"close > {px_match.group(1).replace(',', '')}")
 
         # Dividend Yield
         dy_match = re.search(
-            r"(?:dividend|yield)\s*(?:>|above|over|at least)\s*(\d+(?:\.\d+)?)%?", user_msg
+            r"(?:dividend|yield)\s*(?:>|above|over|at least)\s*(\d+(?:\.\d+)?)%?", cleaned_msg
         )
         if dy_match:
             parts.append(f"dividends_yield_current > {dy_match.group(1)}")
 
         # RSI
-        rsi_match = re.search(r"rsi\s*(?:<|below|under)\s*(\d+)", user_msg)
+        rsi_match = re.search(r"rsi\s*(?:<|below|under)\s*(\d+)", cleaned_msg)
         if rsi_match:
             parts.append(f"rsi < {rsi_match.group(1)}")
 
-        return " AND ".join(parts) if parts else user_msg
+        return " AND ".join(parts) if parts else cleaned_msg
 
 
 def resolve_llm_provider(backend: str) -> LlmPort:
@@ -323,59 +328,166 @@ def safe_eval_predicate(predicate_code: str, row: dict[str, Any]) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Execution Engine
+# Execution Engine (Point-in-Time & Forward Backtester)
 # ---------------------------------------------------------------------------
 
 
 def run_nl_screener(
     query: str,
     backend: str = "auto",
+    asof: str | dt.date | None = None,
+    lookback_years: int | None = None,
+    backtest: bool = False,
     limit: int = 20,
 ) -> dict[str, Any]:
     llm = resolve_llm_provider(backend)
 
-    # 1. Translate Query
+    today = dt.datetime.now(tz=dt.timezone.utc).date()
+
+    # 1. Resolve Point-in-Time As-Of Date
+    asof_date: dt.date | None = None
+    if asof:
+        asof_date = dt.date.fromisoformat(str(asof))
+    elif lookback_years is not None:
+        asof_date = today.replace(year=today.year - lookback_years)
+    else:
+        # Detect phrases like "5 years ago", "3 years ago"
+        ago_match = re.search(r"(\d+)\s*years?\s*ago", query.lower())
+        if ago_match:
+            y = int(ago_match.group(1))
+            asof_date = today.replace(year=today.year - y)
+            backtest = True
+        else:
+            yr_match = re.search(r"\b(201[5-9]|202[0-5])\b", query)
+            if yr_match:
+                asof_date = dt.date(int(yr_match.group(1)), 10, 11)
+                backtest = True
+
+    if asof_date is None:
+        asof_date = today
+
+    is_historical = backtest or (asof_date < (today - dt.timedelta(days=60)))
+
+    # 2. Translate Query
     raw_response = llm.complete([{"role": "user", "content": query}])
     filter_text = raw_response.strip().strip('"').strip("'")
     python_predicate = generate_python_predicate(query, filter_text)
 
-    # 2. Load Local Universe Data
+    # 3. Load Universe & Historical Bars
     members = resolve_universe("nifty50", exchange="NSE")
     instruments = [InstrumentId(sym.symbol, "NSE") for sym in members]
 
-    interval = DateInterval(dt.date(2024, 1, 1), dt.date(2026, 12, 31))
+    interval = DateInterval(dt.date(2015, 1, 1), dt.date(2027, 1, 1))
     metrics_to_extract = ["close", "volume", "sma20", "sma50", "rsi"]
 
+    asof_ns = int(
+        dt.datetime.combine(asof_date, dt.time.max, tzinfo=dt.timezone.utc).timestamp() * 1e9
+    )
+
     matched_rows = []
+    total_valid_instruments = 0
+    term_date = asof_date
+
     for inst in instruments:
-        bars = _STORE.read(inst, "1D", interval)
-        if not bars:
+        all_bars = _STORE.read(inst, "1D", interval)
+        if not all_bars:
             continue
 
-        extracted = extract_metrics_from_bars(metrics_to_extract, bars)
-        row = {"symbol": f"{inst.symbol}.NSE", **extracted}
+        # Point-in-time slice strictly up to asof_date (Zero lookahead)
+        historical_bars = [b for b in all_bars if b.ts <= asof_ns]
+        if len(historical_bars) < 50:
+            continue
+        total_valid_instruments += 1
 
-        # Calculate dynamic market cap based on shares outstanding
+        extracted = extract_metrics_from_bars(metrics_to_extract, historical_bars)
+        entry_close = float(extracted.get("close") or 0.0)
+
+        # Dynamic market cap as of historical entry date
         shares_cr = NIFTY50_SHARES_CR.get(inst.symbol, 50.0)
-        close_px = float(row.get("close") or 0.0)
-        mcap = close_px * shares_cr * 1e7
-        row["market_cap"] = mcap
-        row["market_cap_basic"] = mcap
-        row["market_cap_cr"] = mcap / 1e7
+        mcap = entry_close * shares_cr * 1e7
+
+        row = {
+            "symbol": f"{inst.symbol}.NSE",
+            **extracted,
+            "market_cap": mcap,
+            "market_cap_basic": mcap,
+            "market_cap_cr": mcap / 1e7,
+            "entry_close": entry_close,
+        }
 
         if safe_eval_predicate(python_predicate, row):
+            # Forward performance simulation up to today
+            if is_historical:
+                term_bar = all_bars[-1]
+                term_close = float(term_bar.close)
+                term_date = dt.datetime.fromtimestamp(term_bar.ts / 1e9, tz=dt.timezone.utc).date()
+                days_held = (term_date - asof_date).days
+                years_held = max(days_held / 365.25, 0.1)
+
+                ret_pct = ((term_close - entry_close) / entry_close) * 100
+                mult = term_close / entry_close
+                cagr = ((mult ** (1.0 / years_held)) - 1.0) * 100
+
+                if mult >= 10.0:
+                    badge = "10-Bagger 🏆"
+                elif mult >= 5.0:
+                    badge = "5-Bagger 🚀"
+                elif mult >= 2.0:
+                    badge = "Multibagger 🔥"
+                elif ret_pct > 0:
+                    badge = "Profitable 📈"
+                else:
+                    badge = "Loss 🔻"
+
+                row["current_close"] = term_close
+                row["return_pct"] = ret_pct
+                row["cagr"] = cagr
+                row["multiplier"] = mult
+                row["years_held"] = years_held
+                row["badge"] = badge
+
             matched_rows.append(row)
 
-    matched_rows.sort(key=lambda r: r.get("volume", 0), reverse=True)
+    # Sort
+    if is_historical:
+        matched_rows.sort(key=lambda r: r.get("return_pct", 0), reverse=True)
+    else:
+        matched_rows.sort(key=lambda r: r.get("volume", 0), reverse=True)
+
     displayed = matched_rows[:limit]
+
+    # Portfolio basket statistics
+    basket_stats: dict[str, Any] = {}
+    if is_historical and matched_rows:
+        avg_ret = sum(r["return_pct"] for r in matched_rows) / len(matched_rows)
+        avg_mult = sum(r["multiplier"] for r in matched_rows) / len(matched_rows)
+        avg_years = matched_rows[0]["years_held"]
+        basket_cagr = ((avg_mult ** (1.0 / avg_years)) - 1.0) * 100
+        win_rate = sum(1 for r in matched_rows if r["return_pct"] > 0) / len(matched_rows) * 100
+        baggers = sum(1 for r in matched_rows if r["multiplier"] >= 2.0)
+        top_pick = matched_rows[0]
+
+        basket_stats = {
+            "asof_date": str(asof_date),
+            "terminal_date": str(term_date),
+            "years_held": round(avg_years, 1),
+            "basket_return_pct": round(avg_ret, 1),
+            "basket_cagr_pct": round(basket_cagr, 1),
+            "win_rate_pct": round(win_rate, 1),
+            "multibagger_count": f"{baggers} / {len(matched_rows)}",
+            "top_performer": f"{top_pick['symbol']} (+{top_pick['return_pct']:.1f}%, {top_pick['multiplier']:.2f}x)",
+        }
 
     return {
         "query": query,
         "backend": type(llm).__name__,
+        "asof": str(asof_date),
+        "is_historical": is_historical,
         "filter_text": filter_text,
         "python_predicate": python_predicate,
         "matched_count": len(matched_rows),
-        "total_scanned": len(instruments),
+        "total_scanned": total_valid_instruments,
+        "basket_stats": basket_stats,
         "rows": displayed,
     }
 
@@ -386,6 +498,22 @@ def main(argv: list[str] | None = None) -> int:
         "--query",
         default="market_cap > 25000Cr and close above 50-day moving average",
         help="Natural language screening query",
+    )
+    parser.add_argument(
+        "--asof",
+        default=None,
+        help="Point-in-time evaluation date (YYYY-MM-DD), e.g. '2021-10-11' for 5 years ago",
+    )
+    parser.add_argument(
+        "--lookback-years",
+        type=int,
+        default=None,
+        help="Convenience lookback years (e.g. 5 for 5 years ago)",
+    )
+    parser.add_argument(
+        "--backtest",
+        action="store_true",
+        help="Run forward performance backtest from asof date to present",
     )
     parser.add_argument(
         "--backend",
@@ -402,65 +530,139 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    res = run_nl_screener(args.query, backend=args.backend, limit=args.limit)
+    res = run_nl_screener(
+        args.query,
+        backend=args.backend,
+        asof=args.asof,
+        lookback_years=args.lookback_years,
+        backtest=args.backtest,
+        limit=args.limit,
+    )
 
     is_table = (args.format == "table") or (args.format == "auto" and sys.stdout.isatty())
 
     if is_table:
-        render_kv(
-            [
-                ("User Prompt", res["query"]),
-                ("LLM Backend", res["backend"]),
-                ("Tier 1 Filter", res["filter_text"]),
-                ("Matched Stocks", f"{res['matched_count']} / {res['total_scanned']}"),
-            ],
-            title="Natural Language Screener Translation",
-        )
+        summary_items = [
+            ("User Prompt", res["query"]),
+            ("LLM Backend", res["backend"]),
+            ("Tier 1 Filter", res["filter_text"]),
+            ("Point-in-Time Date", res["asof"]),
+            ("Matched Stocks", f"{res['matched_count']} / {res['total_scanned']}"),
+        ]
+
+        if res["is_historical"] and res["basket_stats"]:
+            stats = res["basket_stats"]
+            summary_items.extend(
+                [
+                    (
+                        "Backtest Period",
+                        f"{stats['asof_date']} → {stats['terminal_date']} ({stats['years_held']} yrs)",
+                    ),
+                    ("Basket Total Return", f"+{stats['basket_return_pct']}%"),
+                    ("Basket CAGR", f"+{stats['basket_cagr_pct']}%"),
+                    ("Win Rate", f"{stats['win_rate_pct']}%"),
+                    ("Multibaggers (≥2x)", stats["multibagger_count"]),
+                    ("Top Performer", stats["top_performer"]),
+                ]
+            )
+
+        render_kv(summary_items, title="Natural Language Screener & Backtest Translation")
 
         print("\nGenerated Tier 2 Python Predicate:")
         for line in res["python_predicate"].splitlines():
             print(f"  {line}")
         print()
 
-        cols = [
-            Column("symbol", "Symbol", style="cyan"),
-            Column(
-                "close",
-                "CMP (₹)",
-                align="right",
-                style="green",
-                fmt=lambda v: f"₹{v:,.2f}" if v else "-",
-            ),
-            Column(
-                "market_cap_cr",
-                "Market Cap",
-                align="right",
-                style="bold yellow",
-                fmt=lambda v: f"₹{v:,.0f} Cr" if v else "-",
-            ),
-            Column(
-                "volume",
-                "Volume",
-                align="right",
-                style="magenta",
-                fmt=lambda v: f"{int(v):,}" if v else "-",
-            ),
-            Column(
-                "sma50",
-                "SMA 50 (₹)",
-                align="right",
-                style="yellow",
-                fmt=lambda v: f"₹{v:,.2f}" if v else "-",
-            ),
-            Column(
-                "rsi",
-                "RSI",
-                align="right",
-                style="white",
-                fmt=lambda v: f"{v:.1f}" if v else "-",
-            ),
-        ]
-        render_table(res["rows"], cols, title=f"Screener Matches for: '{args.query}'")
+        if res["is_historical"]:
+            cols = [
+                Column("symbol", "Symbol", style="cyan"),
+                Column(
+                    "entry_close",
+                    f"Entry ({res['asof']})",
+                    align="right",
+                    style="white",
+                    fmt=lambda v: f"₹{v:,.1f}" if v else "-",
+                ),
+                Column(
+                    "current_close",
+                    "CMP Today",
+                    align="right",
+                    style="white",
+                    fmt=lambda v: f"₹{v:,.1f}" if v else "-",
+                ),
+                Column(
+                    "market_cap_cr",
+                    "Entry Mcap",
+                    align="right",
+                    style="yellow",
+                    fmt=lambda v: f"₹{v:,.0f} Cr" if v else "-",
+                ),
+                Column(
+                    "return_pct",
+                    "Return",
+                    align="right",
+                    style="green",
+                    fmt=lambda v: f"+{v:,.1f}%" if v > 0 else f"{v:,.1f}%",
+                ),
+                Column(
+                    "cagr",
+                    "CAGR",
+                    align="right",
+                    style="bold green",
+                    fmt=lambda v: f"+{v:.1f}%" if v > 0 else f"{v:.1f}%",
+                ),
+                Column(
+                    "multiplier",
+                    "Multiplier",
+                    align="right",
+                    style="bold yellow",
+                    fmt=lambda v: f"{v:.2f}x" if v else "-",
+                ),
+                Column("badge", "Classification", style="magenta"),
+            ]
+            title = f"Historical Screener Backtest Results (As of {res['asof']} → Today)"
+        else:
+            cols = [
+                Column("symbol", "Symbol", style="cyan"),
+                Column(
+                    "close",
+                    "CMP (₹)",
+                    align="right",
+                    style="green",
+                    fmt=lambda v: f"₹{v:,.2f}" if v else "-",
+                ),
+                Column(
+                    "market_cap_cr",
+                    "Market Cap",
+                    align="right",
+                    style="bold yellow",
+                    fmt=lambda v: f"₹{v:,.0f} Cr" if v else "-",
+                ),
+                Column(
+                    "volume",
+                    "Volume",
+                    align="right",
+                    style="magenta",
+                    fmt=lambda v: f"{int(v):,}" if v else "-",
+                ),
+                Column(
+                    "sma50",
+                    "SMA 50 (₹)",
+                    align="right",
+                    style="yellow",
+                    fmt=lambda v: f"₹{v:,.2f}" if v else "-",
+                ),
+                Column(
+                    "rsi",
+                    "RSI",
+                    align="right",
+                    style="white",
+                    fmt=lambda v: f"{v:.1f}" if v else "-",
+                ),
+            ]
+            title = f"Screener Matches for: '{args.query}'"
+
+        render_table(res["rows"], cols, title=title)
     else:
         print(json.dumps(res, indent=2, default=str))
 
