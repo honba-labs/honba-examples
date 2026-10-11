@@ -8,7 +8,9 @@ import json
 from pathlib import Path
 
 import pytest
+from honba.strategies.base import Strategy
 
+from honba_examples.base import HonbaExample
 from honba_examples.screening import (
     find_catalog_path,
     get_latest_market_date,
@@ -27,6 +29,18 @@ def example():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_inheritance(example):
+    assert issubclass(example.ChainedScreenerSipExample, HonbaExample)
+    assert issubclass(example.SipPortfolioStrategy, Strategy)
+
+
+def test_sip_strategy_parameter(example):
+    strat = example.SipPortfolioStrategy(monthly_amount=15000.0, initial_capital=200000.0)
+    assert strat.name == "sip_portfolio_strategy"
+    assert strat._monthly_amount == 15000.0
+    assert strat._initial_capital == 200000.0
 
 
 def test_calculate_xirr_known_flows():
@@ -53,8 +67,10 @@ def test_simulate_portfolio_sip_empty():
         symbols=[],
         start_date=dt.date(2023, 1, 1),
         end_date=dt.date(2023, 6, 1),
+        initial_capital=500000.0,
     )
     assert res["summary"]["candidate_count"] == 0
+    assert res["summary"]["initial_capital"] == 500000.0
     assert res["stocks"] == []
 
 
@@ -141,3 +157,34 @@ def test_main_chained_json_output(example, tmp_path):
     assert "screening_candidates" in data
     assert "portfolio_backtest" in data
     assert len(data["portfolio_backtest"]["stocks"]) == 2
+
+
+def test_main_with_capital_options(example, tmp_path):
+    out_file = tmp_path / "capital_report.json"
+    code = example.main(
+        [
+            "--strategy",
+            "multibagger",
+            "--asof",
+            "2023-01-01",
+            "--end",
+            "2023-06-30",
+            "--capital",
+            "500000",
+            "--sip-amount",
+            "5000",
+            "--top",
+            "2",
+            "--format",
+            "json",
+            "--out",
+            str(out_file),
+        ]
+    )
+    assert code == 0
+    assert out_file.exists()
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    summary = data["portfolio_backtest"]["summary"]
+    assert summary["initial_capital"] == 500000.0
+    assert summary["sip_amount"] == 5000.0
+    assert summary["total_invested"] > 0
