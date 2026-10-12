@@ -1,7 +1,7 @@
 """backtesting/08_chained_screener_and_sip.py: Chained Screener and Forward SIP Backtest.
 
-Demonstrates point-in-time strategy screening with in-sample training data and
-subsequent out-of-sample forward backtesting:
+Demonstrates point-in-time prospective multibagger screening with in-sample historical data
+and subsequent out-of-sample forward backtesting with systematic capital accumulation:
     [Stage 1: Prospective Screener (2-5 Years In-Sample Base & Sweet-Spot Momentum)]
                                       │
                                (top candidates)
@@ -9,35 +9,39 @@ subsequent out-of-sample forward backtesting:
     [Stage 2: Out-of-Sample Forward Backtest for Multibagger Confirmation]
        (Initial Capital on Asof Date + Recurring Monthly SIP Until Till Date)
 
-Inherits from:
-- `honba.strategies.base.Strategy` (Honba Strategy ABC) for the systematic execution model.
-- `honba_examples.base.HonbaExample` (Honba Example ABC) for standardized CLI options
-  (`--capital` / `--initial-capital`, `--start` / `--asof`, `--end` / `--end-date`, `--format`).
+Theoretical Foundation (Screening for Multibaggers):
+    Multibaggers (2x, 3x, 5x, 10x+) compound via the "Twin Engines" (Phelps & Mayer):
+        Return Multiple = (EPS Expansion) × (P/E Multiple Re-rating)
+    To screen prospective "going-to-be" multibaggers (rather than exhausted late-stage runners):
+    1. Minervini Stage 2 Trend Template: Price >= SMA50 >= SMA200, rising 200 SMA.
+       Ensures institutional markup phase; avoids bottom-fishing in declining stages.
+    2. Consolidation Base & Anti-Exhaustion Guard:
+       - Price within 15% of 52-week high (tight supply absorption prior to breakout).
+       - At least 25% above 52-week low (confirmed accumulation bottom).
+       - 1-Year return capped below +175% to prevent buying parabolic climax blow-off tops.
+    3. Momentum Acceleration & Volume Accumulation:
+       - Accelerating 3-month momentum (> +10%).
+       - Recent 20-day volume expansion over 200-day baseline (institutional footprints).
+    4. Fundamental Capital Efficiency & Solvency (QGLP Overlay):
+       - Return on Capital Employed (ROCE >= 12%, ideally > 20%) driving intrinsic compounding.
+       - Conservative Debt-to-Equity (<= 1.2, ideally < 0.5 or net cash) preventing bankruptcy risk.
 
-Stage 1 (In-Sample Screening):
-    Evaluates historical bars strictly on or before `--asof <YYYY-MM-DD>` (up to `--train-years` back):
-    - `multibagger`: Prospective "going-to-be" multibaggers in early Stage 2 breakout sweet spot
-      (Price >= SMA50 >= SMA200, positive 3m momentum ignition, within 15% of 52w high, volume accumulation, ROCE).
-      Crucially avoids already-exhausted parabolic runners (e.g. 300-500% late-stage tops).
-    - `dividend`: High dividend yielders (yield >= 2.5%, FCF > 0) near 52-week low.
-    - `value`: Deep value (low P/E & P/B, ROCE >= 10%, Debt/Eq <= 1.5) near 52-week low.
+Systematic Execution Model (Chained Screener + SIP):
+    - Initial capital deployed across screened candidates on the evaluation date.
+    - Allocation model: '52w-ratio' (proximity to 52w high), 'equal', or 'score'.
+    - Recurring monthly SIP deployed on the first trading day of each month until terminal date.
+    - Calculates terminal valuation, net profit, SIP multiple, lump-sum multiple, peak multiple,
+      and exact annualized XIRR.
 
-Stage 2 (Out-of-Sample Forward Backtest & Confirmation):
-    Simulates forward systematic investment strictly from `--asof` to till date:
-    - Initial capital (`--capital`) deployed across candidates on the `asof` date.
-    - Allocation model (`--allocation`): '52w-ratio' (closer to 52-week high = higher allocation), 'equal', or 'score'.
-    - Monthly SIP (`--sip`) deployed across candidates every subsequent month until till date.
-    Calculates terminal valuation, net profit, return multiple, and exact annualized XIRR.
+Usage Examples::
 
-Usage::
+    # 1. Screen prospective multibaggers as of 2024-01-01 and backtest forward SIP to present:
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
-    # 1. Screen prospective multibaggers as of 2026-05-10 with 3-yr base, 52w-ratio allocation, and SIP:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2026-05-10 --top 5 --capital 100000 --sip 10000
+    # 2. Equal allocation model benchmark:
+    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
 
-    # 2. Equal allocation benchmark:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2026-05-10 --top 5 --capital 100000 --sip 10000 --allocation equal
-
-    # 3. Screen prospective candidates as of today without backtesting:
+    # 3. Prospective screening as of today (live forward monitoring):
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
 """
 
@@ -59,6 +63,7 @@ except ModuleNotFoundError:
 
 from honba.display import OutputFormat
 from honba.strategies.base import Parameter, Strategy
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -198,7 +203,7 @@ class ChainedScreenerSipExample(HonbaExample):
             "--allocation",
             choices=["52w-ratio", "equal", "score"],
             default=self.allocation,
-            help="Portfolio capital allocation: '52w-ratio' (weighted by proximity to 52w high), 'equal', or 'score'",
+            help="Portfolio capital allocation: '52w-ratio' (proximity to 52w high), 'equal', or 'score'",
         )
         parser.add_argument(
             "--top",
@@ -237,6 +242,8 @@ class ChainedScreenerSipExample(HonbaExample):
             err_console.print(f"[red]Error:[/red] {exc}")
             return 1
 
+        latest_data_date = get_latest_market_date(catalog_dir)
+
         # 2. Resolve in-sample date (asof) and terminal backtest date
         if self.asof_str:
             try:
@@ -249,7 +256,14 @@ class ChainedScreenerSipExample(HonbaExample):
         else:
             asof_eval_date = self.start_date
 
-        latest_data_date = get_latest_market_date(catalog_dir)
+        # Guard: if asof_eval_date is past latest available market date, snap to latest available date
+        if asof_eval_date > latest_data_date:
+            console.print(
+                f"[dim]Note: Specified --asof date ({asof_eval_date}) is beyond latest catalog date ({latest_data_date}). "
+                f"Snapping evaluation date to {latest_data_date}.[/dim]"
+            )
+            asof_eval_date = latest_data_date
+
         if self.end_date_str:
             try:
                 end_eval_date = dt.date.fromisoformat(self.end_date_str)
@@ -320,16 +334,36 @@ class ChainedScreenerSipExample(HonbaExample):
         if self.output_format != OutputFormat.JSON:
             self._render_screener_table(candidates, asof_eval_date, self.strategy, self.train_years)
 
-        # If --screen-only requested, stop here
-        if self.screen_only:
+        # Check if out-of-sample forward backtest can be performed
+        has_forward_window = asof_eval_date < end_eval_date
+
+        # If --screen-only requested or no future forward window exists
+        if self.screen_only or not has_forward_window:
             if self.output_format == OutputFormat.JSON:
                 print(json.dumps({"stage": "screening", "candidates": candidates}, indent=2))
+                return 0
+
+            if not self.screen_only and not has_forward_window:
+                console.print()
+                console.print(
+                    Panel(
+                        f"Evaluation date ([cyan]{asof_eval_date}[/cyan]) is at the horizon of the historical catalog (latest session: [yellow]{latest_data_date}[/yellow]).\n"
+                        "Forward out-of-sample data is not yet available for forward backtesting.\n\n"
+                        f"The [bold cyan]{len(candidates)}[/bold cyan] screened candidates above represent prospective "
+                        "'going-to-be' multibaggers identified for [bold green]live forward monitoring[/bold green]!\n\n"
+                        "[dim]💡 Tip: To simulate out-of-sample forward SIP confirmation, run with a historical evaluation date, e.g.:[/dim]\n"
+                        f"   [bold green]python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top {self.top} --capital 100000 --sip 10000[/bold green]",
+                        title="Stage 2 Forward Confirmation Notice",
+                        border_style="yellow",
+                        box=box.ROUNDED,
+                    )
+                )
             return 0
 
         # Compute portfolio allocation weights
         weights: dict[str, float] = {}
         if self.allocation == "52w-ratio" and candidates:
-            # Proximity / ratio to 52-week high: tighter consolidation base (smaller drop from 52w high) gets higher weight
+            # Proximity to 52-week high: tighter consolidation base gets higher allocation
             raw_w = {
                 c["symbol"]: 1.0 / max(abs(float(c.get("pct_from_high", -5.0))), 0.1)
                 for c in candidates
@@ -392,7 +426,12 @@ class ChainedScreenerSipExample(HonbaExample):
         """Render Rich terminal table for Stage 1 screened candidates."""
         if strategy == "multibagger":
             title = f"Stage 1 (In-Sample): Prospective 'Going-to-Be' Multibaggers as of {asof_date} ({train_years}-Yr Base Window)"
-            table = Table(title=title, border_style="cyan")
+            table = Table(
+                title=title,
+                border_style="cyan",
+                box=box.ROUNDED,
+                header_style="bold cyan",
+            )
             table.add_column("Symbol", style="bold cyan")
             table.add_column("Price (₹)", justify="right")
             table.add_column("1-Yr Ret", justify="right", style="green")
@@ -420,17 +459,23 @@ class ChainedScreenerSipExample(HonbaExample):
             console.print(table)
         else:
             title = f"Stage 1 (In-Sample): Screened {strategy.title()} Candidates as of {asof_date} ({train_years}-Yr Training Data)"
-            table = Table(title=title, border_style="cyan")
-            table.add_column("Symbol", style="bold cyan")
-            table.add_column("Price (₹)", justify="right")
-            table.add_column("52w Low (₹)", justify="right", style="dim")
-            table.add_column("From 52w Low", justify="right", style="yellow")
-            table.add_column(f"{train_years}-Yr Train Ret", justify="right", style="dim")
-            table.add_column("Hit Low?", justify="center", style="bold green")
-            table.add_column("Div Yield %", justify="right", style="bold magenta")
-            table.add_column("P/E", justify="right")
-            table.add_column("ROCE %", justify="right", style="green")
-            table.add_column("Debt/Eq", justify="right")
+            table = Table(
+                title=title,
+                border_style="cyan",
+                box=box.ROUNDED,
+                header_style="bold cyan",
+            )
+            table.add_column("Symbol", style="bold cyan", no_wrap=True)
+            table.add_column("Company", style="dim")
+            table.add_column("Price (₹)", justify="right", no_wrap=True)
+            table.add_column("52w Low (₹)", justify="right", style="dim", no_wrap=True)
+            table.add_column("From 52w Low", justify="right", style="yellow", no_wrap=True)
+            table.add_column(f"{train_years}-Yr Ret", justify="right", style="dim", no_wrap=True)
+            table.add_column("Hit Low?", justify="center", style="bold green", no_wrap=True)
+            table.add_column("Div Yield", justify="right", style="bold magenta", no_wrap=True)
+            table.add_column("P/E", justify="right", no_wrap=True)
+            table.add_column("ROCE %", justify="right", style="green", no_wrap=True)
+            table.add_column("Debt/Eq", justify="right", no_wrap=True)
 
             for c in candidates:
                 div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
@@ -438,8 +483,10 @@ class ChainedScreenerSipExample(HonbaExample):
                 roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
                 de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
                 hit_s = "✓ Touch" if c.get("hit_52w_low_recently") else "Near"
+                comp_name = c.get("company_name", c["symbol"])
                 table.add_row(
                     c["symbol"],
+                    comp_name,
                     f"₹{c['close']:,.2f}",
                     f"₹{c['low52']:,.2f}",
                     f"+{c['pct_from_low']:.1f}%",
@@ -475,7 +522,12 @@ class ChainedScreenerSipExample(HonbaExample):
         else:
             header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP ₹{port_sip:,.0f}/mo ({asof_date} to {end_date})"
 
-        table = Table(title=header, border_style="green")
+        table = Table(
+            title=header,
+            border_style="green",
+            box=box.ROUNDED,
+            header_style="bold green",
+        )
         table.add_column("Symbol", style="bold cyan")
         table.add_column("Weight", justify="right", style="cyan")
         table.add_column("Months", justify="center")
@@ -577,6 +629,7 @@ class ChainedScreenerSipExample(HonbaExample):
                 "\n".join(panel_lines),
                 title="In-Sample Hypothesis vs Out-of-Sample SIP Confirmation",
                 border_style="magenta",
+                box=box.ROUNDED,
             )
         )
 
