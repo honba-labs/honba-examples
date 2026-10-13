@@ -220,7 +220,10 @@ class ChainedScreenerSipExample(HonbaExample):
             "--symbols",
             type=str,
             default=None,
-            help="Optional explicit symbols list (skips screening stage)",
+            help=(
+                "Explicit comma-separated symbols (skips screening). Use '-' to read the symbol "
+                "stream from stdin, or pipe a screener into this script to auto-detect."
+            ),
         )
         parser.add_argument(
             "--out",
@@ -258,7 +261,7 @@ class ChainedScreenerSipExample(HonbaExample):
 
         # Guard: if asof_eval_date is past latest available market date, snap to latest available date
         if asof_eval_date > latest_data_date:
-            console.print(
+            err_console.print(
                 f"[dim]Note: Specified --asof date ({asof_eval_date}) is beyond latest catalog date ({latest_data_date}). "
                 f"Snapping evaluation date to {latest_data_date}.[/dim]"
             )
@@ -279,29 +282,35 @@ class ChainedScreenerSipExample(HonbaExample):
 
         init_capital_val = float(self.initial_capital) if self.initial_capital is not None else None
 
-        # 3. Stage 1: Screening (with in-sample training window)
+        # 3. Resolve target symbols: explicit --symbols > stdin pipe > screener
         candidates: list[dict[str, Any]] = []
-        if self.symbols:
+        target_symbols: list[str] = []
+        screened = False
+
+        if self.symbols is not None and self.symbols.strip() not in ("", "-"):
+            # Explicit comma-separated list
             target_symbols = [s.strip().upper() for s in self.symbols.split(",") if s.strip()]
-            for s in target_symbols:
-                candidates.append(
-                    {
-                        "symbol": s,
-                        "asof_date": asof_eval_date.isoformat(),
-                        "close": 0.0,
-                        "ret_1y": 0.0,
-                        "ret_3m": 0.0,
-                        "train_ret_pct": 0.0,
-                        "pct_from_high": 0.0,
-                        "sma200": 0.0,
-                        "sma200_rising": True,
-                        "vol_surge": 1.0,
-                        "roce_pct": None,
-                        "debt_to_equity": None,
-                        "mb_score": 100.0,
-                    }
-                )
+            err_console.print(
+                f"[dim]Backtesting {len(target_symbols)} explicitly-provided symbols "
+                f"({asof_eval_date} to {end_eval_date}).[/dim]"
+            )
         else:
+            stdin_requested = self.symbols is not None and self.symbols.strip() == "-"
+            # Auto-detect a piped stream only when stdin is not an interactive terminal.
+            target_symbols = self._read_symbols_from_stdin()
+            if not target_symbols:
+                if stdin_requested:
+                    err_console.print(
+                        "[red]Error:[/red] --symbols - requested but no symbols were received on stdin."
+                    )
+                    return 1
+            else:
+                err_console.print(
+                    f"[dim]Ingested {len(target_symbols)} symbols from stdin "
+                    f"({asof_eval_date} to {end_eval_date}).[/dim]"
+                )
+
+        if not target_symbols and not screened:
             if self.strategy == "multibagger":
                 candidates = screen_multibaggers(
                     catalog_dir=catalog_dir,
@@ -318,6 +327,17 @@ class ChainedScreenerSipExample(HonbaExample):
                     top=self.top,
                 )
             target_symbols = [c["symbol"] for c in candidates]
+            screened = True
+            err_console.print(
+                f"[dim]Screened {len(target_symbols)} candidates as of {asof_eval_date}.[/dim]"
+            )
+
+        # Slice piped/explicit symbol lists to --top (screening already applied it)
+        if not screened and self.top and self.top > 0:
+            target_symbols = target_symbols[: self.top]
+
+        if not screened:
+            candidates = [self._symbol_stub(s, asof_eval_date) for s in target_symbols]
 
         # Handle plain symbols output
         if self.output_format == OutputFormat.PLAIN:
@@ -330,8 +350,8 @@ class ChainedScreenerSipExample(HonbaExample):
             )
             return 0
 
-        # Display Stage 1 results (if not JSON)
-        if self.output_format != OutputFormat.JSON:
+        # Display Stage 1 screener results only when we actually screened (if not JSON)
+        if screened and self.output_format != OutputFormat.JSON:
             self._render_screener_table(candidates, asof_eval_date, self.strategy, self.train_years)
 
         # Check if out-of-sample forward backtest can be performed
@@ -418,6 +438,77 @@ class ChainedScreenerSipExample(HonbaExample):
             self.allocation,
         )
         return 0
+
+    @staticmethod
+    def _symbol_stub(symbol: str, asof_date: dt.date) -> dict[str, Any]:
+        """Minimal candidate record for explicitly-provided or piped symbols."""
+        return {
+            "symbol": symbol,
+            "asof_date": asof_date.isoformat(),
+            "close": 0.0,
+            "ret_1y": 0.0,
+            "ret_3m": 0.0,
+            "train_ret_pct": 0.0,
+            "pct_from_high": 0.0,
+            "sma200": 0.0,
+            "sma200_rising": True,
+            "vol_surge": 1.0,
+            "roce_pct": None,
+            "debt_to_equity": None,
+            "mb_score": 100.0,
+        }
+
+    @classmethod
+    def _read_symbols_from_stdin(cls) -> list[str]:
+        """Read a symbol stream from stdin (auto-detected, never from a TTY).
+
+        Accepts whitespace/comma-separated symbols or a JSON payload emitted by a screener
+        (``{"candidates": [...]}``, ``{"symbols": [...]}``, a list of strings, or a list of
+        objects carrying a ``symbol`` key). Returns an empty list when stdin is not a pipe.
+        """
+        stream = sys.stdin
+        if stream is None:
+            return []
+        try:
+            if stream.isatty():
+                return []
+            raw = stream.read()
+        except (OSError, ValueError):
+            # pytest and other harnesses raise instead of blocking; treat as "no pipe".
+            return []
+        return cls._parse_symbols_stream(raw)
+
+    @staticmethod
+    def _parse_symbols_stream(raw: str) -> list[str]:
+        text = (raw or "").strip()
+        if not text:
+            return []
+
+        symbols: list[str] = []
+        if text.startswith(("{", "[")):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                for item in parsed:
+                    if isinstance(item, str):
+                        symbols.append(item.strip().upper())
+                    elif isinstance(item, dict) and "symbol" in item:
+                        symbols.append(str(item["symbol"]).strip().upper())
+            elif isinstance(parsed, dict):
+                if isinstance(parsed.get("candidates"), list):
+                    for c in parsed["candidates"]:
+                        if isinstance(c, dict) and "symbol" in c:
+                            symbols.append(str(c["symbol"]).strip().upper())
+                        elif isinstance(c, str):
+                            symbols.append(c.strip().upper())
+                elif isinstance(parsed.get("symbols"), list):
+                    symbols = [str(s).strip().upper() for s in parsed["symbols"]]
+
+        if not symbols:
+            symbols = [s.strip().upper() for s in text.replace(",", " ").split() if s.strip()]
+        return [s for s in symbols if s]
 
     @staticmethod
     def _render_screener_table(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
+import io
 import json
 from pathlib import Path
 
@@ -188,3 +189,103 @@ def test_main_with_capital_options(example, tmp_path):
     assert data["initial_capital"] == 500000.0
     assert summary["sip_amount"] == 5000.0
     assert summary["total_invested"] > 0
+
+
+# ---------------------------------------------------------------------------
+# CLI stream contract (Phase 1): symbol/JSON ingestion from stdin pipes
+# ---------------------------------------------------------------------------
+
+
+def test_parse_symbols_stream_variants(example):
+    parse = example.ChainedScreenerSipExample._parse_symbols_stream
+    assert parse("") == []
+    assert parse("   \n  ") == []
+    assert parse("TCS INFY\nRELIANCE") == ["TCS", "INFY", "RELIANCE"]
+    assert parse("tcs, infy ,reliance") == ["TCS", "INFY", "RELIANCE"]
+    assert parse('["tcs", "infy"]') == ["TCS", "INFY"]
+    assert parse('[{"symbol": "tcs"}, {"symbol": "infy"}]') == ["TCS", "INFY"]
+    assert parse('{"candidates": [{"symbol": "tcs"}, {"symbol": "infy"}]}') == ["TCS", "INFY"]
+    assert parse('{"symbols": ["tcs", "infy"]}') == ["TCS", "INFY"]
+    # Malformed JSON falls back to whitespace splitting.
+    assert parse("{not json") == ["{NOT", "JSON"]
+
+
+def test_read_symbols_from_stdin_ignores_tty(example, monkeypatch):
+    class _Tty:
+        def isatty(self) -> bool:
+            return True
+
+        def read(self) -> str:  # pragma: no cover - must never be called
+            raise AssertionError("stdin must not be read from a TTY")
+
+    monkeypatch.setattr("sys.stdin", _Tty())
+    assert example.ChainedScreenerSipExample._read_symbols_from_stdin() == []
+
+
+def test_read_symbols_from_stdin_handles_unreadable(example, monkeypatch):
+    class _Unreadable:
+        def isatty(self) -> bool:
+            return False
+
+        def read(self) -> str:
+            raise OSError("read on closed stdin")
+
+    monkeypatch.setattr("sys.stdin", _Unreadable())
+    assert example.ChainedScreenerSipExample._read_symbols_from_stdin() == []
+
+
+def test_main_auto_detects_piped_symbols(example, monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO("TCS INFY\nRELIANCE"))
+    code = example.main(["--asof", "2023-01-01", "--end-date", "2023-06-30", "--format", "json"])
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    symbols = {s["symbol"] for s in data["portfolio_backtest"]["stocks"]}
+    assert symbols == {"TCS", "INFY", "RELIANCE"}
+
+
+def test_main_auto_detects_piped_json(example, monkeypatch, capsys):
+    payload = '{"asof_date": "2023-01-01", "candidates": [{"symbol": "TCS"}, {"symbol": "INFY"}]}'
+    monkeypatch.setattr("sys.stdin", io.StringIO(payload))
+    code = example.main(["--asof", "2023-01-01", "--end-date", "2023-06-30", "--format", "json"])
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    symbols = {s["symbol"] for s in data["portfolio_backtest"]["stocks"]}
+    assert symbols == {"TCS", "INFY"}
+
+
+def test_main_symbols_dash_reads_stdin(example, monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO("TCS, INFY"))
+    code = example.main(
+        ["--symbols", "-", "--asof", "2023-01-01", "--end-date", "2023-06-30", "--format", "json"]
+    )
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    symbols = {s["symbol"] for s in data["portfolio_backtest"]["stocks"]}
+    assert symbols == {"TCS", "INFY"}
+
+
+def test_main_symbols_dash_empty_stdin_errors(example, monkeypatch):
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    code = example.main(["--symbols", "-", "--asof", "2023-01-01", "--end-date", "2023-06-30"])
+    assert code == 1
+
+
+def test_explicit_symbols_slice_to_top(example, monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    code = example.main(
+        [
+            "--symbols",
+            "TCS,INFY,RELIANCE",
+            "--top",
+            "2",
+            "--asof",
+            "2023-01-01",
+            "--end-date",
+            "2023-06-30",
+            "--format",
+            "json",
+        ]
+    )
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
+    assert len(data["portfolio_backtest"]["stocks"]) == 2
