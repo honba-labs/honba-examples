@@ -11,17 +11,13 @@ Run::
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
@@ -235,7 +231,7 @@ metrics_port = 9090
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--strategy", type=str, default="sma_crossover")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--user", type=str, default="honba")
@@ -243,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workdir", type=str, default="/opt/honba")
     parser.add_argument("--strategies-dir", type=str, default="/opt/honba/strategies")
     parser.add_argument("--python", type=str, default="/usr/bin/python3")
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(
@@ -256,11 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         python=args.python,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 

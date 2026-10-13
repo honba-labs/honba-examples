@@ -12,22 +12,18 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.synthetic import bar as synth_bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
@@ -142,7 +138,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--strategy", type=str, default="sma_crossover")
     parser.add_argument(
         "--initial-capital",
@@ -158,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--symbol", type=str, default="RELIANCE")
     parser.add_argument("--max-position-pct", type=float, default=0.1)
     parser.add_argument("--max-daily-loss", type=float, default=50_000.0)
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(
@@ -172,11 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         max_daily_loss=args.max_daily_loss,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 

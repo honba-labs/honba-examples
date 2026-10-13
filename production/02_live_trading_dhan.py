@@ -13,20 +13,17 @@ Run::
 
 from __future__ import annotations
 
-import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Any, ClassVar
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
+
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
@@ -127,7 +124,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--client-id", type=str, required=True, help="Dhan client ID")
     parser.add_argument("--access-token", type=str, required=True, help="Dhan access token")
     parser.add_argument("--strategy", type=str, default="sma_crossover")
@@ -149,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Actually connect to Dhan (requires real credentials)",
     )
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(
@@ -165,11 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=not args.no_dry_run,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 

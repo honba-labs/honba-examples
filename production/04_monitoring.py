@@ -10,7 +10,6 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import json
 import random
 import sys
@@ -19,11 +18,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
@@ -133,19 +130,15 @@ def run(port: int = 9090, duration: int = 30) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--port", type=int, default=9090)
     parser.add_argument("--duration", type=int, default=10)
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(port=args.port, duration=args.duration)
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 
