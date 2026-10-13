@@ -18,10 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.screener_cli import ScreenerCLIExample, rich_console
 from honba_examples.screening import screen_value_and_dividend
