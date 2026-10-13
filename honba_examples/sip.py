@@ -16,6 +16,83 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+from honba.strategies.base import Parameter, Strategy
+
+__all__ = [
+    "SipPortfolioStrategy",
+    "allocation_weights",
+    "calculate_xirr",
+    "simulate_portfolio_sip",
+]
+
+
+class SipPortfolioStrategy(Strategy):
+    """Systematic Investment Plan (SIP) strategy implementing Honba's Strategy ABC.
+
+    Models monthly capital allocation and share accumulation on bar events.
+    """
+
+    name = "sip_portfolio_strategy"
+    warmup_bars = 0
+
+    monthly_amount = Parameter(
+        default=10000.0,
+        min=0.0,
+        max=1000000.0,
+        step=1000.0,
+        description="Monthly SIP allocation amount in INR per stock",
+    )
+    initial_capital = Parameter(
+        default=0.0,
+        min=0.0,
+        max=100000000.0,
+        step=10000.0,
+        description="Total initial capital budget in INR",
+    )
+
+    def __init__(self, monthly_amount: float = 10000.0, initial_capital: float = 0.0) -> None:
+        super().__init__()
+        self._monthly_amount = monthly_amount
+        self._initial_capital = initial_capital
+        self._last_month: int | None = None
+
+    def on_bar(self, bar: Any) -> None:
+        bar_date = getattr(bar, "date", None)
+        if bar_date is None:
+            return
+        if self._last_month != bar_date.month and self._monthly_amount > 0:
+            self._last_month = bar_date.month
+            self.buy(bar.instrument_id, 1)
+
+
+def allocation_weights(allocation: str, candidates: list[dict[str, Any]]) -> dict[str, float]:
+    """Normalised portfolio weights per symbol for an allocation model.
+
+    - ``52w-ratio``: inverse distance from the 52-week high (tighter base, bigger weight).
+    - ``score``: margin of safety (value screens) or multibagger score, floored at 1.
+    - ``equal``: 1/N.
+
+    Returns ``{}`` for no candidates or an unknown model (callers then fall back to equal).
+    """
+    if not candidates:
+        return {}
+    if allocation == "52w-ratio":
+        raw_w = {
+            c["symbol"]: 1.0 / max(abs(float(c.get("pct_from_high", -5.0))), 0.1)
+            for c in candidates
+        }
+    elif allocation == "score":
+        raw_w = {
+            c["symbol"]: max(float(c.get("margin_of_safety_pct", c.get("mb_score", 10.0))), 1.0)
+            for c in candidates
+        }
+    elif allocation == "equal":
+        return {c["symbol"]: 1.0 / len(candidates) for c in candidates}
+    else:
+        return {}
+    tot_w = sum(raw_w.values())
+    return {s: v / tot_w for s, v in raw_w.items()}
+
 
 def calculate_xirr(cash_flows: list[tuple[dt.date, float]]) -> float | None:
     """Calculate exact annualized Internal Rate of Return (XIRR)."""

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -73,3 +74,46 @@ def get_latest_market_date(catalog_dir: Path) -> dt.date:
         logger.debug("Falling back on system date: %s", exc)
 
     return dt.datetime.now(dt.timezone.utc).date()
+
+
+def resolve_eval_window(
+    asof_str: str | None,
+    start_date: dt.date,
+    end_date_str: str | None,
+    end_date: dt.date | None,
+    latest_data_date: dt.date,
+    notify: Callable[[str], None] | None = None,
+) -> tuple[dt.date, dt.date]:
+    """Resolve the in-sample ``asof`` date and the out-of-sample terminal date.
+
+    ``asof`` falls back to ``start_date`` and is snapped to ``latest_data_date`` when it lies
+    beyond the catalog (``notify`` receives a note). The terminal date prefers ``--end-date``,
+    then ``end_date`` if the catalog covers it, else the latest catalog date.
+    Raises ``ValueError`` with a user-facing message on a malformed date string.
+    """
+    if asof_str:
+        try:
+            asof = dt.date.fromisoformat(asof_str)
+        except ValueError:
+            raise ValueError(f"Invalid date format for --asof: '{asof_str}'") from None
+    else:
+        asof = start_date
+
+    if asof > latest_data_date:
+        if notify is not None:
+            notify(
+                f"Note: Specified --asof date ({asof}) is beyond latest catalog date ({latest_data_date}). "
+                f"Snapping evaluation date to {latest_data_date}."
+            )
+        asof = latest_data_date
+
+    if end_date_str:
+        try:
+            end = dt.date.fromisoformat(end_date_str)
+        except ValueError:
+            raise ValueError(f"Invalid date format for --end-date: '{end_date_str}'") from None
+    elif end_date and end_date <= latest_data_date:
+        end = end_date
+    else:
+        end = latest_data_date
+    return asof, end

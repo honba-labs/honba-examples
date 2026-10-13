@@ -105,3 +105,9 @@ def write_run_json(
         json.dumps(artifact, indent=2, sort_keys=False, default=str) + "\n", encoding="utf-8"
     )
     return artifact
+
+
+def write_json_report(path: Path, payload: Mapping[str, Any]) -> None:
+    """Write ``payload`` as indented JSON (parents created, trailing newline)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
