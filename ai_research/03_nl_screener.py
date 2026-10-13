@@ -25,7 +25,6 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import ast
 import datetime as dt
 import json
@@ -37,10 +36,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.ai.llm.provider import LlmPort, ScriptedFakeLlm
 from honba.cli.data import _STORE
@@ -50,6 +46,8 @@ from honba.entities.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 from honba.screener.coverage import DateInterval
 from honba.screener.sources import extract_metrics_from_bars
+
+from honba_examples.cli import make_parser
 
 # Approximate shares outstanding (in Crore shares) for Nifty 50 constituents
 NIFTY50_SHARES_CR: dict[str, float] = {
@@ -493,7 +491,7 @@ def run_nl_screener(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument(
         "--query",
         default="market_cap > 25000Cr and close above 50-day moving average",
