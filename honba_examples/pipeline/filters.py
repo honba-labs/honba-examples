@@ -10,11 +10,17 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step
 from honba_examples.pipeline.manifest import manifest, param
+from honba_examples.pipeline.reporting import (
+    REPORTABLE,
+    add_report_columns,
+    check_report_columns,
+)
 from honba_examples.pipeline.screeners import average_daily_turnover, latest_close_and_sma
 from honba_examples.screening import find_catalog_path
 
@@ -51,7 +57,9 @@ class FundamentalQualityFilter(Step):
         min_roce: float = 15.0,
         max_debt_to_equity: float = 1.0,
         min_operating_margin: float = 0.0,
+        report: Sequence[str] | None = None,
     ) -> None:
+        self.report = check_report_columns(report or [])
         self.min_roce = min_roce
         self.max_debt_to_equity = max_debt_to_equity
         self.min_operating_margin = min_operating_margin
@@ -83,6 +91,7 @@ class FundamentalQualityFilter(Step):
             "candidates",
             "candidates",
             columns=["symbol", "roce_pct", "debt_to_equity"],
+            reportable=list(REPORTABLE),
             tags=["quality", "fundamental"],
         )
 
@@ -102,7 +111,13 @@ class FundamentalQualityFilter(Step):
             return ctx
         kept = [c for c in candidates if self._passes(c)]
         logger.info("%s: kept %d/%d candidates", self.name, len(kept), len(candidates))
-        return _filter_candidates(ctx, {c.get("symbol") for c in kept})
+        ctx = _filter_candidates(ctx, {c.get("symbol") for c in kept})
+        if self.report and isinstance(ctx.get("candidates"), list):
+            asof = ctx.get("asof")
+            ctx["candidates"] = add_report_columns(
+                ctx["candidates"], self.report, asof if isinstance(asof, dt.date) else None
+            )
+        return ctx
 
 
 class MarketRegimeFilter(Step):

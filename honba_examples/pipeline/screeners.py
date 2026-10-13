@@ -10,11 +10,17 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step, as_date
 from honba_examples.pipeline.manifest import manifest, param
+from honba_examples.pipeline.reporting import (
+    add_report_columns,
+    check_report_columns,
+    reportable_beyond,
+)
 from honba_examples.screening import (
     find_catalog_path,
     get_latest_market_date,
@@ -50,6 +56,21 @@ def _asof_clause(asof: dt.date | None) -> str:
     return f"WHERE epoch_ms(ts // 1000000)::DATE <= DATE '{asof.isoformat()}'"
 
 
+_MULTIBAGGER_COLUMNS = [
+    "company_name",
+    "asof_date",
+    "close",
+    "ret_1y",
+    "ret_3m",
+    "train_ret_pct",
+    "pct_from_high",
+    "sma200",
+    "sma200_rising",
+    "vol_surge",
+    "roce_pct",
+    "debt_to_equity",
+    "mb_score",
+]
 _VALUE_COLUMNS = [
     "company_name",
     "asof_date",
@@ -95,10 +116,12 @@ class ScreenerStep(Step):
         train_years: int = 3,
         top: int | None = None,
         catalog_dir: Path | str | None = None,
+        report: Sequence[str] | None = None,
     ) -> None:
         self.asof = asof
         self.train_years = train_years
         self.top = top
+        self.report = check_report_columns(report or [])
         self.catalog_dir = Path(catalog_dir) if catalog_dir is not None else None
 
     def resolve_catalog_dir(self) -> Path:
@@ -129,6 +152,8 @@ class ScreenerStep(Step):
         catalog_dir = self.resolve_catalog_dir()
         asof = self.resolve_asof(catalog_dir)
         candidates = self.screen(catalog_dir, asof)
+        if self.report:
+            candidates = add_report_columns(candidates, self.report, asof)
         ctx["candidates"] = candidates
         ctx["symbols"] = [c["symbol"] for c in candidates]
         ctx["asof"] = asof
@@ -152,8 +177,11 @@ class MultibaggerScreener(ScreenerStep):
         max_debt_to_equity: float = 1.5,
         top: int | None = None,
         catalog_dir: Path | str | None = None,
+        report: Sequence[str] | None = None,
     ) -> None:
-        super().__init__(asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir)
+        super().__init__(
+            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+        )
         self.min_return_1y = min_return_1y
         self.max_return_1y = max_return_1y
         self.max_pct_from_high = max_pct_from_high
@@ -218,21 +246,8 @@ class MultibaggerScreener(ScreenerStep):
                 "history_bars": 252,
                 "pit": True,
             },
-            adds=[
-                "company_name",
-                "asof_date",
-                "close",
-                "ret_1y",
-                "ret_3m",
-                "train_ret_pct",
-                "pct_from_high",
-                "sma200",
-                "sma200_rising",
-                "vol_surge",
-                "roce_pct",
-                "debt_to_equity",
-                "mb_score",
-            ],
+            reportable=reportable_beyond(_MULTIBAGGER_COLUMNS),
+            adds=_MULTIBAGGER_COLUMNS,
             tags=["momentum", "growth", "point_in_time"],
         )
 
@@ -254,8 +269,11 @@ class ValueScreener(ScreenerStep):
         require_positive_fcf: bool = False,
         top: int | None = None,
         catalog_dir: Path | str | None = None,
+        report: Sequence[str] | None = None,
     ) -> None:
-        super().__init__(asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir)
+        super().__init__(
+            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+        )
         self.max_pct_from_52w_low = max_pct_from_52w_low
         self.min_roce = min_roce
         self.max_pe = max_pe
@@ -333,6 +351,7 @@ class ValueScreener(ScreenerStep):
                 "pit": True,
             },
             adds=_VALUE_COLUMNS,
+            reportable=reportable_beyond(_VALUE_COLUMNS),
             tags=["value", "contrarian", "point_in_time"],
         )
 
@@ -353,8 +372,11 @@ class DividendYieldScreener(ScreenerStep):
         require_positive_fcf: bool = True,
         top: int | None = None,
         catalog_dir: Path | str | None = None,
+        report: Sequence[str] | None = None,
     ) -> None:
-        super().__init__(asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir)
+        super().__init__(
+            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+        )
         self.min_yield_pct = min_yield_pct
         self.max_pct_from_52w_low = max_pct_from_52w_low
         self.min_roce = min_roce
@@ -422,6 +444,7 @@ class DividendYieldScreener(ScreenerStep):
                 "pit": True,
             },
             adds=_VALUE_COLUMNS,
+            reportable=reportable_beyond(_VALUE_COLUMNS),
             tags=["dividend", "income", "point_in_time"],
         )
 
