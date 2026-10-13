@@ -19,10 +19,39 @@ All screeners share these options:
 | Option | Description |
 |--------|-------------|
 | `--asof YYYY-MM-DD` | Evaluation date (defaults to latest available market date) |
-| `--train-years N` | In-sample training window years (default: 3) |
-| `--top N` | Limit to top N candidates (default: 10) |
 | `--format FORMAT` | Output: `table` (rich), `json` (machine), `symbols` (space-separated), `plain` (newline-separated) |
 | `--data-dir PATH` | Override catalog directory |
+
+Value/dividend screeners share the fundamental options:
+
+| Option | Description |
+|--------|-------------|
+| `--train-years N` | In-sample training window years (default: 3) |
+| `--top N` | Limit to top N candidates (default: 10) |
+| `--min-roce F` | Minimum ROCE % |
+| `--max-pe F` | Maximum derived P/E (0 = disabled) |
+| `--max-pb F` | Maximum derived P/B (0 = disabled) |
+| `--max-debt-equity F` | Maximum debt-to-equity |
+| `--min-div-yield F` | Minimum trailing dividend yield % (0 = disabled) |
+| `--require-positive-fcf` / `--no-require-positive-fcf` | Require positive free cash flow |
+| `--fiscal-lag-days N` | Reporting-lag buffer (days) so only fundamentals published by `--asof` are used |
+
+## Point-in-Time Valuation (Zero Lookahead)
+
+Prices come from the 1D Parquet catalog up to `--asof`. Fundamentals come from
+`fundamentals.duckdb`, restricted to the latest fiscal period ending on or before
+`--asof` (optionally shifted back by `--fiscal-lag-days`). Valuation is **derived**, never
+read from a live snapshot:
+
+| Metric | Derivation |
+|--------|------------|
+| P/E | as-of close ÷ latest reported EPS (only when EPS > 0) |
+| P/B | as-of close ÷ book value per share (equity ÷ diluted average shares) |
+| Dividend yield | trailing annual cash dividend per share ÷ as-of close |
+
+> **Data availability:** point-in-time fundamentals in the bundled lakehouse are annual (FY)
+> vintages reporting from `2023-03-31` onwards. Screens evaluated before mid-2023 will return
+> few or no fundamental candidates; this is a data limitation, not a screener bug.
 
 ## Screener 1: Prospective Multibagger (`01_multibagger_screener.py`)
 
@@ -60,24 +89,25 @@ Identifies contrarian value candidates trading near 52-week low with strong bala
 
 ### Filters Applied:
 - Price within N% of 52-week low
-- Optional: P/E ratio ceiling
-- Optional: Minimum ROCE
-- Debt/Equity ceiling
+- Derived point-in-time valuation: P/E (price ÷ EPS), P/B (price ÷ BVS)
+- ROCE quality floor, Debt/Equity ceiling, optional FCF > 0
 - Recent 52-week low touch detection
 
 ### Options:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--max-pct-from-52w-low` | 15.0 | Max % above 52-week low |
-| `--min-div-yield` | 0.0 | Min dividend yield % (0 = disabled) |
 | `--min-roce` | 10.0 | Min ROCE % |
-| `--max-pe` | 20.0 | Max P/E ratio (0 = disabled) |
-| `--max-debt-equity` | 1.5 | Max debt-to-equity ratio |
+| `--max-pe` | 20.0 | Max derived P/E (0 = disabled) |
+| `--max-pb` | 2.0 | Max derived P/B (0 = disabled) |
+| `--max-debt-equity` | 1.5 | Max debt-to-equity |
+| `--min-div-yield` | 0.0 | Min trailing dividend yield % (0 = disabled) |
+| `--require-positive-fcf` | off | Require FCF > 0 |
 
 ### Example:
 ```bash
-# Screen deep value stocks at 52w low with P/E < 20, Debt/Eq < 1.0
-python screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols
+# Deep value at 52w low: derived P/E < 20, P/B < 2.0, Debt/Eq < 1.5 on a date with fundamentals
+python screening/02_value_52w_low_screener.py --asof 2025-03-01 --max-pe 20 --max-pb 2.0 --max-debt-equity 1.5 --format symbols
 ```
 
 ---
@@ -88,22 +118,25 @@ Identifies high dividend yield candidates near 52-week low with strong fundament
 
 ### Filters Applied:
 - All value filters above
-- Minimum dividend yield threshold
+- Minimum trailing dividend yield threshold
 - Sorted by dividend yield descending
+- Default requires FCF > 0 (disable with `--no-require-positive-fcf`)
 
 ### Options:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--max-pct-from-52w-low` | 15.0 | Max % above 52-week low |
-| `--min-div-yield` | 3.0 | Min dividend yield % |
+| `--min-div-yield` | 3.0 | Min trailing dividend yield % |
 | `--min-roce` | 12.0 | Min ROCE % |
-| `--max-pe` | disabled | Max P/E ratio |
-| `--max-debt-equity` | 1.0 | Max debt-to-equity ratio |
+| `--max-pe` | disabled (0) | Max derived P/E |
+| `--max-pb` | disabled (0) | Max derived P/B |
+| `--max-debt-equity` | 1.0 | Max debt-to-equity |
+| `--require-positive-fcf` | on | Require FCF > 0 |
 
 ### Example:
 ```bash
-# Dogs of NSE: High yield at 52w low, ROCE >= 12%, Debt/Eq <= 1.0
-python screening/03_dividend_yield_screener.py --asof 2023-01-01 --min-div-yield 3.0 --max-pct-from-52w-low 10.0 --format symbols
+# Dogs of NSE: high yield at 52w low, ROCE >= 12%, FCF > 0, D/E <= 1.0 on a date with fundamentals
+python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols
 ```
 
 ---
@@ -120,14 +153,14 @@ python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format s
 
 ### Dogs of NSE → Forward SIP Backtest
 ```bash
-python screening/03_dividend_yield_screener.py --asof 2023-01-01 --min-div-yield 3.0 --max-pct-from-52w-low 10.0 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \
+  | python backtesting/08_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 ```
 
 ### Deep Value at 52w Low → Forward SIP Backtest
 ```bash
-python screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+python screening/02_value_52w_low_screener.py --asof 2025-03-01 --max-pe 20 --max-pb 2.0 --max-debt-equity 1.5 --format symbols \
+  | python backtesting/08_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 ```
 
 ### JSON Mode for Programmatic Use
@@ -139,8 +172,13 @@ python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format j
 
 ## Data Requirements
 
-Requires:
-- 1D NSE Parquet catalog at `honba-data/data/catalog/1D/NSE/` (or `--data-dir`)
-- Optional: `fundamentals.duckdb` at `honba-data/data/fundamentals.duckdb` for ROCE, Debt/Eq, P/E, Div Yield overlays
+Point-in-time valuation comes from the 1D Parquet catalog (`honba-data/data/catalog/1D/NSE/`)
+plus the fundamentals lakehouse:
 
-Without fundamentals DB, screeners run on price/volume only (fundamental columns will be null).
+- `financial_ratios` — EPS, ROCE, debt/equity, operating margin, free cash flow, book equity.
+- `financial_statements` — cash dividends, common dividends, diluted average shares.
+- Derived fields: `P/E = close / EPS`, `P/B = close / (equity / shares)`,
+  `yield = abs(dividends) / shares / close`.
+
+Requires `fundamentals.duckdb` at `honba-data/data/fundamentals.duckdb`. Without it, value/dividend
+screeners run price-only (fundamental columns are null) and fundamental filters are skipped.

@@ -37,7 +37,10 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
     min_div_yield: float = 3.0
     min_roce: float = 12.0
     max_pe: float = 0.0
+    max_pb: float = 0.0
     max_debt_equity: float = 1.0
+    require_positive_fcf: bool = True
+    fiscal_lag_days: int = 0
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -69,13 +72,31 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
             "--max-pe",
             type=float,
             default=self.max_pe,
-            help="Maximum P/E ratio (default: 0, disabled)",
+            help="Maximum derived P/E ratio (default: 0, disabled)",
+        )
+        parser.add_argument(
+            "--max-pb",
+            type=float,
+            default=self.max_pb,
+            help="Maximum derived P/B ratio (default: 0, disabled)",
         )
         parser.add_argument(
             "--max-debt-equity",
             type=float,
             default=self.max_debt_equity,
             help="Maximum debt-to-equity ratio (default: 1.0)",
+        )
+        parser.add_argument(
+            "--require-positive-fcf",
+            action=argparse.BooleanOptionalAction,
+            default=self.require_positive_fcf,
+            help="Require positive free cash flow (default: on)",
+        )
+        parser.add_argument(
+            "--fiscal-lag-days",
+            type=int,
+            default=self.fiscal_lag_days,
+            help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
         )
         parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
@@ -91,7 +112,10 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
             min_div_yield=self.min_div_yield,
             min_roce=self.min_roce,
             max_pe=self.max_pe if self.max_pe and self.max_pe > 0 else None,
+            max_pb=self.max_pb if self.max_pb and self.max_pb > 0 else None,
             max_debt_equity=self.max_debt_equity,
+            require_positive_fcf=self.require_positive_fcf,
+            fiscal_lag_days=self.fiscal_lag_days,
             top=self.top,
         )
 
@@ -122,14 +146,19 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
         table.add_column("Hit Low?", justify="center", style="green", no_wrap=True)
         table.add_column("Div Yield", justify="right", style="magenta", no_wrap=True)
         table.add_column("P/E", justify="right", no_wrap=True)
+        table.add_column("P/B", justify="right", no_wrap=True)
         table.add_column("ROCE %", justify="right", style="green", no_wrap=True)
         table.add_column("Debt/Eq", justify="right", no_wrap=True)
+        table.add_column("FCF", justify="center", no_wrap=True)
 
         for c in candidates:
             div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
             pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
+            pb_s = f"{c['pb_ratio']:.2f}" if c.get("pb_ratio") is not None else "-"
             roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
             de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
+            fcf = c.get("free_cash_flow")
+            fcf_s = "+" if fcf is not None and fcf > 0 else ("-" if fcf is not None else "?")
             hit_s = "✓ Touch" if c.get("hit_52w_low_recently") else "Near"
             table.add_row(
                 c["symbol"],
@@ -141,8 +170,10 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
                 hit_s,
                 div_s,
                 pe_s,
+                pb_s,
                 roce_s,
                 de_s,
+                fcf_s,
             )
         rich_console().print(table)
 

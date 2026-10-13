@@ -106,6 +106,73 @@ def test_screen_value_and_dividend_returns_data():
     assert "pct_from_low" in c0
 
 
+def test_screen_value_and_dividend_derived_valuation():
+    """Value screen computes point-in-time P/E, P/B and dividend yield from fundamentals."""
+    catalog_dir = find_catalog_path()
+    candidates = screen_value_and_dividend(
+        catalog_dir=catalog_dir,
+        asof_date=dt.date(2025, 3, 1),
+        train_years=3,
+        mode="value",
+        max_pct_from_52w_low=15.0,
+        min_roce=8.0,
+        max_debt_equity=1.5,
+        max_pe=20.0,
+        max_pb=2.0,
+        top=8,
+    )
+    assert len(candidates) > 0
+    for c in candidates:
+        assert c["pe_ratio"] is not None and c["pe_ratio"] <= 20.0
+        assert c["pb_ratio"] is not None and c["pb_ratio"] <= 2.0
+        assert "div_yield_pct" in c
+        assert "operating_margin_pct" in c
+        assert "free_cash_flow" in c
+
+
+def test_screen_dividend_requires_positive_cash_flow_and_yield():
+    """Dividend screen filters to payers with positive FCF when requested."""
+    catalog_dir = find_catalog_path()
+    candidates = screen_value_and_dividend(
+        catalog_dir=catalog_dir,
+        asof_date=dt.date(2025, 3, 1),
+        train_years=3,
+        mode="dividend",
+        max_pct_from_52w_low=15.0,
+        min_div_yield=3.0,
+        min_roce=8.0,
+        max_debt_equity=1.5,
+        require_positive_fcf=True,
+        top=8,
+    )
+    assert len(candidates) > 0
+    for c in candidates:
+        assert c["div_yield_pct"] >= 3.0
+        assert c["free_cash_flow"] is not None and c["free_cash_flow"] > 0
+
+
+def test_screen_value_and_dividend_filters_are_applied():
+    """The filters must narrow results; a too-strict yield should return fewer/no candidates."""
+    catalog_dir = find_catalog_path()
+    base = screen_value_and_dividend(
+        catalog_dir=catalog_dir,
+        asof_date=dt.date(2025, 3, 1),
+        mode="dividend",
+        max_pct_from_52w_low=15.0,
+        min_div_yield=3.0,
+        top=20,
+    )
+    strict = screen_value_and_dividend(
+        catalog_dir=catalog_dir,
+        asof_date=dt.date(2025, 3, 1),
+        mode="dividend",
+        max_pct_from_52w_low=15.0,
+        min_div_yield=10.0,
+        top=20,
+    )
+    assert len(strict) < len(base)
+
+
 def test_get_latest_market_date():
     catalog_dir = find_catalog_path()
     latest_date = get_latest_market_date(catalog_dir)
