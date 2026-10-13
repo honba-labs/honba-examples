@@ -1,30 +1,27 @@
 """backtesting/08_chained_screener_and_sip.py: Chained Screener and Forward SIP Backtest.
 
-Demonstrates point-in-time prospective multibagger screening with in-sample historical data
+Demonstrates point-in-time prospective multibagger and Benjamin Graham value screening with in-sample historical data
 and subsequent out-of-sample forward backtesting with systematic capital accumulation:
-    [Stage 1: Prospective Screener (2-5 Years In-Sample Base & Sweet-Spot Momentum)]
+    [Stage 1: Prospective Screener (2-5 Years In-Sample Base & Sweet-Spot Momentum / Value)]
                                       │
                                (top candidates)
                                       ▼
-    [Stage 2: Out-of-Sample Forward Backtest for Multibagger Confirmation]
+    [Stage 2: Out-of-Sample Forward Backtest for Confirmation]
        (Initial Capital on Asof Date + Recurring Monthly SIP Until Till Date)
 
-Theoretical Foundation (Screening for Multibaggers):
-    Multibaggers (2x, 3x, 5x, 10x+) compound via the "Twin Engines" (Phelps & Mayer):
+Theoretical Foundations:
+    1. Multibaggers (2x, 3x, 5x, 10x+) compound via the "Twin Engines" (Phelps & Mayer):
         Return Multiple = (EPS Expansion) × (P/E Multiple Re-rating)
-    To screen prospective "going-to-be" multibaggers (rather than exhausted late-stage runners):
-    1. Minervini Stage 2 Trend Template: Price >= SMA50 >= SMA200, rising 200 SMA.
-       Ensures institutional markup phase; avoids bottom-fishing in declining stages.
-    2. Consolidation Base & Anti-Exhaustion Guard:
-       - Price within 15% of 52-week high (tight supply absorption prior to breakout).
-       - At least 25% above 52-week low (confirmed accumulation bottom).
-       - 1-Year return capped below +175% to prevent buying parabolic climax blow-off tops.
-    3. Momentum Acceleration & Volume Accumulation:
-       - Accelerating 3-month momentum (> +10%).
-       - Recent 20-day volume expansion over 200-day baseline (institutional footprints).
-    4. Fundamental Capital Efficiency & Solvency (QGLP Overlay):
-       - Return on Capital Employed (ROCE >= 12%, ideally > 20%) driving intrinsic compounding.
-       - Conservative Debt-to-Equity (<= 1.2, ideally < 0.5 or net cash) preventing bankruptcy risk.
+       - Minervini Stage 2 Trend Template: Price >= SMA50 >= SMA200, rising 200 SMA.
+       - Consolidation Base & Anti-Exhaustion Guard (near 52w high, capped 1y return).
+       - Momentum Acceleration & Institutional Volume Footprints.
+       - Capital Efficiency (ROCE >= 12%) and conservative Debt-to-Equity (<= 1.2).
+
+    2. Benjamin Graham Value (*The Intelligent Investor*):
+        - Graham Number = sqrt(22.5 * EPS * BVPS)
+        - Margin of Safety = (Graham Value - Price) / Graham Value * 100
+        - Valuation Discipline: P/E <= 15-20, P/B <= 1.5-2.0, P/E × P/B <= 22.5
+        - Solvency: Low Debt-to-Equity, robust Current Ratio, positive audited earnings.
 
 Systematic Execution Model (Chained Screener + SIP):
     - Initial capital deployed across screened candidates on the evaluation date.
@@ -38,11 +35,14 @@ Usage Examples::
     # 1. Screen prospective multibaggers as of 2024-01-01 and backtest forward SIP to present:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
-    # 2. Equal allocation model benchmark:
+    # 2. Screen Benjamin Graham Defensive value candidates and run forward SIP:
+    python backtesting/08_chained_screener_and_sip.py --strategy graham --graham-mode defensive --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
+
+    # 3. Equal allocation model benchmark:
     python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
 
-    # 3. Prospective screening as of today (live forward monitoring):
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
+    # 4. Prospective screening as of today (live forward monitoring):
+    python backtesting/08_chained_screener_and_sip.py --strategy graham --screen-only --top 5
 """
 
 from __future__ import annotations
@@ -72,7 +72,9 @@ from honba_examples.base import HonbaExample
 from honba_examples.screening import (
     find_catalog_path,
     get_latest_market_date,
+    screen_intelligent_investor,
     screen_multibaggers,
+    screen_net_net,
     screen_value_and_dividend,
 )
 from honba_examples.sip import simulate_portfolio_sip
@@ -145,6 +147,7 @@ class ChainedScreenerSipExample(HonbaExample):
 
     # Custom attributes defined as class attributes so HonbaExample.parse_args sets them
     strategy: str = "multibagger"
+    graham_mode: str = "defensive"
     asof_str: str | None = None
     end_date_str: str | None = None
     train_years: int = 3
@@ -160,9 +163,24 @@ class ChainedScreenerSipExample(HonbaExample):
         """Add screener and SIP specific options alongside HonbaExample base args."""
         parser.add_argument(
             "--strategy",
-            choices=["multibagger", "dividend", "value", "all"],
+            choices=[
+                "multibagger",
+                "graham",
+                "intelligent_investor",
+                "net_net",
+                "ncav",
+                "dividend",
+                "value",
+                "all",
+            ],
             default=self.strategy,
-            help="Screener strategy: 'multibagger' (prospective momentum), 'dividend', or 'value'",
+            help="Screener strategy: 'multibagger' (momentum), 'graham'/'intelligent_investor' (Benjamin Graham value), 'dividend', or 'value'",
+        )
+        parser.add_argument(
+            "--graham-mode",
+            choices=["defensive", "enterprising"],
+            default=self.graham_mode,
+            help="Graham strategy profile: 'defensive' (strict 22.5 Graham product, low D/E) or 'enterprising'",
         )
         parser.add_argument(
             "--asof",
@@ -318,6 +336,21 @@ class ChainedScreenerSipExample(HonbaExample):
                     train_years=self.train_years,
                     top=self.top,
                 )
+            elif self.strategy in ("graham", "intelligent_investor"):
+                candidates = screen_intelligent_investor(
+                    catalog_dir=catalog_dir,
+                    asof_date=asof_eval_date,
+                    train_years=self.train_years,
+                    mode=self.graham_mode,
+                    top=self.top,
+                )
+            elif self.strategy in ("net_net", "ncav"):
+                candidates = screen_net_net(
+                    catalog_dir=catalog_dir,
+                    asof_date=asof_eval_date,
+                    train_years=self.train_years,
+                    top=self.top,
+                )
             else:
                 candidates = screen_value_and_dividend(
                     catalog_dir=catalog_dir,
@@ -370,9 +403,9 @@ class ChainedScreenerSipExample(HonbaExample):
                         f"Evaluation date ([cyan]{asof_eval_date}[/cyan]) is at the horizon of the historical catalog (latest session: [yellow]{latest_data_date}[/yellow]).\n"
                         "Forward out-of-sample data is not yet available for forward backtesting.\n\n"
                         f"The [bold cyan]{len(candidates)}[/bold cyan] screened candidates above represent prospective "
-                        "'going-to-be' multibaggers identified for [bold green]live forward monitoring[/bold green]!\n\n"
+                        "'going-to-be' investments identified for [bold green]live forward monitoring[/bold green]!\n\n"
                         "[dim]💡 Tip: To simulate out-of-sample forward SIP confirmation, run with a historical evaluation date, e.g.:[/dim]\n"
-                        f"   [bold green]python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top {self.top} --capital 100000 --sip 10000[/bold green]",
+                        f"   [bold green]python backtesting/08_chained_screener_and_sip.py --strategy {self.strategy} --asof 2024-01-01 --top {self.top} --capital 100000 --sip 10000[/bold green]",
                         title="Stage 2 Forward Confirmation Notice",
                         border_style="yellow",
                         box=box.ROUNDED,
@@ -391,7 +424,10 @@ class ChainedScreenerSipExample(HonbaExample):
             tot_w = sum(raw_w.values())
             weights = {s: v / tot_w for s, v in raw_w.items()}
         elif self.allocation == "score" and candidates:
-            raw_w = {c["symbol"]: max(float(c.get("mb_score", 10.0)), 1.0) for c in candidates}
+            raw_w = {
+                c["symbol"]: max(float(c.get("margin_of_safety_pct", c.get("mb_score", 10.0))), 1.0)
+                for c in candidates
+            }
             tot_w = sum(raw_w.values())
             weights = {s: v / tot_w for s, v in raw_w.items()}
         elif self.allocation == "equal" and candidates:
@@ -414,6 +450,9 @@ class ChainedScreenerSipExample(HonbaExample):
             "train_years": self.train_years,
             "end_date": end_eval_date.isoformat(),
             "strategy": self.strategy,
+            "graham_mode": self.graham_mode
+            if self.strategy in ("graham", "intelligent_investor")
+            else None,
             "allocation": self.allocation,
             "initial_capital": init_capital_val,
             "sip_amount": self.sip_amount,
@@ -444,18 +483,28 @@ class ChainedScreenerSipExample(HonbaExample):
         """Minimal candidate record for explicitly-provided or piped symbols."""
         return {
             "symbol": symbol,
+            "company_name": symbol,
             "asof_date": asof_date.isoformat(),
             "close": 0.0,
             "ret_1y": 0.0,
             "ret_3m": 0.0,
             "train_ret_pct": 0.0,
             "pct_from_high": 0.0,
+            "pct_from_low": 0.0,
+            "low52": 0.0,
             "sma200": 0.0,
             "sma200_rising": True,
             "vol_surge": 1.0,
             "roce_pct": None,
             "debt_to_equity": None,
             "mb_score": 100.0,
+            "pe_ratio": None,
+            "pb_ratio": None,
+            "graham_product": None,
+            "graham_num": 0.0,
+            "margin_of_safety_pct": 0.0,
+            "current_ratio": None,
+            "div_yield_pct": 0.0,
         }
 
     @classmethod
@@ -475,9 +524,12 @@ class ChainedScreenerSipExample(HonbaExample):
 
         return pipeline_parse_symbols(raw)
 
-    @staticmethod
     def _render_screener_table(
-        candidates: list[dict[str, Any]], asof_date: dt.date, strategy: str, train_years: int
+        self,
+        candidates: list[dict[str, Any]],
+        asof_date: dt.date,
+        strategy: str,
+        train_years: int,
     ) -> None:
         """Render Rich terminal table for Stage 1 screened candidates."""
         if strategy == "multibagger":
@@ -511,6 +563,109 @@ class ChainedScreenerSipExample(HonbaExample):
                     f"₹{c['sma200']:,.2f}",
                     roce_s,
                     f"{c.get('mb_score', 0.0):.1f}",
+                )
+            console.print(table)
+        elif strategy in ("graham", "intelligent_investor"):
+            title = (
+                f"Stage 1 (In-Sample): Benjamin Graham '{self.graham_mode.title()}' Value Candidates "
+                f"as of {asof_date} ({train_years}-Yr Base Window)"
+            )
+            table = Table(
+                title=title,
+                border_style="cyan",
+                box=box.ROUNDED,
+                header_style="bold cyan",
+            )
+            table.add_column("Symbol", style="bold cyan", no_wrap=True)
+            table.add_column("Company", style="dim")
+            table.add_column("Price (₹)", justify="right", no_wrap=True)
+            table.add_column("EPS (₹)", justify="right", style="green", no_wrap=True)
+            table.add_column("BVPS (₹)", justify="right", style="dim", no_wrap=True)
+            table.add_column("P/E", justify="right", no_wrap=True)
+            table.add_column("P/B", justify="right", no_wrap=True)
+            table.add_column("P/E×P/B", justify="right", style="yellow", no_wrap=True)
+            table.add_column("Graham Val (₹)", justify="right", style="bold yellow", no_wrap=True)
+            table.add_column("Margin of Safety", justify="right", style="bold green", no_wrap=True)
+            table.add_column("Cur Ratio", justify="right", no_wrap=True)
+            table.add_column("Debt/Eq", justify="right", no_wrap=True)
+            table.add_column("Div Yield", justify="right", style="bold magenta", no_wrap=True)
+
+            for c in candidates:
+                pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
+                pb_s = f"{c['pb_ratio']:.2f}" if c.get("pb_ratio") is not None else "-"
+                gp_s = f"{c['graham_product']:.1f}" if c.get("graham_product") is not None else "-"
+                cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
+                de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
+                div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
+                mos_s = (
+                    f"+{c['margin_of_safety_pct']:.1f}%"
+                    if c.get("margin_of_safety_pct", 0) >= 0
+                    else f"{c['margin_of_safety_pct']:.1f}%"
+                )
+                comp_name = c.get("company_name", c["symbol"])
+                table.add_row(
+                    c["symbol"],
+                    comp_name,
+                    f"₹{c['close']:,.2f}",
+                    f"₹{c['eps']:,.2f}",
+                    f"₹{c['bvps']:,.2f}",
+                    pe_s,
+                    pb_s,
+                    gp_s,
+                    f"₹{c['graham_num']:,.2f}",
+                    mos_s,
+                    cr_s,
+                    de_s,
+                    div_s,
+                )
+            console.print(table)
+        elif strategy in ("net_net", "ncav"):
+            title = (
+                f"Stage 1 (In-Sample): Benjamin Graham Net-Net (NCAV) Candidates as of {asof_date} "
+                f"({train_years}-Yr Base Window)"
+            )
+            table = Table(
+                title=title,
+                border_style="cyan",
+                box=box.ROUNDED,
+                header_style="bold cyan",
+            )
+            table.add_column("Symbol", style="bold cyan", no_wrap=True)
+            table.add_column("Company", style="dim")
+            table.add_column("Price (₹)", justify="right", no_wrap=True)
+            table.add_column("Cur Assets", justify="right", style="dim", no_wrap=True)
+            table.add_column("Tot Liab", justify="right", style="dim", no_wrap=True)
+            table.add_column("NCAV/Sh (₹)", justify="right", style="bold yellow", no_wrap=True)
+            table.add_column("P/NCAV", justify="right", style="bold green", no_wrap=True)
+            table.add_column("NCAV MoS", justify="right", no_wrap=True)
+            table.add_column("Cur Ratio", justify="right", no_wrap=True)
+            table.add_column("Cash/Sh (₹)", justify="right", style="magenta", no_wrap=True)
+            table.add_column("Debt/Eq", justify="right", no_wrap=True)
+            table.add_column("CFO (₹Cr)", justify="right", style="green", no_wrap=True)
+
+            for c in candidates:
+                cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
+                de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
+                p_ncav_s = (
+                    f"{c['price_to_ncav']:.2f}x" if c.get("price_to_ncav") is not None else "-"
+                )
+                mos_val = c.get("ncav_margin_of_safety_pct", 0)
+                mos_style = "bold green" if mos_val >= 0 else "dim"
+                mos_s = f"[{mos_style}]{mos_val:+.1f}%[/{mos_style}]"
+
+                table.add_row(
+                    c["symbol"],
+                    c.get("company_name", c["symbol"]),
+                    f"₹{c['close']:,.2f}",
+                    f"₹{c.get('cur_assets_cr', 0):,.0f}Cr",
+                    f"₹{c.get('tot_liab_cr', 0):,.0f}Cr",
+                    f"₹{c.get('ncav_per_share', 0):,.2f}",
+                    p_ncav_s,
+                    mos_s,
+                    cr_s,
+                    f"₹{c.get('cash_per_share', 0):,.2f}",
+                    de_s,
+                    f"₹{c.get('cfo_cr', 0):,.0f}Cr",
                 )
             console.print(table)
         else:

@@ -39,6 +39,18 @@ def dividend_script():
     return _load("screening_03_dividend", "screening/03_dividend_yield_screener.py")
 
 
+@pytest.fixture(scope="module")
+def graham_script():
+    return _load(
+        "screening_04_intelligent_investor", "screening/04_intelligent_investor_screener.py"
+    )
+
+
+@pytest.fixture(scope="module")
+def net_net_script():
+    return _load("screening_05_net_net", "screening/05_net_net_screener.py")
+
+
 _CANDIDATES = [
     {"symbol": "AAA", "close": 100.0, "roce_pct": 18.0},
     {"symbol": "BBB", "close": 200.0, "roce_pct": None},
@@ -46,20 +58,32 @@ _CANDIDATES = [
 _ASOF = dt.date(2023, 1, 1)
 
 
-def test_all_screeners_inherit_base(multibagger_script, value_script, dividend_script):
+def test_all_screeners_inherit_base(
+    multibagger_script, value_script, dividend_script, graham_script, net_net_script
+):
     assert issubclass(multibagger_script.MultibaggerScreenerExample, ScreenerCLIExample)
     assert issubclass(value_script.Value52wLowScreenerExample, ScreenerCLIExample)
     assert issubclass(dividend_script.DividendYieldScreenerExample, ScreenerCLIExample)
+    assert issubclass(graham_script.IntelligentInvestorScreenerExample, ScreenerCLIExample)
+    assert issubclass(net_net_script.NetNetScreenerExample, ScreenerCLIExample)
 
 
 @pytest.mark.parametrize("stream_format", ["symbols", "plain", "json"])
 def test_symbol_stream_is_pure(
-    stream_format, multibagger_script, value_script, dividend_script, capsys
+    stream_format,
+    multibagger_script,
+    value_script,
+    dividend_script,
+    graham_script,
+    net_net_script,
+    capsys,
 ):
     examples = [
         multibagger_script.MultibaggerScreenerExample(),
         value_script.Value52wLowScreenerExample(),
         dividend_script.DividendYieldScreenerExample(),
+        graham_script.IntelligentInvestorScreenerExample(),
+        net_net_script.NetNetScreenerExample(),
     ]
     for example in examples:
         example.stream_format = stream_format
@@ -118,5 +142,15 @@ def test_screener_stream_feeds_backtester_parser():
     """The plain/JSON screener stream must be parseable by the 08 backtester."""
     script = _load("screening_08_parser", "backtesting/08_chained_screener_and_sip.py")
     parse = script.ChainedScreenerSipExample._parse_symbols_stream
-    assert parse("AAA\nBBB\n") == ["AAA", "BBB"]
-    assert parse('{"candidates": [{"symbol": "AAA"}, {"symbol": "BBB"}]}') == ["AAA", "BBB"]
+
+    # Space-separated
+    assert parse("AAA BBB CCC") == ["AAA", "BBB", "CCC"]
+    # Newline-separated
+    assert parse("AAA\nBBB\nCCC") == ["AAA", "BBB", "CCC"]
+    # Comma-separated
+    assert parse("AAA, BBB, CCC") == ["AAA", "BBB", "CCC"]
+    # JSON payload from screener
+    json_doc = json.dumps({"candidates": [{"symbol": "AAA"}, {"symbol": "BBB"}]})
+    assert parse(json_doc) == ["AAA", "BBB"]
+    # Empty
+    assert parse("") == []
