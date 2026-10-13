@@ -1,0 +1,96 @@
+"""strategies/08_pipeline_intro: minimal pipeline DSL walkthrough.
+
+The smallest recipe that shows the ``>>``/``|`` composition and context flow::
+
+    pipeline = A() >> B() >> C()
+    result = pipeline.run()
+
+``A``, ``B`` and ``C`` are plain :class:`~honba_examples.pipeline.base.Step` objects.  This recipe
+runs entirely in-process with a deterministic fake screener so it works with no Parquet
+catalog and no network — the next recipes replace it with real screeners from
+:mod:`honba_examples.pipeline.screeners`.
+
+Run::
+
+    python strategies/08_pipeline_intro.py
+    python strategies/08_pipeline_intro.py --json
+
+Pair with ``strategies/09_multibagger_momentum.py`` for a real-data version.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+try:
+    import honba_examples  # noqa: F401
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from honba_examples.pipeline import EqualWeightSizer, Pipeline, Step
+
+__all__ = ["main"]
+
+
+class ListUniverse(Step):
+    """Tiny universe / screener stub — puts two flags onto the context."""
+
+    name = "list_universe"
+
+    def __init__(self, symbols: list[str] | None = None) -> None:
+        self.symbols_input = symbols or ["RELIANCE", "TCS"]
+
+    def run(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        ctx["candidates"] = [{"symbol": s} for s in self.symbols_input]
+        ctx["symbols"] = list(self.symbols_input)
+        return ctx
+
+
+class AnnotateStep(Step):
+    """Copy / annotate the qualified symbols (shows the context flowing between steps)."""
+
+    name = "annotate"
+
+    def __init__(self, tag: str = "qualified") -> None:
+        self.tag = tag
+
+    def run(self, ctx: dict[str, Any]) -> dict[str, Any]:
+        ctx["tag"] = self.tag
+        return ctx
+
+
+def build_pipeline() -> Pipeline:
+    """Pipeline used by :func:`run` and the examples below."""
+    return (
+        ListUniverse(["RELIANCE", "TCS"])
+        >> AnnotateStep("stage_2_candidates")
+        >> EqualWeightSizer()
+    )
+
+
+def run() -> dict[str, Any]:
+    """Drive the pipeline and return the final context."""
+    return build_pipeline().run()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser.add_argument("--json", action="store_true", help="print the pipeline context as JSON")
+    parser.parse_args(argv)
+    ctx = run()
+    payload: dict[str, Any] = {
+        "symbols": ctx.get("symbols"),
+        "candidates": ctx.get("candidates"),
+        "weights": ctx.get("weights"),
+        "tag": ctx.get("tag"),
+    }
+    print(json.dumps(payload, indent=2, default=str))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

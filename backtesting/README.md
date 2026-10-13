@@ -14,7 +14,10 @@ the local Parquet catalog.
 | 05 | `05_monte_carlo.py`              | `SmaMonteCarlo`| Bootstrap equity curves for risk distribution (final equity, DD, Sharpe)   |
 | 06 | `06_concurrent_backtest.py`      | `SmaSweep`     | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe         |
 | 07 | `07_sip_buy_and_hold.py`         | —              | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD    |
-| 08 | `08_chained_screener_and_sip.py` | —              | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
+| 08 | `08_chained_screener_and_sip.py` | —              | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest (also available as ``08_forward_sip_backtest``) |
+| 09 | `09_portfolio_rebalancer.py`     | —              | Equal-weight periodic rebalance (screener-agnostic, ``--symbols``/`stdin`-aware; thin over ``honba_examples.pipeline``) |
+
+
 
 ## The common pattern
 
@@ -69,7 +72,10 @@ python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly 
 python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
 python backtesting/08_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
 python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
-pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest or sip_buy_and_hold or chained_screener"
+python backtesting/09_portfolio_rebalancer.py --symbols RELIANCE,TCS --asof 2023-01-01 --capital 100000
+python screening/01_multibagger_screener.py --asof 2025-03-01 --top 5 --format symbols \
+  | python backtesting/08_forward_sip_backtest.py --asof 2025-03-01 --sip-amount 10000
+pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest or sip_buy_and_hold or chained_screener or portfolio_rebalancer"
 ```
 
 ## Key concepts demonstrated

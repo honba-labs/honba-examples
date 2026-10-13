@@ -16,6 +16,12 @@ into a real backtest or live runner unchanged.
 | 05 | `05_multi_instrument.py`         | `BasketSma`           | Basket of symbols with scheduled equal-weight rebalancing               |
 | 06 | `06_equal_weight_rebalance.py`   | `PortfolioStrategy`   | Equal-weight rebalance composed from universe, weighting and schedule parts with ``PortfolioStrategy`` (Alpha 30 is just a universe name; compare with the catalog `portfolio/rebalancing/equal_weight`) |
 | 07 | `07_declarative_long_short.py`   | `LongShortCrossover`  | Jesse-style ``DeclarativeStrategy``: long and short SMA crossover with stop and target |
+| 08 | `08_pipeline_intro.py`           | —                     | Minimal ``A >> B >> C`` pipeline composition with the ``Pipeline`` DSL |
+| 09 | `09_multibagger_momentum.py`     | —                     | Pipeline recipe: ``MultibaggerScreener >> Quality >> FixedSip >> Backtest`` |
+| 10 | `10_dogs_of_nifty.py`            | —                     | Pipeline recipe: high dividend yielders at the 52-week low (Dogs of the NSE) |
+| 11 | `11_contrarian_value.py`         | —                     | Pipeline recipe: deep value at the 52-week low with P/E/P/B screens |
+
+
 
 ## The common pattern
 
@@ -66,7 +72,11 @@ python strategies/05_multi_instrument.py --rebalance-every 15
 python strategies/06_equal_weight_rebalance.py --rebalance-days 10
 python strategies/06_equal_weight_rebalance.py --weighting inverse_vol --schedule monthly:first_session
 python strategies/07_declarative_long_short.py --stop-pct 0.02
-pytest tests/unit -q -k "first_strategy or with_indicators or position_sizing or risk_management or multi_instrument or equal_weight_rebalance or declarative"
+python strategies/08_pipeline_intro.py
+python strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10
+python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --top 10
+python strategies/11_contrarian_value.py --asof 2025-03-01 --top 10
+pytest tests/unit -q -k "first_strategy or with_indicators or position_sizing or risk_management or multi_instrument or equal_weight_rebalance or declarative or pipeline_intro or multibagger or dogs_of_nifty or contrarian"
 ```
 
 ## From here to production

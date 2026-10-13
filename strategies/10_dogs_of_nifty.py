@@ -1,0 +1,156 @@
+"""strategies/10_dogs_of_nifty: pipeline recipe — high dividend yielders at the 52-week low.
+
+Composition via :mod:`honba_examples.pipeline` (``>>``/``|``):
+
+  DividendYieldScreener (near 52w low, trailing yield ≥ 3%)
+    → FundamentalQualityFilter (ROCE / Debt-Eq / margin)
+    → FixedSipSizer (per-portfolio SIP)
+    → SipBacktestHarness (forward XIRR + terminal value)
+
+Mirror the CLI "Dogs of the NSE/ Dogs-of-Dow" chain::
+
+    python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \\
+      | python backtesting/08_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+
+Or, in code::
+
+    python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+try:
+    import honba_examples  # noqa: F401
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from honba_examples.pipeline import (
+    DividendYieldScreener,
+    FixedSipSizer,
+    FundamentalQualityFilter,
+    MarketRegimeFilter,
+    SipBacktestHarness,
+)
+
+__all__ = ["build_pipeline", "main", "run"]
+
+
+def build_pipeline(
+    asof: str = "2025-03-01",
+    top: int = 10,
+    min_yield_pct: float = 3.0,
+    min_roce: float = 12.0,
+    max_debt_to_equity: float = 1.0,
+    max_pct_from_52w_low: float = 15.0,
+    sip_amount: float = 10000.0,
+    end_date: str | None = None,
+    benchmark: str | None = None,
+    initial_capital: float | None = None,
+) -> Any:
+    steps: list[Any] = [
+        DividendYieldScreener(
+            asof=asof,
+            min_yield_pct=min_yield_pct,
+            max_pct_from_52w_low=max_pct_from_52w_low,
+            top=top,
+        ),
+        FundamentalQualityFilter(min_roce=min_roce, max_debt_to_equity=max_debt_to_equity),
+    ]
+    if benchmark:
+        steps.append(MarketRegimeFilter(benchmark=benchmark, condition="above_sma200"))
+    steps.append(FixedSipSizer(monthly_amount=sip_amount))
+    steps.append(
+        SipBacktestHarness(
+            asof=asof, end_date=end_date, initial_capital=initial_capital, monthly_sip=sip_amount
+        )
+    )
+    # Chain with >> left-fold.
+    pipeline: Any = steps[0]
+    for step in steps[1:]:
+        pipeline = pipeline >> step
+    return pipeline
+
+
+def run(
+    asof: str = "2025-03-01",
+    top: int = 10,
+    min_yield_pct: float = 3.0,
+    sip_amount: float = 10000.0,
+    output_format: str = "table",
+    initial_capital: float | None = None,
+) -> Any:
+    pipeline = build_pipeline(
+        asof=asof,
+        top=top,
+        min_yield_pct=min_yield_pct,
+        sip_amount=sip_amount,
+        initial_capital=initial_capital,
+    )
+    results = pipeline.run()
+    if output_format == "json":
+        print(
+            json.dumps(
+                {
+                    "asof": asof,
+                    "symbols": results.get("symbols"),
+                    "candidates": results.get("candidates"),
+                    "weights": results.get("weights"),
+                    "regime": results.get("regime"),
+                    "summary": results.get("summary"),
+                    "stocks": results.get("stocks"),
+                },
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        regime = results.get("regime") or {}
+        if regime.get("reason"):
+            print(f"[regime] {regime.get('reason')}")
+        results.print_summary()
+        print(
+            f"\nCandidates: {len(results.get('candidates') or [])} -> backtest: {results.summary and results.summary.get('candidate_count')}"
+        )
+    return results
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser.add_argument("--asof", default="2025-03-01", help="screening date (YYYY-MM-DD)")
+    parser.add_argument("--end-date", default=None, help="forward window end (YYYY-MM-DD)")
+    parser.add_argument("--top", type=int, default=10, help="top-N")
+    parser.add_argument(
+        "--min-yield", type=float, default=3.0, help="minimum trailing dividend yield %%"
+    )
+    parser.add_argument(
+        "--sip-amount", type=float, default=10000.0, help="monthly SIP per portfolio (INR)"
+    )
+    parser.add_argument(
+        "--capital", type=float, default=None, help="lump-sum initial capital (INR)"
+    )
+    parser.add_argument(
+        "--benchmark", type=str, default=None, help="optional regime guard (e.g. NIFTY 50)"
+    )
+    parser.add_argument(
+        "--format", dest="output_format", choices=["table", "json"], default="table"
+    )
+    args = parser.parse_args(argv)
+    run(
+        asof=args.asof,
+        top=args.top,
+        min_yield_pct=args.min_yield,
+        sip_amount=args.sip_amount,
+        output_format=args.output_format,
+        initial_capital=args.capital,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
