@@ -18,6 +18,9 @@ modules exist in `honba.ai` as 0-byte stubs waiting for the P1/P2 roadmap phases
 | 05 | `05_rl_training.py`               | —                | **Design only.** Gym environment + RL policy on synthetic prices (`torch` + `gymnasium` extras)    |
 | 06 | `06_mcp_integration.py`           | —                | **Runnable.** Enumerate the 6 static MCP tools from `honba/schema/mcp/mcp_tools.json`             |
 | 07 | `07_natural_language_critique.py` | —                | **Design only.** `BacktestResult` → LLM critique → structured `Critique` report                    |
+| 09 | `09_typed_llm_decision.py`        | —                | **Runnable.** Typed `LlmDecision` (veto / size-down) applied to an order intent; size increases are rejected; Journal v1 audit records |
+
+Slot 08 is intentionally unused (reserved; numbers are not reused or shifted).
 
 ## What actually exists in `honba.ai` today (offline)
 
