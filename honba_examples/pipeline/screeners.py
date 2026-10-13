@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step, as_date
+from honba_examples.pipeline.manifest import manifest, param
 from honba_examples.screening import (
     find_catalog_path,
     get_latest_market_date,
@@ -47,6 +48,40 @@ def _asof_clause(asof: dt.date | None) -> str:
     if asof is None:
         return ""
     return f"WHERE epoch_ms(ts // 1000000)::DATE <= DATE '{asof.isoformat()}'"
+
+
+_VALUE_COLUMNS = [
+    "company_name",
+    "asof_date",
+    "close",
+    "low52",
+    "pct_from_low",
+    "train_ret_pct",
+    "hit_52w_low_recently",
+    "div_yield_pct",
+    "pe_ratio",
+    "pb_ratio",
+    "roce_pct",
+    "debt_to_equity",
+    "operating_margin_pct",
+    "free_cash_flow",
+]
+
+
+def _screen_params(**extra: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Params shared by every screener (``extra`` first, as they read best in a form)."""
+    return {
+        **extra,
+        "asof": param(
+            "date",
+            "Evaluation date (YYYY-MM-DD); defaults to the latest catalog session.",
+            optional=True,
+        ),
+        "train_years": param(
+            "int", "In-sample price history window in years.", default=3, min=1, max=20, step=1
+        ),
+        "top": param("int", "Keep only the best N candidates.", optional=True, min=1, step=1),
+    }
 
 
 class ScreenerStep(Step):
@@ -136,6 +171,71 @@ class MultibaggerScreener(ScreenerStep):
             top=self.top,
         )
 
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "screen.multibagger",
+            "Prospective multibagger (Stage 2)",
+            "Minervini-style trend template with a tight base, positive 3-month momentum, a "
+            "volume surge and a leverage cap; ranked by a momentum/capital-efficiency score.",
+            _screen_params(
+                min_return_1y=param(
+                    "float", "Minimum 1-year return (%).", default=15.0, min=-100.0, max=1000.0
+                ),
+                max_return_1y=param(
+                    "float",
+                    "Maximum 1-year return (%), to skip exhausted runs.",
+                    optional=True,
+                    min=-100.0,
+                    max=10000.0,
+                ),
+                max_pct_from_high=param(
+                    "float",
+                    "Maximum distance below the 52-week high (%).",
+                    default=15.0,
+                    min=0.0,
+                    max=100.0,
+                    step=0.5,
+                ),
+                max_debt_to_equity=param(
+                    "float",
+                    "Maximum debt-to-equity (missing values pass).",
+                    default=1.5,
+                    min=0.0,
+                    max=20.0,
+                    step=0.1,
+                ),
+            ),
+            "universe",
+            "candidates",
+            requires={
+                "bars": ["close", "high", "volume", "ts"],
+                "fundamentals": ["debt_to_equity"],
+                "indicators": [
+                    {"kind": "sma", "period": 50, "as": "sma50"},
+                    {"kind": "sma", "period": 200, "as": "sma200"},
+                ],
+                "history_bars": 252,
+                "pit": True,
+            },
+            adds=[
+                "company_name",
+                "asof_date",
+                "close",
+                "ret_1y",
+                "ret_3m",
+                "train_ret_pct",
+                "pct_from_high",
+                "sma200",
+                "sma200_rising",
+                "vol_surge",
+                "roce_pct",
+                "debt_to_equity",
+                "mb_score",
+            ],
+            tags=["momentum", "growth", "point_in_time"],
+        )
+
 
 class ValueScreener(ScreenerStep):
     """Deep value screener: low P/E, low P/B, trading near the 52-week low."""
@@ -178,6 +278,64 @@ class ValueScreener(ScreenerStep):
             top=self.top,
         )
 
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "screen.value",
+            "Deep value near the 52-week low",
+            "Trades within a set distance of its 52-week low with ROCE, leverage and optional "
+            "derived P/E, P/B and free-cash-flow tests; ranked by closeness to the low.",
+            _screen_params(
+                max_pct_from_52w_low=param(
+                    "float",
+                    "Maximum distance above the 52-week low (%).",
+                    default=10.0,
+                    min=0.0,
+                    max=100.0,
+                    step=0.5,
+                ),
+                min_roce=param("float", "Minimum ROCE (%).", default=10.0, min=-100.0, max=100.0),
+                max_pe=param(
+                    "float",
+                    "Maximum derived P/E; 0 disables the test.",
+                    default=20.0,
+                    min=0.0,
+                    max=500.0,
+                    step=0.5,
+                ),
+                max_pb=param(
+                    "float",
+                    "Maximum derived P/B; 0 disables the test.",
+                    default=2.0,
+                    min=0.0,
+                    max=100.0,
+                    step=0.1,
+                ),
+                max_debt_equity=param(
+                    "float", "Maximum debt-to-equity.", default=1.5, min=0.0, max=20.0, step=0.1
+                ),
+                require_positive_fcf=param(
+                    "bool", "Require positive free cash flow.", default=False
+                ),
+            ),
+            "universe",
+            "candidates",
+            requires={
+                "bars": ["close", "low", "ts"],
+                "fundamentals": [
+                    "roce_pct",
+                    "debt_to_equity",
+                    "eps",
+                    "stockholders_equity",
+                    "free_cash_flow",
+                ],
+                "history_bars": 252,
+                "pit": True,
+            },
+            adds=_VALUE_COLUMNS,
+            tags=["value", "contrarian", "point_in_time"],
+        )
+
 
 class DividendYieldScreener(ScreenerStep):
     """High dividend yielders near the 52-week low with positive free cash flow."""
@@ -215,6 +373,56 @@ class DividendYieldScreener(ScreenerStep):
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
             top=self.top,
+        )
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "screen.dividend_yield",
+            "High dividend yield near the 52-week low",
+            "Trailing cash-dividend yield above a floor while within a set distance of the "
+            "52-week low, with ROCE, leverage and free-cash-flow tests; ranked by yield.",
+            _screen_params(
+                min_yield_pct=param(
+                    "float",
+                    "Minimum trailing dividend yield (%).",
+                    default=3.0,
+                    min=0.0,
+                    max=100.0,
+                    step=0.1,
+                ),
+                max_pct_from_52w_low=param(
+                    "float",
+                    "Maximum distance above the 52-week low (%).",
+                    default=10.0,
+                    min=0.0,
+                    max=100.0,
+                    step=0.5,
+                ),
+                min_roce=param("float", "Minimum ROCE (%).", default=8.0, min=-100.0, max=100.0),
+                max_debt_equity=param(
+                    "float", "Maximum debt-to-equity.", default=1.5, min=0.0, max=20.0, step=0.1
+                ),
+                require_positive_fcf=param(
+                    "bool", "Require positive free cash flow.", default=True
+                ),
+            ),
+            "universe",
+            "candidates",
+            requires={
+                "bars": ["close", "low", "ts"],
+                "fundamentals": [
+                    "roce_pct",
+                    "debt_to_equity",
+                    "free_cash_flow",
+                    "dividends_paid",
+                    "diluted_average_shares",
+                ],
+                "history_bars": 252,
+                "pit": True,
+            },
+            adds=_VALUE_COLUMNS,
+            tags=["dividend", "income", "point_in_time"],
         )
 
 

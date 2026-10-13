@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step
+from honba_examples.pipeline.manifest import manifest, param
 from honba_examples.pipeline.screeners import average_daily_turnover, latest_close_and_sma
 from honba_examples.screening import find_catalog_path
 
@@ -54,6 +55,36 @@ class FundamentalQualityFilter(Step):
         self.min_roce = min_roce
         self.max_debt_to_equity = max_debt_to_equity
         self.min_operating_margin = min_operating_margin
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "filter.fundamental_quality",
+            "Fundamental quality filter",
+            "Drops candidates below a ROCE floor, above a debt-to-equity cap, or with an operating "
+            "margin at or below the minimum. A value that is missing on a candidate passes; "
+            "the operating-margin test only applies if the candidate carries operating_margin_pct.",
+            {
+                "min_roce": param(
+                    "float", "Minimum ROCE (%).", default=15.0, min=-100.0, max=100.0, step=0.5
+                ),
+                "max_debt_to_equity": param(
+                    "float", "Maximum debt-to-equity.", default=1.0, min=0.0, max=20.0, step=0.1
+                ),
+                "min_operating_margin": param(
+                    "float",
+                    "Operating margin (%) must exceed this.",
+                    default=0.0,
+                    min=-100.0,
+                    max=100.0,
+                    step=0.5,
+                ),
+            },
+            "candidates",
+            "candidates",
+            columns=["symbol", "roce_pct", "debt_to_equity"],
+            tags=["quality", "fundamental"],
+        )
 
     def _passes(self, candidate: dict[str, Any]) -> bool:
         roce = candidate.get("roce_pct")
@@ -97,6 +128,37 @@ class MarketRegimeFilter(Step):
         match = _CONDITION_RE.match(condition)
         self.direction = match.group(1) if match else "above"
         self.window = int(match.group(2)) if match else window
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "filter.market_regime",
+            "Market regime filter",
+            "Empties the candidate list unless the benchmark's latest close is above (or below) its "
+            "N-day SMA. A benchmark missing from the catalog, or with too little history, passes "
+            "through with a warning.",
+            {
+                "benchmark": param(
+                    "str",
+                    "Benchmark symbol in the catalog (aliases such as NIFTY50 are tried).",
+                    default="NIFTY",
+                ),
+                "condition": param(
+                    "str",
+                    "above_smaN or below_smaN, e.g. above_sma200.",
+                    default="above_sma200",
+                    pattern="(above|below)_sma[0-9]+",
+                ),
+            },
+            "candidates",
+            "candidates",
+            requires={
+                "bars": ["close", "ts"],
+                "indicators": [{"kind": "sma", "period": 200, "as": "benchmark_sma"}],
+                "history_bars": 200,
+            },
+            tags=["regime", "timing"],
+        )
 
     def resolve_catalog_dir(self, ctx: dict[str, Any]) -> Path:
         if self.catalog_dir is not None:
@@ -181,6 +243,31 @@ class LiquidityFilter(Step):
         self.min_avg_turnover = min_avg_turnover
         self.lookback_days = lookback_days
         self.catalog_dir = Path(catalog_dir) if catalog_dir is not None else None
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "filter.liquidity",
+            "Liquidity filter",
+            "Keeps symbols whose average daily traded value (close x volume, INR) over the last "
+            "N sessions meets the minimum.",
+            {
+                "min_avg_turnover": param(
+                    "float",
+                    "Minimum average daily turnover (INR).",
+                    default=5e7,
+                    min=0.0,
+                    max=1e12,
+                ),
+                "lookback_days": param(
+                    "int", "Sessions averaged.", default=30, min=1, max=500, step=1
+                ),
+            },
+            "candidates",
+            "candidates",
+            requires={"bars": ["close", "volume", "ts"], "history_bars": "$lookback_days"},
+            tags=["liquidity"],
+        )
 
     def resolve_catalog_dir(self, ctx: dict[str, Any]) -> Path:
         if self.catalog_dir is not None:

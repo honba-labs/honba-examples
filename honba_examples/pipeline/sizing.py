@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step
+from honba_examples.pipeline.manifest import manifest, param
 from honba_examples.pipeline.screeners import realized_volatility
 from honba_examples.screening import find_catalog_path
 
@@ -57,6 +58,23 @@ class FixedSipSizer(SizerStep):
         self.monthly_amount = float(monthly_amount)
         self.custom_weights = dict(weights) if weights else None
 
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "size.fixed_sip",
+            "Equal weights with a fixed monthly SIP",
+            "Equal 1/N weights over the qualified symbols and a monthly SIP amount for the "
+            "downstream backtest harness.",
+            {
+                "monthly_amount": param(
+                    "float", "Monthly SIP amount (INR).", default=10000.0, min=0.0, max=1e9
+                )
+            },
+            "candidates",
+            "weights",
+            tags=["sip", "equal_weight"],
+        )
+
     def compute_weights(self, symbols: list[str], ctx: dict[str, Any]) -> dict[str, float]:
         if not symbols:
             return {}
@@ -77,6 +95,18 @@ class EqualWeightSizer(SizerStep):
 
     name = "equal_weight"
 
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "size.equal_weight",
+            "Equal weight",
+            "Equal 1/N weights over the qualified symbols.",
+            {},
+            "candidates",
+            "weights",
+            tags=["equal_weight"],
+        )
+
     def compute_weights(self, symbols: list[str], ctx: dict[str, Any]) -> dict[str, float]:
         if not symbols:
             return {}
@@ -95,6 +125,29 @@ class InverseVolatilitySizer(SizerStep):
     ) -> None:
         self.vol_window = vol_window
         self.catalog_dir = Path(catalog_dir) if catalog_dir is not None else None
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "size.inverse_volatility",
+            "Inverse volatility",
+            "Weights proportional to 1 / trailing realized volatility (daily returns); symbols "
+            "without a volatility reading use the median of the others.",
+            {
+                "vol_window": param(
+                    "int",
+                    "Daily returns in the volatility window.",
+                    default=30,
+                    min=2,
+                    max=500,
+                    step=1,
+                )
+            },
+            "candidates",
+            "weights",
+            requires={"bars": ["close", "ts"], "history_bars": "$vol_window"},
+            tags=["volatility", "risk_parity"],
+        )
 
     def resolve_catalog_dir(self, ctx: dict[str, Any]) -> Path:
         if self.catalog_dir is not None:

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.pipeline.base import Step, as_date
+from honba_examples.pipeline.manifest import manifest, param
 from honba_examples.screening import find_catalog_path, get_latest_market_date
 from honba_examples.sip import simulate_portfolio_sip
 
@@ -45,6 +46,45 @@ class SipBacktestHarness(Step):
         self.sip_mode = sip_mode
         self.data_dir = Path(data_dir) if data_dir is not None else None
         self.catalog_dir = Path(catalog_dir) if catalog_dir is not None else None
+
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        return manifest(
+            "execute.sip_backtest",
+            "Forward SIP backtest",
+            "Rupee-cost-averaging simulation over the qualified symbols from the start date to the "
+            "end date (latest catalog session by default), using the incoming weights.",
+            {
+                "asof": param("date", "Start date; defaults to the screen's date.", optional=True),
+                "end_date": param(
+                    "date", "End date; defaults to the latest catalog session.", optional=True
+                ),
+                "initial_capital": param(
+                    "float",
+                    "Lump sum invested at the start (INR).",
+                    optional=True,
+                    min=0.0,
+                    max=1e12,
+                ),
+                "monthly_sip": param(
+                    "float",
+                    "Monthly SIP (INR); defaults to the sizer's amount.",
+                    optional=True,
+                    min=0.0,
+                    max=1e9,
+                ),
+                "sip_mode": param(
+                    "enum",
+                    "Whether monthly_sip is for the whole portfolio or per stock.",
+                    default="portfolio",
+                    choices=["portfolio", "per-stock"],
+                ),
+            },
+            "weights",
+            "none",
+            requires={"bars": ["close", "ts"], "pit": True},
+            tags=["sip", "backtest"],
+        )
 
     def resolve_catalog_dir(self, ctx: dict[str, Any]) -> Path:
         if self.catalog_dir is not None:

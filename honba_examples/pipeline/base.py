@@ -66,6 +66,11 @@ class Step(PipeMixin, ABC):
     def __call__(self, ctx: PipelineContext) -> PipelineContext:
         return self.run(ctx)
 
+    @classmethod
+    def describe(cls) -> dict[str, Any]:
+        """The step's manifest (``step.toml`` shape); steps without one raise ``NotImplementedError``."""
+        raise NotImplementedError(f"{cls.__name__} has no manifest")
+
 
 class Pipeline(PipeMixin):
     """An ordered, runnable sequence of :class:`Step` instances."""
