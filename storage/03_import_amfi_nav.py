@@ -21,9 +21,7 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,12 +31,10 @@ from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import CoverageRecord, CoverageStatus, DateInterval
 from honba.screener.store import ParquetBarStore
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.amfi import EXCHANGE, NavRow, NavSkip, nav_bars, parse_navall
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.jsonable import jsonable
 
 NAVALL_FIRST_TXT = """Applic Date: 02-Jun-2025
@@ -201,14 +197,14 @@ def run(data_dir: Path | None = None) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument(
         "--data-dir",
         type=Path,
         default=None,
         help="store root (default: <repo>/output/03_import_amfi_nav)",
     )
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     try:
@@ -216,11 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, AdapterNotFound) as exc:
         raise SystemExit(str(exc))
 
-    text = json.dumps(result, indent=2)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 

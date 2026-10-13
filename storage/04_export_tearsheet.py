@@ -22,7 +22,6 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
 import hashlib
 import json
@@ -33,13 +32,11 @@ from typing import Any
 from honba.domain.bar import Bar
 from honba.strategies.base import Strategy
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.backtest import BacktestRun, canonical_hash, run_portfolio_backtest
 from honba_examples.base import ts_to_date
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.jsonable import jsonable
 from honba_examples.synthetic import bar, weekdays
 
@@ -177,14 +174,14 @@ def run(out_dir: str | Path | None = None) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument(
         "--out-dir",
         type=Path,
         default=None,
         help="tearsheet directory (default: <repo>/output/04_export_tearsheet)",
     )
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON report here")
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     try:
@@ -192,11 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         raise SystemExit(str(exc))
 
-    text = json.dumps(result, indent=2)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n", encoding="utf-8")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 
