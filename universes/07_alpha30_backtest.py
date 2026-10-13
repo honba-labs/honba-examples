@@ -38,10 +38,7 @@ from honba.domain.money import Currency, Money
 from honba.markets.india.universes import resolve_universe
 from honba.strategies.loader import CatalogError
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.artifact import write_run_json
 from honba_examples.backtest import BacktestRun, run_portfolio_backtest

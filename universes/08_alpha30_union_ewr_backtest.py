@@ -34,10 +34,7 @@ from pathlib import Path
 
 from honba.domain.instrument import InstrumentId
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.base import HonbaExample
 from honba_examples.ewr import (
