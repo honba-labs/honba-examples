@@ -30,8 +30,8 @@ from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
 from honba_examples.metrics import curve_metrics
-from tests.synthetic import bar as synth_bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar as synth_bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 

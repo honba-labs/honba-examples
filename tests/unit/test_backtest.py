@@ -10,7 +10,7 @@ from honba.domain.money import Currency, Money
 from honba.strategies.base import Strategy
 
 from honba_examples.backtest import run_portfolio_backtest
-from tests.synthetic import bar, weekdays
+from honba_examples.synthetic import bar, weekdays
 
 DAYS = weekdays(dt.date(2026, 6, 1), 7)  # Mon 1 .. Mon 8 June 2026 (7 trading days)
 SYMS = ("AAA", "BBB")

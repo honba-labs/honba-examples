@@ -6,7 +6,7 @@ implement ``on_bar``. The strategy emits market orders through ``self.buy``/
 context, calls ``on_start`` → streams bars → ``on_stop``.
 
 This example runs a fast SMA(10) vs slow SMA(30) crossover on a synthetic
-100-bar series (see ``tests/synthetic.py``) using the testing harness
+100-bar series (see ``honba_examples/synthetic.py``) using the testing harness
 ``honba.strategies.testing.replay`` — no adapter, no Parquet store, no network.
 
 Run::
@@ -33,8 +33,8 @@ from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 

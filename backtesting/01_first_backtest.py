@@ -66,7 +66,7 @@ def run(
     capital: float = 100_000.0,
     symbol: str = "RELIANCE",
 ) -> dict[str, Any]:
-    from tests.synthetic import get_bars
+    from honba_examples.synthetic import get_bars
 
     bars_list = get_bars(symbol, count=bars)
 

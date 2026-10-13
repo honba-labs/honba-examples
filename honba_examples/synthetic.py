@@ -1,74 +1,59 @@
-"""Synthetic OHLCV helpers used by examples and unit tests.
+"""Shared synthetic OHLCV helpers: deterministic daily bars (no network, no wall clock).
 
-These mirror the shapes expected by the replay/backtest helpers and avoid
-pulling example code from the tests tree.
+Used by the example scripts and the unit tests alike.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import date, datetime, timedelta
+import datetime as dt
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 
+IST_OPEN_UTC = dt.time(3, 45)  # 09:15 IST; Parquet daily bars are stamped at the open
+
+
+def session_ts(day: dt.date) -> int:
+    """Unix-ns timestamp of a daily bar for ``day`` (session open, as the store has it)."""
+    moment = dt.datetime.combine(day, IST_OPEN_UTC, tzinfo=dt.timezone.utc)
+    return int(moment.timestamp()) * 1_000_000_000
+
 
 def bar(
-    ts: int | datetime | date,
-    o: float,
-    h: float,
-    l: float,
-    c: float,
-    v: float = 0,
-    symbol: str = "AAA",
+    symbol: str,
+    day: dt.date,
+    open_: float,
     close: float | None = None,
+    exchange: str = "NSE",
 ) -> Bar:
-    """Create a :class:`~honba.domain.bar.Bar` with a minor-unit close by default."""
-    if close is not None:
-        c = close
-    if isinstance(ts, datetime):
-        ts_ns = int(ts.timestamp() * 1_000_000_000)
-    elif isinstance(ts, date):
-        ts_ns = int(datetime.combine(ts, datetime.min.time()).timestamp() * 1_000_000_000)
-    elif isinstance(ts, int):
-        ts_ns = ts
-    else:
-        ts_ns = int(ts)
-
-    inst = InstrumentId(symbol=symbol)
-    close_minor = round(c * 100.0)
-    open_minor = round(o * 100.0)
-    high_minor = round(h * 100.0)
-    low_minor = round(l * 100.0)
-    vol = round(float(v))
-
+    close = open_ if close is None else close
     return Bar(
-        instrument_id=inst,
-        ts=ts_ns,
-        open=open_minor,
-        high=high_minor,
-        low=low_minor,
-        close=close_minor,
-        volume=vol,
+        InstrumentId(symbol, exchange),
+        session_ts(day),
+        open_,
+        max(open_, close),
+        min(open_, close),
+        close,
+        1_000.0,
     )
 
 
-def weekdays(start: date, end: date) -> Sequence[date]:
-    """Return trading days (Mon–Fri) between start and end inclusive."""
-    days: list[date] = []
-    cur = start
-    while cur <= end:
-        if cur.weekday() < 5:
-            days.append(cur)
-        cur += timedelta(days=1)
-    return days
+def weekdays(start: dt.date, n: int) -> list[dt.date]:
+    """The first ``n`` Monday-Friday dates on or after ``start``."""
+    out: list[dt.date] = []
+    d = start
+    while len(out) < n:
+        if d.weekday() < 5:
+            out.append(d)
+        d += dt.timedelta(days=1)
+    return out
 
 
 def load_real_bars(
     symbol: str,
     exchange: str = "NSE",
-    start: date | datetime | None = None,
-    end: date | datetime | None = None,
+    start: dt.date | dt.datetime | None = None,
+    end: dt.date | dt.datetime | None = None,
     timeframe: str = "1D",
     limit: int | None = None,
 ) -> list[Bar]:
@@ -77,8 +62,8 @@ def load_real_bars(
         from honba.screener.store import DateInterval, ParquetBarStore, find_data_root
 
         store = ParquetBarStore(find_data_root())
-        start_d = start.date() if isinstance(start, datetime) else (start or date(2020, 1, 1))
-        end_d = end.date() if isinstance(end, datetime) else (end or date(2026, 12, 31))
+        start_d = start.date() if isinstance(start, dt.datetime) else (start or dt.date(2020, 1, 1))
+        end_d = end.date() if isinstance(end, dt.datetime) else (end or dt.date(2026, 12, 31))
         bars = store.read(InstrumentId(symbol, exchange), timeframe, DateInterval(start_d, end_d))
         if limit is not None and len(bars) > limit:
             return bars[-limit:]
@@ -92,16 +77,5 @@ def get_bars(symbol: str = "RELIANCE", count: int = 60, exchange: str = "NSE") -
     real = load_real_bars(symbol, exchange=exchange, limit=count)
     if len(real) >= min(count, 10):
         return real
-    start_d = date(2026, 1, 1)
-    days = weekdays(start_d, start_d + timedelta(days=count * 2))[:count]
-    return [
-        bar(
-            d,
-            2500.0 + i * 0.5,
-            2501.0 + i * 0.5,
-            2499.0 + i * 0.5,
-            2500.5 + i * 0.5,
-            symbol=symbol,
-        )
-        for i, d in enumerate(days)
-    ]
+    start_d = dt.date(2026, 1, 1)
+    return [bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays(start_d, count))]

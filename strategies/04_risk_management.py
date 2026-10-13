@@ -30,8 +30,8 @@ from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 

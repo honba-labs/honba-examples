@@ -12,7 +12,7 @@ from honba.domain.instrument import InstrumentId
 from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore
 
-from tests.synthetic import weekdays
+from honba_examples.synthetic import weekdays
 
 _PATH = Path(__file__).resolve().parents[2] / "storage" / "01_parquet_catalog.py"
 DAYS = weekdays(dt.date(2025, 12, 29), 5)  # one week that crosses the year partition

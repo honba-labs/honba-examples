@@ -50,7 +50,7 @@ class MyStrategy(Strategy):
 
 
 # Run with synthetic bars
-from tests.synthetic import bar as synth_bar, weekdays
+from honba_examples.synthetic import bar as synth_bar, weekdays
 
 bars = [
     synth_bar("RELIANCE", d, 2500.0 + i * 0.5)
@@ -80,7 +80,7 @@ pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or 
 
 ## Key concepts demonstrated
 
-1. **Synthetic data** — `tests/synthetic.py` provides deterministic bar generators; same bars = same results
+1. **Synthetic data** — `honba_examples/synthetic.py` provides deterministic bar generators; same bars = same results
 2. **Cost model** — `honba.markets.india.costs.nse_equity_delivery_*` applies the full per-leg breakdown
 3. **Fill models** — `fill_delay` in `replay()` controls bar_close (0), next_open (1), next_close (2), etc.
 4. **Walk-forward** — Optimize on train window, validate on test window, roll forward

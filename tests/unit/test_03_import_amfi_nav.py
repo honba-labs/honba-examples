@@ -13,7 +13,7 @@ from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore
 
 from honba_examples.amfi import parse_navall
-from tests.synthetic import session_ts
+from honba_examples.synthetic import session_ts
 
 _PATH = Path(__file__).resolve().parents[2] / "storage" / "03_import_amfi_nav.py"
 D1 = "2025-06-02"

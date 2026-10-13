@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.synthetic import bar as synth_bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar as synth_bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 _PATH = Path(__file__).resolve().parents[2] / "backtesting" / "07_sip_buy_and_hold.py"
 

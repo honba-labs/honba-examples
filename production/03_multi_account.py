@@ -29,8 +29,8 @@ from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
-from tests.synthetic import bar as synth_bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar as synth_bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 __all__ = ["main", "run"]
 

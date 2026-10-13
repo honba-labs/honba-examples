@@ -43,7 +43,7 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar, weekdays
+from honba_examples.synthetic import bar, weekdays
 
 _TIMEFRAME = "1D"
 _DAYS = weekdays(dt.date(2025, 12, 29), 5)  # one week that crosses the year partition

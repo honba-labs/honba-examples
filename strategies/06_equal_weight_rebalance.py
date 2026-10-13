@@ -43,7 +43,7 @@ Other strategies from the same parts: ``--weighting inverse_vol`` (lower-volatil
 more weight) and ``--schedule monthly:first_session`` (rebalance on the first session of each
 month). Those flags go through ``build_portfolio_strategy``, i.e. the params form above.
 
-Synthetic bars (see ``tests/synthetic.py``) for all 30 members are replayed by a small
+Synthetic bars (see ``honba_examples/synthetic.py``) for all 30 members are replayed by a small
 harness (``honba.strategies.testing.replay`` fills every order at the price of the bar that
 emitted it, which is wrong for a portfolio, so each order here fills at the last close of its
 own instrument): no adapter, no Parquet store, no network. The report holds the number of
@@ -88,8 +88,8 @@ from honba.strategies.portfolio import (
 from honba.strategies.testing import ReplayResult
 
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar
-from tests.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import bar
+from honba_examples.synthetic import weekdays as weekdays_func
 
 __all__ = ["build_strategy", "build_variant", "main", "run"]
 

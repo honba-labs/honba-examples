@@ -1,7 +1,7 @@
 # 05 Strategies – reference strategies on synthetic data
 
 Every example here runs with ``honba.strategies.testing.replay`` — no adapter,
-no Parquet store, no network. The bars are synthetic (``tests/synthetic.py``),
+no Parquet store, no network. The bars are synthetic (``honba_examples/synthetic.py``),
 the results are deterministic, and the same strategy class can later be plugged
 into a real backtest or live runner unchanged.
 

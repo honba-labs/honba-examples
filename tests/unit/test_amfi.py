@@ -10,7 +10,7 @@ from honba.domain.instrument import InstrumentId
 
 from honba_examples import amfi
 from honba_examples.amfi import NavRow, nav_bars, parse_navall
-from tests.synthetic import session_ts
+from honba_examples.synthetic import session_ts
 
 NAVALL = """Applic Date: 02-Jun-2025
 

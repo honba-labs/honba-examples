@@ -2,7 +2,7 @@
 
 A research artifact has two audiences: a machine (a validation pipeline, an LLM
 agent) and a human. The run below is fully synthetic - the bars come from
-``tests/synthetic.py``, not from a Parquet store - so the example needs no
+``honba_examples/synthetic.py``, not from a Parquet store - so the example needs no
 market data, no network and no clock. A minimal ``Strategy`` buys one position
 on the first test-window session and exits the session before the last; fills
 land at the next session's open and ``run_portfolio_backtest`` does the
@@ -41,7 +41,7 @@ except ModuleNotFoundError:  # plain checkout without `pip install -e .`
 from honba_examples.backtest import BacktestRun, canonical_hash, run_portfolio_backtest
 from honba_examples.base import ts_to_date
 from honba_examples.jsonable import jsonable
-from tests.synthetic import bar, weekdays
+from honba_examples.synthetic import bar, weekdays
 
 SCHEMA = "honba-examples/tearsheet/v1"
 DEFAULT_OUT_DIR = Path(__file__).resolve().parents[1] / "output" / "04_export_tearsheet"

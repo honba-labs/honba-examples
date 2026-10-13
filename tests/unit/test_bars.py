@@ -9,7 +9,7 @@ from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 
 from honba_examples.bars import SUPPORTED_TIMEFRAMES, aggregate, bucket_start, timeframe_seconds
-from tests.synthetic import bar, session_ts, weekdays
+from honba_examples.synthetic import bar, session_ts, weekdays
 
 A = InstrumentId("AAA", "NSE")
 B = InstrumentId("BBB", "NSE")

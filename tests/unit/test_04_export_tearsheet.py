@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from honba_examples.backtest import canonical_hash
-from tests.synthetic import weekdays
+from honba_examples.synthetic import weekdays
 
 _PATH = Path(__file__).resolve().parents[2] / "storage" / "04_export_tearsheet.py"
 DAYS = weekdays(dt.date(2026, 6, 1), 10)

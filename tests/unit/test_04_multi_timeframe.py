@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from honba_examples.bars import aggregate, bucket_start
-from tests.synthetic import bar, weekdays
+from honba_examples.synthetic import bar, weekdays
 
 _PATH = Path(__file__).resolve().parents[2] / "candles" / "04_multi_timeframe.py"
 _NS_PER_SECOND = 1_000_000_000
