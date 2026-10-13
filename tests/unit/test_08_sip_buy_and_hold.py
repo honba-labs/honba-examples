@@ -1,4 +1,4 @@
-"""backtesting/07_sip_buy_and_hold: unit tests for buy-and-hold SIP backtest."""
+"""backtesting/08_sip_buy_and_hold: unit tests for buy-and-hold SIP backtest."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import pytest
 from honba_examples.synthetic import bar as synth_bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
-_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "07_sip_buy_and_hold.py"
+_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "08_sip_buy_and_hold.py"
 
 
 @pytest.fixture(scope="module")

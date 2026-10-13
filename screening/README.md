@@ -171,7 +171,7 @@ python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 
 # Pipe Net-Net candidates into forward SIP backtest
 python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+  | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
 ```
 
 ---
@@ -183,25 +183,25 @@ Screeners output pure symbol streams (`--format symbols` or `--format plain`) de
 ### Benjamin Graham Value → Forward SIP Backtest
 ```bash
 python screening/04_intelligent_investor_screener.py --asof 2024-01-01 --mode defensive --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2024-01-01 --capital 100000 --sip 10000
+  | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --capital 100000 --sip 10000
 ```
 
 ### Multibagger Momentum → Forward SIP Backtest
 ```bash
 python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+  | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
 ```
 
 ### Dogs of NSE → Forward SIP Backtest
 ```bash
 python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+  | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 ```
 
 ### Deep Value at 52w Low → Forward SIP Backtest
 ```bash
 python screening/02_value_52w_low_screener.py --asof 2025-03-01 --max-pe 20 --max-pb 2.0 --max-debt-equity 1.5 --format symbols \
-  | python backtesting/08_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+  | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 ```
 
 ---

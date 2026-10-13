@@ -140,7 +140,7 @@ def test_no_candidates_emits_empty_stream(multibagger_script, monkeypatch, capsy
 
 def test_screener_stream_feeds_backtester_parser():
     """The plain/JSON screener stream must be parseable by the 08 backtester."""
-    script = _load("screening_08_parser", "backtesting/08_chained_screener_and_sip.py")
+    script = _load("screening_08_parser", "backtesting/10_chained_screener_and_sip.py")
     parse = script.ChainedScreenerSipExample._parse_symbols_stream
 
     # Space-separated

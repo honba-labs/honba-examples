@@ -1,4 +1,4 @@
-"""tests/unit/test_08_chained_screener_and_sip.py: Unit tests for chained screener and SIP backtest."""
+"""tests/unit/test_10_chained_screener_and_sip.py: Unit tests for chained screener and SIP backtest."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from honba_examples.screening import (
 )
 from honba_examples.sip import calculate_xirr, simulate_portfolio_sip
 
-_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "08_chained_screener_and_sip.py"
+_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "10_chained_screener_and_sip.py"
 
 
 @pytest.fixture(scope="module")

@@ -95,9 +95,9 @@ honba-examples/
 ├── backtesting/                      # Composable Backtest Engines
 │   ├── 01_first_backtest.py          # Minimal SMA crossover
 │   ├── ...
-│   ├── 07_sip_buy_and_hold.py        # Single-instrument SIP buy-and-hold
-│   ├── 08_forward_sip_backtest.py    # General forward monthly SIP backtester (reads stdin pipe or --symbols)
-│   ├── 09_portfolio_rebalancer.py    # Forward equal-weight rebalancing backtester
+│   ├── 08_sip_buy_and_hold.py        # Single-instrument SIP buy-and-hold
+│   ├── 09_forward_sip_backtest.py    # General forward monthly SIP backtester (reads stdin pipe or --symbols)
+│   ├── 11_portfolio_rebalancer.py    # Forward equal-weight rebalancing backtester
 │   └── README.md
 │
 └── strategies/                       # Modular Chained Strategy Recipes
@@ -118,21 +118,21 @@ honba-examples/
 ```bash
 # Screen top 5 multibaggers as of 2023-01-01 and pipe directly into the forward SIP backtester
 python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \
-  | python backtesting/08_forward_sip_backtest.py --asof 2023-01-01 --sip-amount 10000
+  | python backtesting/09_forward_sip_backtest.py --asof 2023-01-01 --sip-amount 10000
 ```
 
 #### 2. Dogs of the NSE (High Dividend Yielders at 52-Week Low) $\rightarrow$ Forward SIP
 ```bash
 # Screen stocks within 10% of 52-week low, min 3.0% dividend yield, ROCE >= 12%
 python screening/03_dividend_yield_screener.py --asof 2023-01-01 --min-div-yield 3.0 --max-pct-from-52w-low 10.0 --format symbols \
-  | python backtesting/08_forward_sip_backtest.py --asof 2023-01-01 --sip-amount 10000
+  | python backtesting/09_forward_sip_backtest.py --asof 2023-01-01 --sip-amount 10000
 ```
 
 #### 3. Deep Value at 52-Week Low with Strong Balance Sheets $\rightarrow$ Forward SIP
 ```bash
 # Screen stocks at 52-week low with P/E < 20 and Debt/Equity < 1.0
 python screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols \
-  | python backtesting/08_forward_sip_backtest.py --asof 2023-01-01
+  | python backtesting/09_forward_sip_backtest.py --asof 2023-01-01
 ```
 
 ### Python In-Code Chaining DSL

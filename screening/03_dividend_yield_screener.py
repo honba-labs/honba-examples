@@ -7,7 +7,7 @@ stream on ``stdout`` and diagnostics on ``stderr`` for Unix pipe chaining.
 Usage:
     # High yielders at 52-week low, then pipe the symbols into the forward SIP backtest
     python screening/03_dividend_yield_screener.py --asof 2023-01-01 --min-div-yield 3.0 --max-pct-from-52w-low 10.0 --format symbols \\
-        | python backtesting/08_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+        | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
 """
 
 from __future__ import annotations

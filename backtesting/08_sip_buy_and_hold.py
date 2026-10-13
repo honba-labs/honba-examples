@@ -1,4 +1,4 @@
-"""backtesting/07_sip_buy_and_hold: systematic investment plan (SIP) backtest on a single instrument.
+"""backtesting/08_sip_buy_and_hold: systematic investment plan (SIP) backtest on a single instrument.
 
 Simulates recurring buy-and-hold investing (monthly or weekly SIP) on an equity
 or ETF (default: ``ALPHAETF:NSE``), with optional initial lump-sum corpus and
@@ -7,10 +7,10 @@ transaction fee modeling. Supports automated data gap fetching via Honba's
 
 Run::
 
-    python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
-    python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency weekly --sip-amount 1000
-    python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --download
-    python backtesting/07_sip_buy_and_hold.py --out sip_report.json
+    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency weekly --sip-amount 1000
+    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --download
+    python backtesting/08_sip_buy_and_hold.py --out sip_report.json
 """
 
 from __future__ import annotations

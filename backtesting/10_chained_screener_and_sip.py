@@ -1,4 +1,4 @@
-"""backtesting/08_chained_screener_and_sip.py: Chained Screener and Forward SIP Backtest.
+"""backtesting/10_chained_screener_and_sip.py: Chained Screener and Forward SIP Backtest.
 
 Demonstrates point-in-time prospective multibagger and Benjamin Graham value screening with in-sample historical data
 and subsequent out-of-sample forward backtesting with systematic capital accumulation:
@@ -33,16 +33,16 @@ Systematic Execution Model (Chained Screener + SIP):
 Usage Examples::
 
     # 1. Screen prospective multibaggers as of 2024-01-01 and backtest forward SIP to present:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
+    python backtesting/10_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
     # 2. Screen Benjamin Graham Defensive value candidates and run forward SIP:
-    python backtesting/08_chained_screener_and_sip.py --strategy graham --graham-mode defensive --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
+    python backtesting/10_chained_screener_and_sip.py --strategy graham --graham-mode defensive --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
     # 3. Equal allocation model benchmark:
-    python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
+    python backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
 
     # 4. Prospective screening as of today (live forward monitoring):
-    python backtesting/08_chained_screener_and_sip.py --strategy graham --screen-only --top 5
+    python backtesting/10_chained_screener_and_sip.py --strategy graham --screen-only --top 5
 """
 
 from __future__ import annotations
@@ -405,7 +405,7 @@ class ChainedScreenerSipExample(HonbaExample):
                         f"The [bold cyan]{len(candidates)}[/bold cyan] screened candidates above represent prospective "
                         "'going-to-be' investments identified for [bold green]live forward monitoring[/bold green]!\n\n"
                         "[dim]💡 Tip: To simulate out-of-sample forward SIP confirmation, run with a historical evaluation date, e.g.:[/dim]\n"
-                        f"   [bold green]python backtesting/08_chained_screener_and_sip.py --strategy {self.strategy} --asof 2024-01-01 --top {self.top} --capital 100000 --sip 10000[/bold green]",
+                        f"   [bold green]python backtesting/10_chained_screener_and_sip.py --strategy {self.strategy} --asof 2024-01-01 --top {self.top} --capital 100000 --sip 10000[/bold green]",
                         title="Stage 2 Forward Confirmation Notice",
                         border_style="yellow",
                         box=box.ROUNDED,

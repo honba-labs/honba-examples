@@ -1,7 +1,7 @@
 """honba_examples.pipeline.io: stream parse/emit helpers.
 
 Pure symbol/JSON stream helpers mirroring the CLI chaining contract used by
-``backtesting/08_chained_screener_and_sip.py`` and the standalone screeners, so piped symbol
+``backtesting/10_chained_screener_and_sip.py`` and the standalone screeners, so piped symbol
 streams can be ingested into (and produced from) a pipeline.
 """
 

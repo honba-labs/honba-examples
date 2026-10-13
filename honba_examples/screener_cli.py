@@ -5,7 +5,7 @@ fundamentals DuckDB store), print a pure symbol/JSON stream on ``stdout`` and an
 ``stderr`` so they compose in Unix pipes:
 
     python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
-        | python backtesting/08_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+        | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
 
 Supported ``--format`` values: ``table`` (rich), ``json`` (machine), ``csv`` (machine),
 ``symbols`` (space-separated), ``plain`` (newline-separated). Subclasses implement ``screen()``

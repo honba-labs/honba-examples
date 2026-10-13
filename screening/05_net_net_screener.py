@@ -19,7 +19,7 @@ Usage:
 
     # Pipe symbols into the forward SIP backtester
     python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
-        | python backtesting/08_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+        | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
 """
 
 from __future__ import annotations

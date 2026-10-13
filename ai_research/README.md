@@ -13,10 +13,11 @@ modules exist in `honba.ai` as 0-byte stubs waiting for the P1/P2 roadmap phases
 |----|-----------------------------------|------------------|----------------------------------------------------------------------------------------------------|
 | 01 | `01_llm_research_analyst.py`      | —                | **Runnable.** NL question → validated screener filter via `ScriptedFakeLlm` + `KnowledgePack`      |
 | 02 | `02_autoresearch_loop.py`         | —                | **Design only.** `ResearchLoop` → generate hypotheses → backtest → journal (Faiss + Parquet)       |
-| 03 | `03_nl_to_strategy.py`            | —                | **Design only.** NL description → strategy manifest → `verify_manifest` (parser/AST sandbox)       |
-| 04 | `04_rl_training.py`               | —                | **Design only.** Gym environment + RL policy on synthetic prices (`torch` + `gymnasium` extras)    |
-| 05 | `05_mcp_integration.py`           | —                | **Runnable.** Enumerate the 6 static MCP tools from `honba/schema/mcp/mcp_tools.json`             |
-| 06 | `06_natural_language_critique.py` | —                | **Design only.** `BacktestResult` → LLM critique → structured `Critique` report                    |
+| 03 | `03_nl_screener.py`               | —                | **Runnable.** NL query → screener filter → historical backtest                                     |
+| 04 | `04_nl_to_strategy.py`            | —                | **Design only.** NL description → strategy manifest → `verify_manifest` (parser/AST sandbox)       |
+| 05 | `05_rl_training.py`               | —                | **Design only.** Gym environment + RL policy on synthetic prices (`torch` + `gymnasium` extras)    |
+| 06 | `06_mcp_integration.py`           | —                | **Runnable.** Enumerate the 6 static MCP tools from `honba/schema/mcp/mcp_tools.json`             |
+| 07 | `07_natural_language_critique.py` | —                | **Design only.** `BacktestResult` → LLM critique → structured `Critique` report                    |
 
 ## What actually exists in `honba.ai` today (offline)
 
@@ -38,7 +39,7 @@ installed and an API key set.
 
 ```bash
 python ai_research/01_llm_research_analyst.py --query "mid cap with rsi below 30"
-python ai_research/05_mcp_integration.py
+python ai_research/06_mcp_integration.py
 pytest tests/unit -q -k "llm_research or mcp_integration"
 ```
 

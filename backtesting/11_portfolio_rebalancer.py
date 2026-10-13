@@ -1,34 +1,34 @@
-"""backtesting/09_portfolio_rebalancer: forward equal-weight periodic rebalance backtester.
+"""backtesting/11_portfolio_rebalancer: forward equal-weight periodic rebalance backtester.
 
 Composable backtest engine for the screening → backtest runtime plane (roadmap §4,
-``backtesting/09_portfolio_rebalancer``).  Thin harness over
+``backtesting/11_portfolio_rebalancer``).  Thin harness over
 :mod:`honba_examples.pipeline`: it ingests a symbol stream from ``stdin``
 (``--format symbols/json``), ``--symbols`` or its own screener, then periodically
 rebalances to **equal weight** with the NSE delivery cost / T+1 settlement model
 through :class:`honba_examples.pipeline.execution.SipBacktestHarness`.
 
-For a SIP (rupee-cost averaging) variant use ``08_forward_sip_backtest`` /
-``08_chained_screener_and_sip``; this harness is the complementary rebalance leg
+For a SIP (rupee-cost averaging) variant use ``09_forward_sip_backtest`` /
+``10_chained_screener_and_sip``; this harness is the complementary rebalance leg
 (``B2`` in the roadmap's plane-A diagram).
 
 Usage::
 
     # Equal-weight rebalance on multibaggers screened as of 2023-01-01
     python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
-      | python backtesting/09_portfolio_rebalancer.py --asof 2023-01-01 --capital 100000
+      | python backtesting/11_portfolio_rebalancer.py --asof 2023-01-01 --capital 100000
 
     # With explicit symbols
-    python backtesting/09_portfolio_rebalancer.py --symbols RELIANCE,TCS,INFY --asof 2023-01-01
+    python backtesting/11_portfolio_rebalancer.py --symbols RELIANCE,TCS,INFY --asof 2023-01-01
 
     # JSON stream in, table out
     python screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 3 --format json \\
-      | python backtesting/09_portfolio_rebalancer.py --asof 2025-03-01 --capital 50000 --format json
+      | python backtesting/11_portfolio_rebalancer.py --asof 2025-03-01 --capital 50000 --format json
 
 For the in-code DSL see ``strategies/11_contrarian_value.py`` (and friends) which compose
 ``MultibaggerScreener >> EqualWeightSizer >> SipBacktestHarness`` directly.
 
 .. versionadded:: 0.52
-   Roadmap Phase 4 (``09_portfolio_rebalancer``).
+   Roadmap Phase 4 (``11_portfolio_rebalancer``).
 """
 
 from __future__ import annotations

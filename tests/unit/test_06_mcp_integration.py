@@ -1,4 +1,4 @@
-"""ai_research/05_mcp_integration: load and report the static MCP tool schema."""
+"""ai_research/06_mcp_integration: load and report the static MCP tool schema."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-_PATH = Path(__file__).resolve().parents[2] / "ai_research" / "05_mcp_integration.py"
+_PATH = Path(__file__).resolve().parents[2] / "ai_research" / "06_mcp_integration.py"
 
 
 @pytest.fixture(scope="module")

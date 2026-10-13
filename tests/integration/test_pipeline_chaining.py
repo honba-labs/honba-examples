@@ -2,7 +2,7 @@
 
 Verifies the backtesting/09 portfolio rebalancer against the real catalog, the strategy
 recipes that drive the pipeline DSL, and the screening → backtest runtime plane
-(screening → 08_forward / 09_portfolio) with CLI stream ingestion.
+(screening → 09_forward / 11_portfolio) with CLI stream ingestion.
 
 These are dry tests — no network, no synthetic data, no bootstrap. They fail visibly on
 the CI host when the catalog or DuckDB lakehouse is unavailable, rather than being
@@ -77,7 +77,7 @@ def test_pipeline_dsl_matches_roadmap_snippet():
 
 
 def test_rebalancer_harness_screening_path():
-    """09_portfolio_rebalancer screens → equal-weights → backtests when no symbols are supplied."""
+    """11_portfolio_rebalancer screens → equal-weights → backtests when no symbols are supplied."""
 
     ps = ValueScreener(asof="2025-03-01", max_pe=20.0, max_pb=2.0, top=3)
     pipeline = ps >> EqualWeightSizer() >> SipBacktestHarness(asof="2025-03-01")
@@ -87,12 +87,12 @@ def test_rebalancer_harness_screening_path():
     assert result.weights
 
 
-def test_08_forward_sip_backtest_alias_same_as_chained():
+def test_09_forward_sip_backtest_alias_same_as_chained():
     chained = _load(
-        "backtesting/08_chained_screener_and_sip.py", "backtesting_08_chained_screener_and_sip_2"
+        "backtesting/10_chained_screener_and_sip.py", "backtesting_10_chained_screener_and_sip_2"
     )
     aliased = _load(
-        "backtesting/08_forward_sip_backtest.py", "backtesting_08_forward_sip_backtest_2"
+        "backtesting/09_forward_sip_backtest.py", "backtesting_09_forward_sip_backtest_2"
     )
     assert hasattr(chained, "ChainedScreenerSipExample")
     assert hasattr(aliased, "ChainedScreenerSipExample")
@@ -135,15 +135,15 @@ def test_strategy_11_contrarian_value_smoke():
 
 def test_cli_stream_multibagger_pipe():
     payload = _run_cli_stream(
-        "screening/01_multibagger_screener.py", "backtesting/08_forward_sip_backtest.py"
+        "screening/01_multibagger_screener.py", "backtesting/09_forward_sip_backtest.py"
     )
     assert payload["portfolio_backtest"]["summary"]["candidate_count"] >= 1
     assert payload["portfolio_backtest"]["summary"]["total_invested"] >= 0
 
 
-def test_cli_stream_value_pipe_to_09_portfolio_rebalancer():
+def test_cli_stream_value_pipe_to_11_portfolio_rebalancer():
     payload = _run_cli_stream(
-        "screening/02_value_52w_low_screener.py", "backtesting/09_portfolio_rebalancer.py"
+        "screening/02_value_52w_low_screener.py", "backtesting/11_portfolio_rebalancer.py"
     )
     assert payload["summary"]["candidate_count"] >= 1
     assert payload["stocks"]

@@ -168,8 +168,11 @@ India cost model.
 | 04 | `04_walk_forward.py` | `SmaWalk` | Rolling in-sample → out-of-sample windows |
 | 05 | `05_monte_carlo.py` | `SmaMonteCarlo` | Bootstrap equity curves (final equity, DD, Sharpe) |
 | 06 | `06_concurrent_backtest.py` | `SmaSweep` | Thread-pool parameter sweep, Pareto frontier |
-| 07 | `07_sip_buy_and_hold.py` | — | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD |
-| 08 | `08_chained_screener_and_sip.py` | — | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
+| 07 | `07_run_via_client.py` | — | Same strategy over in-process and HTTP transports; run_id and assumptions |
+| 08 | `08_sip_buy_and_hold.py` | — | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD |
+| 09 | `09_forward_sip_backtest.py` | — | Forward SIP backtester (``--symbols`` or stdin pipe); alias of 10 |
+| 10 | `10_chained_screener_and_sip.py` | — | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
+| 11 | `11_portfolio_rebalancer.py` | — | Equal-weight periodic rebalance (``--symbols``/stdin-aware) |
 
 Run them:
 
@@ -180,10 +183,10 @@ python backtesting/03_latency_modeling.py
 python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
-python backtesting/07_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
-python backtesting/08_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
-python backtesting/08_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
-python backtesting/08_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
+python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+python backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
+python backtesting/10_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
+python backtesting/10_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
 ```
 
 ### `mutual_funds/` — NAV and SIP
@@ -232,22 +235,23 @@ python options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12
 
 ### `ai_research/` — the research loop
 
-No trading strategy; 01 and 05 are runnable, the rest are design placeholders.
+No trading strategy; 01, 03 and 06 are runnable, the rest are design placeholders.
 
 | # | File | Status | Purpose |
 |---|---|---|---|
 | 01 | `01_llm_research_analyst.py` | Runnable | NL question → validated screener filter |
 | 02 | `02_autoresearch_loop.py` | Design only | Hypothesis → backtest → journal loop |
-| 03 | `03_nl_to_strategy.py` | Design only | NL → strategy manifest → `verify_manifest` |
-| 04 | `04_rl_training.py` | Design only | Gym environment + RL policy |
-| 05 | `05_mcp_integration.py` | Runnable | Enumerate the static MCP tool schema |
-| 06 | `06_natural_language_critique.py` | Design only | Backtest result → structured LLM critique |
+| 03 | `03_nl_screener.py` | Runnable | NL query → screener filter → historical backtest |
+| 04 | `04_nl_to_strategy.py` | Design only | NL → strategy manifest → `verify_manifest` |
+| 05 | `05_rl_training.py` | Design only | Gym environment + RL policy |
+| 06 | `06_mcp_integration.py` | Runnable | Enumerate the static MCP tool schema |
+| 07 | `07_natural_language_critique.py` | Design only | Backtest result → structured LLM critique |
 
 Run one (the two runnable steps):
 
 ```bash
 python ai_research/01_llm_research_analyst.py --query "mid cap with rsi below 30"
-python ai_research/05_mcp_integration.py
+python ai_research/06_mcp_integration.py
 ```
 
 ### `production/` — paper, live, monitoring, deployment
