@@ -20,17 +20,14 @@ Pair with ``strategies/09_multibagger_momentum.py`` for a real-data version.
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba_examples.cli import make_parser
 from honba_examples.pipeline import EqualWeightSizer, Pipeline, Step
 
 __all__ = ["main"]
@@ -78,7 +75,7 @@ def run() -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--json", action="store_true", help="print the pipeline context as JSON")
     parser.parse_args(argv)
     ctx = run()

@@ -34,15 +34,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:  # plain checkout without `pip install -e .`
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.entities.bar import Bar
 from honba.entities.instrument import InstrumentId
@@ -53,6 +49,7 @@ from honba.strategies.context import LedgerContext
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import ReplayResult
 
+from honba_examples.cli import run_example
 from honba_examples.jsonable import jsonable
 from honba_examples.synthetic import bar
 from honba_examples.synthetic import weekdays as weekdays_func
@@ -237,32 +234,17 @@ def run(
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+def _add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--bars", type=int, default=120, help="number of synthetic bars")
     parser.add_argument("--fast", type=int, default=5, help="fast SMA period")
     parser.add_argument("--slow", type=int, default=20, help="slow SMA period")
     parser.add_argument("--quantity", type=float, default=10.0, help="shares per entry")
     parser.add_argument("--stop-pct", type=float, default=0.03, help="stop distance (fraction)")
     parser.add_argument("--target-pct", type=float, default=0.06, help="target distance (fraction)")
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
-    args = parser.parse_args(argv)
 
-    report = run(
-        bars=args.bars,
-        fast=args.fast,
-        slow=args.slow,
-        quantity=args.quantity,
-        stop_pct=args.stop_pct,
-        target_pct=args.target_pct,
-    )
 
-    text = json.dumps(report, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
-    return 0
+def main(argv: list[str] | None = None) -> int:
+    return run_example(run, __doc__, _add_args, argv=argv)
 
 
 if __name__ == "__main__":

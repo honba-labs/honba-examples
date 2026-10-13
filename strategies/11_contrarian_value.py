@@ -26,17 +26,14 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba_examples.cli import make_parser
 from honba_examples.pipeline import (
     BuyAndHoldSignal,
     FixedSipSizer,
@@ -123,7 +120,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--asof", default="2025-03-01", help="screening date (YYYY-MM-DD)")
     parser.add_argument("--end-date", default=None, help="forward window end (YYYY-MM-DD)")
     parser.add_argument("--top", type=int, default=10, help="top-N")

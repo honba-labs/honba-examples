@@ -15,20 +15,17 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
+from honba_examples.cli import run_example
 from honba_examples.jsonable import jsonable
 from honba_examples.synthetic import bar
 from honba_examples.synthetic import weekdays as weekdays_func
@@ -163,32 +160,17 @@ def run(
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+def _add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--bars", type=int, default=100)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)
     parser.add_argument("--max-drawdown-pct", type=float, default=0.10)
     parser.add_argument("--max-daily-loss-pct", type=float, default=0.02)
     parser.add_argument("--max-position-pct", type=float, default=0.20)
-    parser.add_argument("--out", type=Path, default=None)
-    args = parser.parse_args(argv)
 
-    result = run(
-        bars=args.bars,
-        fast=args.fast,
-        slow=args.slow,
-        max_drawdown_pct=args.max_drawdown_pct,
-        max_daily_loss_pct=args.max_daily_loss_pct,
-        max_position_pct=args.max_position_pct,
-    )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
-    return 0
+def main(argv: list[str] | None = None) -> int:
+    return run_example(run, __doc__, _add_args, argv=argv)
 
 
 if __name__ == "__main__":
