@@ -59,69 +59,34 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.display import OutputFormat
-from honba.strategies.base import Parameter, Strategy
 from rich.console import Console
 
+from honba_examples.artifact import write_json_report
 from honba_examples.base import HonbaExample
+from honba_examples.pipeline.io import parse_symbols, read_symbols
 from honba_examples.screening import (
     find_catalog_path,
     get_latest_market_date,
-    screen_intelligent_investor,
-    screen_multibaggers,
-    screen_net_net,
-    screen_value_and_dividend,
 )
+from honba_examples.screening.cli_args import add_chain_args
+from honba_examples.screening.dispatch import run_screener, symbol_stub
+from honba_examples.screening.paths import resolve_eval_window
 from honba_examples.screening.render import (
     render_backtest_table,
     render_horizon_notice,
     render_screener_table,
 )
-from honba_examples.sip import simulate_portfolio_sip
+from honba_examples.sip import (
+    SipPortfolioStrategy,
+    allocation_weights,
+    simulate_portfolio_sip,
+)
 
 __all__ = ["ChainedScreenerSipExample", "SipPortfolioStrategy", "main"]
 
 logger = logging.getLogger(__name__)
 console = Console()
 err_console = Console(stderr=True)
-
-
-class SipPortfolioStrategy(Strategy):
-    """Systematic Investment Plan (SIP) strategy implementing Honba's Strategy ABC.
-
-    Models monthly capital allocation and share accumulation on bar events.
-    """
-
-    name = "sip_portfolio_strategy"
-    warmup_bars = 0
-
-    monthly_amount = Parameter(
-        default=10000.0,
-        min=0.0,
-        max=1000000.0,
-        step=1000.0,
-        description="Monthly SIP allocation amount in INR per stock",
-    )
-    initial_capital = Parameter(
-        default=0.0,
-        min=0.0,
-        max=100000000.0,
-        step=10000.0,
-        description="Total initial capital budget in INR",
-    )
-
-    def __init__(self, monthly_amount: float = 10000.0, initial_capital: float = 0.0) -> None:
-        super().__init__()
-        self._monthly_amount = monthly_amount
-        self._initial_capital = initial_capital
-        self._last_month: int | None = None
-
-    def on_bar(self, bar: Any) -> None:
-        bar_date = getattr(bar, "date", None)
-        if bar_date is None:
-            return
-        if self._last_month != bar_date.month and self._monthly_amount > 0:
-            self._last_month = bar_date.month
-            self.buy(bar.instrument_id, 1)
 
 
 class ChainedScreenerSipExample(HonbaExample):
@@ -160,93 +125,14 @@ class ChainedScreenerSipExample(HonbaExample):
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
         """Add screener and SIP specific options alongside HonbaExample base args."""
-        parser.add_argument(
-            "--strategy",
-            choices=[
-                "multibagger",
-                "graham",
-                "intelligent_investor",
-                "net_net",
-                "ncav",
-                "dividend",
-                "value",
-                "all",
-            ],
-            default=self.strategy,
-            help="Screener strategy: 'multibagger' (momentum), 'graham'/'intelligent_investor' (Benjamin Graham value), 'dividend', or 'value'",
-        )
-        parser.add_argument(
-            "--graham-mode",
-            choices=["defensive", "enterprising"],
-            default=self.graham_mode,
-            help="Graham strategy profile: 'defensive' (strict 22.5 Graham product, low D/E) or 'enterprising'",
-        )
-        parser.add_argument(
-            "--asof",
-            dest="asof_str",
-            type=str,
-            default=None,
-            help="In-sample evaluation date (YYYY-MM-DD). If omitted, falls back to --start.",
-        )
-        parser.add_argument(
-            "--end-date",
-            dest="end_date_str",
-            type=str,
-            default=None,
-            help="Terminal date for forward out-of-sample backtest (YYYY-MM-DD, alias for --end)",
-        )
-        parser.add_argument(
-            "--train-years",
-            type=int,
-            default=self.train_years,
-            help="Number of in-sample training years prior to asof date (default: 3)",
-        )
-        parser.add_argument(
-            "--sip-amount",
-            "--sip",
-            dest="sip_amount",
-            type=float,
-            default=None,
-            help="Monthly SIP installment in INR (default: ₹10,000 total portfolio SIP)",
-        )
-        parser.add_argument(
-            "--sip-mode",
-            dest="sip_mode",
-            choices=["portfolio", "per-stock"],
-            default=self.sip_mode,
-            help="How to interpret --sip: 'portfolio' (default) or 'per-stock'",
-        )
-        parser.add_argument(
-            "--allocation",
-            choices=["52w-ratio", "equal", "score"],
-            default=self.allocation,
-            help="Portfolio capital allocation: '52w-ratio' (proximity to 52w high), 'equal', or 'score'",
-        )
-        parser.add_argument(
-            "--top",
-            type=int,
-            default=self.top,
-            help="Limit screening candidates to top N (default: 5)",
-        )
-        parser.add_argument(
-            "--screen-only",
-            action="store_true",
-            help="Run Stage 1 screening only (do not run forward out-of-sample backtest)",
-        )
-        parser.add_argument(
-            "--symbols",
-            type=str,
-            default=None,
-            help=(
-                "Explicit comma-separated symbols (skips screening). Use '-' to read the symbol "
-                "stream from stdin, or pipe a screener into this script to auto-detect."
-            ),
-        )
-        parser.add_argument(
-            "--out",
-            type=Path,
-            default=None,
-            help="Optional path to write JSON output report",
+        add_chain_args(
+            parser,
+            strategy=self.strategy,
+            graham_mode=self.graham_mode,
+            train_years=self.train_years,
+            sip_mode=self.sip_mode,
+            allocation=self.allocation,
+            top=self.top,
         )
 
     def run(self) -> Any:
@@ -265,37 +151,18 @@ class ChainedScreenerSipExample(HonbaExample):
         latest_data_date = get_latest_market_date(catalog_dir)
 
         # 2. Resolve in-sample date (asof) and terminal backtest date
-        if self.asof_str:
-            try:
-                asof_eval_date = dt.date.fromisoformat(self.asof_str)
-            except ValueError:
-                err_console.print(
-                    f"[red]Error:[/red] Invalid date format for --asof: '{self.asof_str}'"
-                )
-                return 1
-        else:
-            asof_eval_date = self.start_date
-
-        # Guard: if asof_eval_date is past latest available market date, snap to latest available date
-        if asof_eval_date > latest_data_date:
-            err_console.print(
-                f"[dim]Note: Specified --asof date ({asof_eval_date}) is beyond latest catalog date ({latest_data_date}). "
-                f"Snapping evaluation date to {latest_data_date}.[/dim]"
+        try:
+            asof_eval_date, end_eval_date = resolve_eval_window(
+                self.asof_str,
+                self.start_date,
+                self.end_date_str,
+                self.end_date,
+                latest_data_date,
+                notify=lambda msg: err_console.print(f"[dim]{msg}[/dim]"),
             )
-            asof_eval_date = latest_data_date
-
-        if self.end_date_str:
-            try:
-                end_eval_date = dt.date.fromisoformat(self.end_date_str)
-            except ValueError:
-                err_console.print(
-                    f"[red]Error:[/red] Invalid date format for --end-date: '{self.end_date_str}'"
-                )
-                return 1
-        elif self.end_date and self.end_date <= latest_data_date:
-            end_eval_date = self.end_date
-        else:
-            end_eval_date = latest_data_date
+        except ValueError as exc:
+            err_console.print(f"[red]Error:[/red] {exc}")
+            return 1
 
         init_capital_val = float(self.initial_capital) if self.initial_capital is not None else None
 
@@ -328,36 +195,14 @@ class ChainedScreenerSipExample(HonbaExample):
                 )
 
         if not target_symbols and not screened:
-            if self.strategy == "multibagger":
-                candidates = screen_multibaggers(
-                    catalog_dir=catalog_dir,
-                    asof_date=asof_eval_date,
-                    train_years=self.train_years,
-                    top=self.top,
-                )
-            elif self.strategy in ("graham", "intelligent_investor"):
-                candidates = screen_intelligent_investor(
-                    catalog_dir=catalog_dir,
-                    asof_date=asof_eval_date,
-                    train_years=self.train_years,
-                    mode=self.graham_mode,
-                    top=self.top,
-                )
-            elif self.strategy in ("net_net", "ncav"):
-                candidates = screen_net_net(
-                    catalog_dir=catalog_dir,
-                    asof_date=asof_eval_date,
-                    train_years=self.train_years,
-                    top=self.top,
-                )
-            else:
-                candidates = screen_value_and_dividend(
-                    catalog_dir=catalog_dir,
-                    asof_date=asof_eval_date,
-                    train_years=self.train_years,
-                    mode=self.strategy,
-                    top=self.top,
-                )
+            candidates = run_screener(
+                self.strategy,
+                catalog_dir,
+                asof_eval_date,
+                self.train_years,
+                self.top,
+                self.graham_mode,
+            )
             target_symbols = [c["symbol"] for c in candidates]
             screened = True
             err_console.print(
@@ -369,7 +214,7 @@ class ChainedScreenerSipExample(HonbaExample):
             target_symbols = target_symbols[: self.top]
 
         if not screened:
-            candidates = [self._symbol_stub(s, asof_eval_date) for s in target_symbols]
+            candidates = [symbol_stub(s, asof_eval_date) for s in target_symbols]
 
         # Handle plain symbols output
         if self.output_format == OutputFormat.PLAIN:
@@ -414,24 +259,7 @@ class ChainedScreenerSipExample(HonbaExample):
             return 0
 
         # Compute portfolio allocation weights
-        weights: dict[str, float] = {}
-        if self.allocation == "52w-ratio" and candidates:
-            # Proximity to 52-week high: tighter consolidation base gets higher allocation
-            raw_w = {
-                c["symbol"]: 1.0 / max(abs(float(c.get("pct_from_high", -5.0))), 0.1)
-                for c in candidates
-            }
-            tot_w = sum(raw_w.values())
-            weights = {s: v / tot_w for s, v in raw_w.items()}
-        elif self.allocation == "score" and candidates:
-            raw_w = {
-                c["symbol"]: max(float(c.get("margin_of_safety_pct", c.get("mb_score", 10.0))), 1.0)
-                for c in candidates
-            }
-            tot_w = sum(raw_w.values())
-            weights = {s: v / tot_w for s, v in raw_w.items()}
-        elif self.allocation == "equal" and candidates:
-            weights = {c["symbol"]: 1.0 / len(candidates) for c in candidates}
+        weights = allocation_weights(self.allocation, candidates)
 
         # 4. Stage 2: Out-of-Sample Forward Backtest (initial capital on asof + monthly SIP to end_date)
         portfolio_results = simulate_portfolio_sip(
@@ -462,8 +290,7 @@ class ChainedScreenerSipExample(HonbaExample):
         }
 
         if self.out:
-            self.out.parent.mkdir(parents=True, exist_ok=True)
-            self.out.write_text(json.dumps(combined_output, indent=2) + "\n", encoding="utf-8")
+            write_json_report(self.out, combined_output)
             console.print(f"[green]Saved full report to {self.out}[/green]")
 
         if self.output_format == OutputFormat.JSON:
@@ -475,51 +302,16 @@ class ChainedScreenerSipExample(HonbaExample):
         )
         return 0
 
-    @staticmethod
-    def _symbol_stub(symbol: str, asof_date: dt.date) -> dict[str, Any]:
-        """Minimal candidate record for explicitly-provided or piped symbols."""
-        return {
-            "symbol": symbol,
-            "company_name": symbol,
-            "asof_date": asof_date.isoformat(),
-            "close": 0.0,
-            "ret_1y": 0.0,
-            "ret_3m": 0.0,
-            "train_ret_pct": 0.0,
-            "pct_from_high": 0.0,
-            "pct_from_low": 0.0,
-            "low52": 0.0,
-            "sma200": 0.0,
-            "sma200_rising": True,
-            "vol_surge": 1.0,
-            "roce_pct": None,
-            "debt_to_equity": None,
-            "mb_score": 100.0,
-            "pe_ratio": None,
-            "pb_ratio": None,
-            "graham_product": None,
-            "graham_num": 0.0,
-            "margin_of_safety_pct": 0.0,
-            "current_ratio": None,
-            "div_yield_pct": 0.0,
-        }
-
     @classmethod
     def _read_symbols_from_stdin(cls) -> list[str]:
         """Read a symbol stream from stdin; never blocks on a TTY."""
         try:
-            from honba_examples.pipeline.io import read_symbols as pipeline_read_symbols
-
-            return pipeline_read_symbols()
+            return read_symbols()
         except Exception:  # noqa: BLE001
             # pytest and other harnesses raise instead of blocking; treat as "no pipe".
             return []
 
-    @staticmethod
-    def _parse_symbols_stream(raw: str) -> list[str]:
-        from honba_examples.pipeline.io import parse_symbols as pipeline_parse_symbols
-
-        return pipeline_parse_symbols(raw)
+    _parse_symbols_stream = staticmethod(parse_symbols)
 
 
 def main(argv: list[str] | None = None) -> Any:
