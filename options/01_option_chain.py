@@ -13,20 +13,17 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.domain.instrument import InstrumentId
 from honba.domain.option import OptionChain, OptionContract, OptionKind, OptionStyle
+
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
@@ -131,12 +128,12 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--underlying", type=str, default="NIFTY")
     parser.add_argument("--expiry", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--spot", type=float, default=24000.0)
     parser.add_argument("--filter-moneyness", type=str, choices=["ITM", "ATM", "OTM"], default=None)
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     parser.add_argument(
         "--format",
         choices=["auto", "table", "json"],
@@ -212,11 +209,7 @@ def main(argv: list[str] | None = None) -> int:
             title=f"Option Chain: {chain_info.get('underlying')} ({chain_info.get('expiry')})",
         )
     else:
-        text = json.dumps(result, indent=2, default=str)
-        if args.out:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_text(text + "\n")
-        print(text)
+        emit_json(result, args.out)
     return 0
 
 

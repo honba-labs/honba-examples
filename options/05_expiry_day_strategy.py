@@ -13,20 +13,17 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.analytics.greeks import bs_greeks, bs_price
 from honba.domain.option import OptionKind
+
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
@@ -153,7 +150,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--underlying", type=str, default="BANKNIFTY")
     parser.add_argument("--expiry", type=lambda s: dt.date.fromisoformat(s), default=None)
     parser.add_argument("--spot", type=float, default=50000.0)
@@ -162,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lot-size", type=int, default=15)
     parser.add_argument("--steps", type=int, default=100)
     parser.add_argument("--threshold", type=float, default=0.1)
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(
@@ -176,11 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         rebalance_threshold=args.threshold,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 
