@@ -15,9 +15,7 @@ Run::
 
 from __future__ import annotations
 
-import calendar
 import datetime as dt
-import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -31,146 +29,12 @@ from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.base import REPO_ROOT
-from honba_examples.cli import add_out_arg, make_parser
-from honba_examples.jsonable import jsonable
+from honba_examples.cli import make_parser
 from honba_examples.metrics import curve_metrics
+from honba_examples.sip_plan import calculate_xirr, ensure_instrument_data, sip_target_dates
+from honba_examples.sip_report import add_sip_args, emit_sip_report
 
 __all__ = ["calculate_xirr", "ensure_instrument_data", "main", "run"]
-
-
-def _monthly_dates(start: dt.date, end: dt.date, sip_day: int = 1) -> list[dt.date]:
-    """Generate target calendar dates for a monthly SIP."""
-    dates: list[dt.date] = []
-    y, m = start.year, start.month
-    while (y, m) <= (end.year, end.month):
-        last_d = calendar.monthrange(y, m)[1]
-        target = dt.date(y, m, min(max(1, sip_day), last_d))
-        if start <= target <= end:
-            dates.append(target)
-        m += 1
-        if m > 12:
-            m = 1
-            y += 1
-    return dates
-
-
-def _weekly_dates(start: dt.date, end: dt.date, sip_weekday: int = 0) -> list[dt.date]:
-    """Generate target calendar dates for a weekly SIP."""
-    dates: list[dt.date] = []
-    curr = start
-    while curr.weekday() != sip_weekday:
-        curr += dt.timedelta(days=1)
-    while curr <= end:
-        dates.append(curr)
-        curr += dt.timedelta(days=7)
-    return dates
-
-
-def calculate_xirr(
-    cash_flows: Sequence[tuple[dt.date, float]],
-    tol: float = 1e-6,
-    max_iter: int = 100,
-) -> float | None:
-    """Calculate the exact annualized Internal Rate of Return (XIRR).
-
-    cash_flows: Sequence of (date, amount), where outflows (investments) are
-    negative and the terminal portfolio value is positive.
-    Returns the annualized rate as a percentage, or None if it cannot converge.
-    """
-    if len(cash_flows) < 2:
-        return None
-    amounts = [a for _, a in cash_flows]
-    if not (any(a < 0 for a in amounts) and any(a > 0 for a in amounts)):
-        return None
-
-    d0 = cash_flows[0][0]
-    fractions = [(d - d0).days / 365.25 for d, _ in cash_flows]
-
-    def xnpv(r: float) -> float:
-        return sum(a / ((1.0 + r) ** t) for t, a in zip(fractions, amounts))
-
-    def dxnpv(r: float) -> float:
-        return sum(-t * a / ((1.0 + r) ** (t + 1.0)) for t, a in zip(fractions, amounts))
-
-    # Newton-Raphson method
-    r = 0.1
-    for _ in range(max_iter):
-        f = xnpv(r)
-        df = dxnpv(r)
-        if abs(df) < 1e-12:
-            break
-        r_next = r - f / df
-        if abs(r_next - r) < tol:
-            return r_next * 100.0
-        r = r_next
-        if r <= -0.99:
-            r = -0.9
-
-    # Bisection fallback
-    low, high = -0.99, 5.0
-    f_low, f_high = xnpv(low), xnpv(high)
-    if f_low * f_high > 0:
-        return None
-    mid = (low + high) / 2.0
-    for _ in range(max_iter):
-        mid = (low + high) / 2.0
-        f_mid = xnpv(mid)
-        if abs(f_mid) < tol or (high - low) / 2.0 < tol:
-            return mid * 100.0
-        if f_low * f_mid < 0:
-            high = mid
-            f_high = f_mid
-        else:
-            low = mid
-            f_low = f_mid
-
-    return mid * 100.0
-
-
-def ensure_instrument_data(
-    symbol: str = "ALPHAETF",
-    exchange: str = "NSE",
-    start: dt.date | None = None,
-    end: dt.date | None = None,
-    timeframe: str = "1D",
-    store: ParquetBarStore | None = None,
-) -> bool:
-    """Check for missing date gaps and download data into the catalog via DataService."""
-    if store is None:
-        store = ParquetBarStore(find_data_root(REPO_ROOT))
-
-    start = start or dt.date(2022, 1, 1)
-    end = end or (dt.datetime.now(tz=dt.timezone.utc).date() + dt.timedelta(days=1))
-    interval = DateInterval(start, end)
-    inst = InstrumentId(symbol, exchange)
-
-    try:
-        from honba.data.loaders.yfinance import YFinanceProvider
-        from honba.research.data_loader.nse import NseBhavcopyProvider
-        from honba.screener.service import DataService
-
-        bhav_cache = store.data_dir / "cache" / "bhavcopy"
-        bhav_cache.mkdir(parents=True, exist_ok=True)
-        nse_prov = NseBhavcopyProvider(cache_dir=bhav_cache)
-        yf_prov = YFinanceProvider()
-        svc = DataService(store=store, providers=[nse_prov, yf_prov])
-
-        plan = svc.plan([inst], timeframe, interval)
-        gaps = plan.gaps_by_instrument.get(inst, [])
-        if not gaps:
-            print(f"[Data] {symbol}.{exchange} is already complete in {store.data_dir}.")
-            return True
-
-        print(f"[Data] Fetching {len(gaps)} missing gap(s) for {symbol}.{exchange}...")
-        res = svc.ensure(plan)
-        if res.success:
-            print(f"[Data] Successfully fetched and stored bars for {symbol}.{exchange}.")
-            return True
-        print(f"[Data] Warning: gap fetch had warnings: {res.warnings}")
-        return False
-    except Exception as e:  # noqa: BLE001
-        print(f"[Data] Unable to fetch data automatically: {e}", file=sys.stderr)
-        return False
 
 
 def run(
@@ -216,12 +80,9 @@ def run(
 
     # Generate SIP target dates
     freq_clean = frequency.lower().strip()
-    if freq_clean == "monthly":
-        target_dates = _monthly_dates(first_session, last_session, sip_day=sip_day)
-    elif freq_clean == "weekly":
-        target_dates = _weekly_dates(first_session, last_session, sip_weekday=sip_weekday)
-    else:
-        raise ValueError(f"Unsupported frequency: {frequency!r} (must be 'monthly' or 'weekly')")
+    target_dates = sip_target_dates(
+        frequency, first_session, last_session, sip_day=sip_day, sip_weekday=sip_weekday
+    )
 
     if sip_count is not None and sip_count > 0:
         target_dates = target_dates[:sip_count]
@@ -392,75 +253,7 @@ def run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = make_parser(__doc__)
-    parser.add_argument(
-        "--symbol",
-        "--instrument",
-        dest="symbol",
-        default="ALPHAETF",
-        help="Instrument symbol (default: ALPHAETF)",
-    )
-    parser.add_argument("--exchange", default="NSE", help="Exchange code (default: NSE)")
-    parser.add_argument(
-        "--frequency",
-        choices=["monthly", "weekly"],
-        default="monthly",
-        help="SIP frequency: monthly or weekly",
-    )
-    parser.add_argument(
-        "--sip-amount",
-        type=float,
-        default=5000.0,
-        help="SIP installment amount in INR (default: 5000.0)",
-    )
-    parser.add_argument(
-        "--initial-capital",
-        "--initial-corpus",
-        "--capital",
-        dest="initial_corpus",
-        type=float,
-        default=0.0,
-        help="Initial capital / lump sum corpus invested on day 1 in INR (default: 0.0)",
-    )
-    parser.add_argument(
-        "--sip-day", type=int, default=1, help="Day of month for monthly SIP (1-28, default: 1)"
-    )
-    parser.add_argument(
-        "--sip-weekday",
-        type=int,
-        default=0,
-        help="Weekday for weekly SIP (0=Mon..4=Fri, default: 0)",
-    )
-    parser.add_argument(
-        "--sip-count",
-        "--no-of-sip",
-        dest="sip_count",
-        type=int,
-        default=None,
-        help="Maximum number of installments",
-    )
-    parser.add_argument(
-        "--start",
-        type=lambda s: dt.date.fromisoformat(s),
-        default=None,
-        help="Start date (YYYY-MM-DD)",
-    )
-    parser.add_argument(
-        "--end", type=lambda s: dt.date.fromisoformat(s), default=None, help="End date (YYYY-MM-DD)"
-    )
-    parser.add_argument(
-        "--fee-rate", type=float, default=0.0005, help="Transaction fee rate (default: 0.0005)"
-    )
-    parser.add_argument(
-        "--download", action="store_true", help="Download/fetch missing gaps before running"
-    )
-    add_out_arg(parser)
-    parser.add_argument(
-        "--format",
-        choices=["table", "json"],
-        default="table",
-        help="Output format (default: table)",
-    )
-
+    add_sip_args(parser)
     args = parser.parse_args(argv)
 
     if args.download:
@@ -484,44 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         end=args.end,
         fee_rate=args.fee_rate,
     )
-
-    s = result["summary"]
-    json_text = json.dumps(jsonable(result), indent=2)
-
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json_text + "\n", encoding="utf-8")
-        print(f"[Output] Wrote full report to {args.out}")
-
-    if args.format == "json":
-        print(json_text)
-    else:
-        # Formatted human table summary
-        xirr_str = f"{s['xirr_pct']:+.2f}%" if s["xirr_pct"] is not None else "N/A"
-        print("=" * 64)
-        print(f"       SIP Backtest: {s['symbol']}.{s['exchange']} ({s['frequency'].capitalize()})")
-        print("=" * 64)
-        print(
-            f"  Date Range          : {s['first_session']} to {s['last_session']} ({s['sessions_count']} sessions)"
-        )
-        print(f"  SIP Frequency       : {s['frequency'].capitalize()}")
-        print(f"  SIP Installment     : ₹{s['sip_amount']:,.2f}")
-        print(f"  Initial Corpus      : ₹{s['initial_corpus']:,.2f}")
-        print(f"  Installments Paid   : {s['installments_count']}")
-        print("-" * 64)
-        print(f"  Total Invested      : ₹{s['total_invested']:,.2f}")
-        print(f"  Total Units Held    : {s['total_units']:,.0f}")
-        print(f"  Avg Purchase Price  : ₹{s['avg_purchase_price']:,.2f}")
-        print(f"  Final Market Price  : ₹{s['final_market_price']:,.2f}")
-        print(f"  Final Portfolio Val : ₹{s['final_portfolio_value']:,.2f}")
-        print(f"  Net Profit / Loss   : ₹{s['net_pnl']:+,.2f} ({s['total_return_pct']:+.2f}%)")
-        print("-" * 64)
-        print(f"  CAGR (Time-Weighted): {s['cagr_pct']:+.2f}%")
-        print(f"  XIRR (Annualized)   : {xirr_str}")
-        print(f"  Max Drawdown        : {s['max_drawdown_pct']:.2f}%")
-        print(f"  Transaction Fees    : ₹{s['total_fees_paid']:,.2f}")
-        print("=" * 64)
-
+    emit_sip_report(result, args)
     return 0
 
 
