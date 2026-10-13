@@ -15,7 +15,6 @@ Run::
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import sys
 from pathlib import Path
 from typing import Any
@@ -27,8 +26,7 @@ from honba.strategies.indicators import Atr, Sma
 
 from honba_examples.cli import run_example
 from honba_examples.replay_report import replay_report
-from honba_examples.synthetic import bar
-from honba_examples.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import trending_bars
 
 __all__ = ["main", "run"]
 
@@ -104,10 +102,7 @@ def run(
     fixed_qty: float = 1.0,
     risk_pct: float = 0.01,
 ) -> dict[str, Any]:
-    start = dt.date(2026, 1, 1)
-    bars_list = [
-        bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
-    ]
+    bars_list = trending_bars("RELIANCE", bars)
 
     strat = SmaSizing(fast=fast, slow=slow, sizing=sizing, fixed_qty=fixed_qty, risk_pct=risk_pct)
     return replay_report(

@@ -49,6 +49,21 @@ def weekdays(start: dt.date, n: int) -> list[dt.date]:
     return out
 
 
+def trending_bars(
+    symbol: str,
+    count: int,
+    start: dt.date = dt.date(2026, 1, 1),
+    base: float = 2500.0,
+    step: float = 0.5,
+    exchange: str = "NSE",
+) -> list[Bar]:
+    """``count`` weekday daily bars from ``start`` whose price ramps by ``step`` per bar."""
+    return [
+        bar(symbol, d, base + i * step, exchange=exchange)
+        for i, d in enumerate(weekdays(start, count))
+    ]
+
+
 def load_real_bars(
     symbol: str,
     exchange: str = "NSE",
@@ -77,5 +92,4 @@ def get_bars(symbol: str = "RELIANCE", count: int = 60, exchange: str = "NSE") -
     real = load_real_bars(symbol, exchange=exchange, limit=count)
     if len(real) >= min(count, 10):
         return real
-    start_d = dt.date(2026, 1, 1)
-    return [bar(symbol, d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays(start_d, count))]
+    return trending_bars(symbol, count)
