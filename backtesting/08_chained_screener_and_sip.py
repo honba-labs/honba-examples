@@ -460,55 +460,20 @@ class ChainedScreenerSipExample(HonbaExample):
 
     @classmethod
     def _read_symbols_from_stdin(cls) -> list[str]:
-        """Read a symbol stream from stdin (auto-detected, never from a TTY).
-
-        Accepts whitespace/comma-separated symbols or a JSON payload emitted by a screener
-        (``{"candidates": [...]}``, ``{"symbols": [...]}``, a list of strings, or a list of
-        objects carrying a ``symbol`` key). Returns an empty list when stdin is not a pipe.
-        """
-        stream = sys.stdin
-        if stream is None:
-            return []
+        """Read a symbol stream from stdin; never blocks on a TTY."""
         try:
-            if stream.isatty():
-                return []
-            raw = stream.read()
-        except (OSError, ValueError):
+            from honba_examples.pipeline.io import read_symbols as pipeline_read_symbols
+
+            return pipeline_read_symbols()
+        except Exception:  # noqa: BLE001
             # pytest and other harnesses raise instead of blocking; treat as "no pipe".
             return []
-        return cls._parse_symbols_stream(raw)
 
     @staticmethod
     def _parse_symbols_stream(raw: str) -> list[str]:
-        text = (raw or "").strip()
-        if not text:
-            return []
+        from honba_examples.pipeline.io import parse_symbols as pipeline_parse_symbols
 
-        symbols: list[str] = []
-        if text.startswith(("{", "[")):
-            try:
-                parsed = json.loads(text)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, list):
-                for item in parsed:
-                    if isinstance(item, str):
-                        symbols.append(item.strip().upper())
-                    elif isinstance(item, dict) and "symbol" in item:
-                        symbols.append(str(item["symbol"]).strip().upper())
-            elif isinstance(parsed, dict):
-                if isinstance(parsed.get("candidates"), list):
-                    for c in parsed["candidates"]:
-                        if isinstance(c, dict) and "symbol" in c:
-                            symbols.append(str(c["symbol"]).strip().upper())
-                        elif isinstance(c, str):
-                            symbols.append(c.strip().upper())
-                elif isinstance(parsed.get("symbols"), list):
-                    symbols = [str(s).strip().upper() for s in parsed["symbols"]]
-
-        if not symbols:
-            symbols = [s.strip().upper() for s in text.replace(",", " ").split() if s.strip()]
-        return [s for s in symbols if s]
+        return pipeline_parse_symbols(raw)
 
     @staticmethod
     def _render_screener_table(

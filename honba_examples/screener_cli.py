@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.base import HonbaExample
+from honba_examples.pipeline.io import parse_symbols  # noqa: F401
 from honba_examples.screening import find_catalog_path, get_latest_market_date
 
 __all__ = ["ScreenerCLIExample"]
