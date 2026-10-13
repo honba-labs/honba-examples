@@ -17,16 +17,18 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import asyncio
-import json
 import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
+
 from honba.adapters.registry import default_registry
 from honba.adapters.testing import FakeAdapter
+
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 
 def _registry():
@@ -87,11 +89,11 @@ def _parse_config(pairs: list[str]) -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--adapter", default="fake", help="registered adapter name")
     parser.add_argument("--query", default=None, help="symbol substring to search for")
     parser.add_argument("--config", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument("--out", type=Path, default=None, help="also write the JSON here")
+    add_out_arg(parser)
     parser.add_argument(
         "--format",
         choices=["auto", "table", "json"],
@@ -124,11 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             title=f"Instruments ({result['count']} loaded)",
         )
     else:
-        text = json.dumps(result, indent=2)
-        if args.out:
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_text(text + "\n")
-        print(text)
+        emit_json(result, args.out)
     return 0
 
 
