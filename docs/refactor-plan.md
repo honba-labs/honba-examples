@@ -1,5 +1,7 @@
 # Refactor plan for `honba-examples`
 
+> **Status:** Phase 0 helpers (`settlement`, `catalog`, `artifact`) landed. The remaining size targets (SIP 08, chained 10) are tracked in the #4 follow-up; this file is kept as the historical plan.
+
 Goal: shrink the largest examples (07 325→~150, 08 561→~300) by extracting duplicated plumbing into `honba_examples/`, keep all lesson logic intact, preserve existing tests, and do this incrementally with R1/TDD followed.
 
 ## 0. Principles & constraints

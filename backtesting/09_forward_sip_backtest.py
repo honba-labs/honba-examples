@@ -2,7 +2,7 @@
 
 Composable execution harness for the screening → backtest runtime plane.  Thin re-export of
 :mod:`backtesting.10_chained_screener_and_sip` under the roadmap name
-``09_forward_sip_backtest`` so the CLI plumbing in ``roadmap-chaining.md`` —
+``09_forward_sip_backtest`` so the CLI plumbing in ``docs/roadmap-chaining.md`` —
 
     python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
       | python backtesting/09_forward_sip_backtest.py --asof 2023-01-01 --sip-amount 10000
