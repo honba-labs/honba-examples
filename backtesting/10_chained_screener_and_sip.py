@@ -56,10 +56,7 @@ from pathlib import Path
 from typing import Any
 
 # Ensure honba-examples root is on path
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.display import OutputFormat
 from honba.strategies.base import Parameter, Strategy

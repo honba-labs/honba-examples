@@ -39,16 +39,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.display import OutputFormat
 from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from honba_examples.cli import add_out_arg
 from honba_examples.pipeline import EqualWeightSizer, SipBacktestHarness
 from honba_examples.pipeline.base import Pipeline
 from honba_examples.pipeline.io import read_symbols
@@ -127,7 +125,7 @@ class PortfolioRebalancerExample:
         parser = argparse.ArgumentParser(description=__doc__ or "Equal-weight rebalancer")
         self.add_custom_args(parser)
         parser.add_argument("--data-dir", type=Path, default=None)
-        parser.add_argument("--out", type=Path, default=None)
+        add_out_arg(parser)
         parsed = parser.parse_args(argv)
         for key, value in vars(parsed).items():
             if hasattr(self, key):

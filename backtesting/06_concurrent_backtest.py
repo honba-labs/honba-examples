@@ -12,23 +12,19 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import concurrent.futures
 import datetime as dt
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
+from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.metrics import curve_metrics
 from honba_examples.synthetic import bar as synth_bar
 from honba_examples.synthetic import weekdays as weekdays_func
@@ -170,14 +166,14 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument("--bars", type=int, default=120)
     parser.add_argument("--fast-min", type=int, default=5)
     parser.add_argument("--fast-max", type=int, default=20)
     parser.add_argument("--slow-min", type=int, default=20)
     parser.add_argument("--slow-max", type=int, default=50)
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--out", type=Path, default=None)
+    add_out_arg(parser)
     args = parser.parse_args(argv)
 
     result = run(
@@ -187,11 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         workers=args.workers,
     )
 
-    text = json.dumps(result, indent=2, default=str)
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text + "\n")
-    print(text)
+    emit_json(result, args.out)
     return 0
 
 

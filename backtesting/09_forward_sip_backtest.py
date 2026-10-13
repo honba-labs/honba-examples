@@ -22,10 +22,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 _ALIASED = Path(__file__).with_name("10_chained_screener_and_sip.py")
 _spec = importlib.util.spec_from_file_location(

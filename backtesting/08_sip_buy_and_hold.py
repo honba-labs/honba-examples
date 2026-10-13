@@ -15,7 +15,6 @@ Run::
 
 from __future__ import annotations
 
-import argparse
 import calendar
 import datetime as dt
 import json
@@ -24,10 +23,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-try:
-    import honba_examples  # noqa: F401
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
@@ -35,6 +31,7 @@ from honba.screener.coverage import DateInterval
 from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.base import REPO_ROOT
+from honba_examples.cli import add_out_arg, make_parser
 from honba_examples.jsonable import jsonable
 from honba_examples.metrics import curve_metrics
 
@@ -394,7 +391,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
+    parser = make_parser(__doc__)
     parser.add_argument(
         "--symbol",
         "--instrument",
@@ -456,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--download", action="store_true", help="Download/fetch missing gaps before running"
     )
-    parser.add_argument("--out", type=Path, default=None, help="Output path for JSON report")
+    add_out_arg(parser)
     parser.add_argument(
         "--format",
         choices=["table", "json"],
