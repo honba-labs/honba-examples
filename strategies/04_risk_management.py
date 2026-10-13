@@ -23,10 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: 
 
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
-from honba.strategies.testing import replay
 
 from honba_examples.cli import run_example
-from honba_examples.jsonable import jsonable
+from honba_examples.replay_report import replay_report
 from honba_examples.synthetic import bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
@@ -132,32 +131,18 @@ def run(
         max_daily_loss_pct=max_daily_loss_pct,
         max_position_pct=max_position_pct,
     )
-    result = replay(strat, bars_list)
-
-    strategy_repr = {
-        "name": strat.name,
-        "warmup_bars": strat.warmup_bars,
-        "params": {
+    return replay_report(
+        strat,
+        bars_list,
+        {
             "fast": fast,
             "slow": slow,
             "max_drawdown_pct": max_drawdown_pct,
             "max_daily_loss_pct": max_daily_loss_pct,
             "max_position_pct": max_position_pct,
         },
-    }
-
-    return {
-        "strategy": strategy_repr,
-        "config": {
-            "fast": fast,
-            "slow": slow,
-            "max_drawdown_pct": max_drawdown_pct,
-            "max_daily_loss_pct": max_daily_loss_pct,
-            "max_position_pct": max_position_pct,
-            "bars": bars,
-        },
-        "result": jsonable(result),
-    }
+        config_extra={"bars": bars},
+    )
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:

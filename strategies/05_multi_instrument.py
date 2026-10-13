@@ -22,10 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: 
 
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
-from honba.strategies.testing import replay
 
 from honba_examples.cli import run_example
-from honba_examples.jsonable import jsonable
+from honba_examples.replay_report import replay_report
 from honba_examples.synthetic import bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
@@ -114,30 +113,17 @@ def run(
     bars_list.sort(key=lambda b: (b.ts, b.instrument_id.symbol))
 
     strat = BasketSma(fast=fast, slow=slow, rebalance_every=rebalance_every)
-    result = replay(strat, bars_list)
-
-    strategy_repr = {
-        "name": strat.name,
-        "warmup_bars": strat.warmup_bars,
-        "params": {
+    return replay_report(
+        strat,
+        bars_list,
+        {
             "fast": fast,
             "slow": slow,
             "rebalance_every": rebalance_every,
             "symbols": list(symbols),
         },
-    }
-
-    return {
-        "strategy": strategy_repr,
-        "config": {
-            "fast": fast,
-            "slow": slow,
-            "rebalance_every": rebalance_every,
-            "symbols": list(symbols),
-            "bars": bars,
-        },
-        "result": jsonable(result),
-    }
+        config_extra={"bars": bars},
+    )
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
