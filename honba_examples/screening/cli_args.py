@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-__all__ = ["add_chain_args"]
+__all__ = ["add_chain_args", "add_nl_screener_args"]
 
 
 def add_chain_args(
@@ -112,4 +112,42 @@ def add_chain_args(
         type=Path,
         default=None,
         help="Optional path to write JSON output report",
+    )
+
+
+def add_nl_screener_args(parser: argparse.ArgumentParser) -> None:
+    """Add the natural-language screener options (``--query``, ``--asof``, ``--backend``, ...)."""
+    parser.add_argument(
+        "--query",
+        default="market_cap > 25000Cr and close above 50-day moving average",
+        help="Natural language screening query",
+    )
+    parser.add_argument(
+        "--asof",
+        default=None,
+        help="Point-in-time evaluation date (YYYY-MM-DD), e.g. '2021-10-11' for 5 years ago",
+    )
+    parser.add_argument(
+        "--lookback-years",
+        type=int,
+        default=None,
+        help="Convenience lookback years (e.g. 5 for 5 years ago)",
+    )
+    parser.add_argument(
+        "--backtest",
+        action="store_true",
+        help="Run forward performance backtest from asof date to present",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["auto", "ollama", "rule-based", "fake"],
+        default="auto",
+        help="LLM translation backend",
+    )
+    parser.add_argument("--limit", type=int, default=20, help="Max results to display")
+    parser.add_argument(
+        "--format",
+        choices=["auto", "table", "json"],
+        default="auto",
+        help="Output format",
     )
