@@ -1,9 +1,10 @@
 """strategies/05_multi_instrument: basket SMA crossover with equal-weight rebalancing.
 
-Signals generated per instrument; on each rebalance day:
-1. Sell instruments that left the basket
-2. Buy new additions
-3. Rebalance survivors to equal weight
+Signals are generated per instrument; a symbol is in the basket while its fast SMA is above its
+slow SMA, and each member is sized to ``equity / n_symbols``:
+1. Enter a member when its signal turns up (buy to the equal-weight target)
+2. Exit it when the signal turns down
+3. Every ``rebalance_every`` usable bars of a symbol, trim or top up that member to the target
 
 Run::
 
@@ -11,20 +12,21 @@ Run::
 
 Pitfalls::
 
-    - Nothing is rebalanced: _rebalance only records _positions_before and sends no orders, so the
-      default run is four one-share buys, one per symbol. The docstring's sell leavers, buy joiners
-      and equalise weights is not implemented, and a rebalancer that never trades cannot be judged.
-    - Counter semantics: _bar_count increments for every warmed-up bar of every symbol, so
-      rebalance_every=20 means 20 bars across the four-symbol basket (about five sessions), not 20
-      sessions.
-    - Identical series: all four symbols get the same 2500 + 0.5 x i path, so there is no dispersion
+    - Rebalancing is per symbol, not per session: each member is re-sized on its own counter, using
+      the latest close of the others (the previous close for symbols that come later in the same
+      session). A real rebalance prices the whole book at one instant.
+    - Counter semantics: the counter counts usable bars of that symbol, so rebalance_every=20 is 20
+      sessions after warm-up. Members that left on a down signal are not re-bought until the
+      signal turns up again, so cash can sit idle.
+    - Synthetic ramps: the four symbols share the 2500 start but have different slopes, so weights
+      drift and the rebalance has work to do, yet there is still no noise, dispersion of returns
       or correlation structure. Diversification, and the correlated drawdowns that cut it, cannot
       show up.
     - Basket picked today: RELIANCE, TCS, INFY and HDFCBANK are present-day large caps chosen with
       hindsight. With real data the basket must be the constituents as of each date, otherwise
       survivorship bias flatters the result.
-    - One share each is not equal weight in rupees (prices differ), fills are at the signal bar's
-      close (fill_delay=0), and there are no costs.
+    - Whole shares only, fills at the signal bar's close (fill_delay=0) and no costs: every
+      rebalance trade is free here, but turnover is not free in a real account.
 """
 
 from __future__ import annotations
