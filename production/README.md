@@ -10,11 +10,21 @@ unless you explicitly opt into a real broker (`--no-dry-run` on the Dhan example
 
 | #  | File                          | Strategy / focus  | What you learn                                                         |
 |----|-------------------------------|-------------------|------------------------------------------------------------------------|
-| 01 | `01_paper_trading.py`         | SMA crossover     | Paper trading session: simulated fills, real-time P&L, risk guards     |
-| 02 | `02_live_trading_dhan.py`     | SMA crossover     | Dhan adapter: connect, place orders, handle rejections, sync positions |
+| 01 | `01_paper_trading.py`         | SMA crossover     | Paper trading session: simulated fills, per-bar mark-to-market equity     |
+| 02 | `02_live_trading_dhan.py`     | SMA crossover     | Dhan template: dry-run echo; live session code is commented out     |
 | 03 | `03_multi_account.py`         | SMA crossover     | Multiple accounts: isolate capital, aggregate P&L, per-account risk    |
-| 04 | `04_monitoring.py`            | —                 | Health checks: adapter latency, order throughput, position drift       |
+| 04 | `04_monitoring.py`            | —                 | Metrics/health endpoint shape (values are simulated)                   |
 | 05 | `05_deployment.py`            | —                 | Systemd/container deploy: config, secrets, logging, graceful shutdown  |
+
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as
+paper fills that are not live fills, risk-limit arguments that are echoed but not enforced, live
+scripts that are templates, secrets on the command line, duplicate order submission and restart
+reconciliation, IST market hours, simulated metrics that cannot alert, and config and image drift in
+the generated deployment files. Read it before trusting a number. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
 
 ## The production pattern
 

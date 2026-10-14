@@ -9,6 +9,21 @@ Run::
 
     python production/03_multi_account.py --accounts config/accounts.yaml
     python production/03_multi_account.py  # demo with synthetic accounts
+
+Pitfalls::
+
+    - Isolation is only logical: each account is a separate replay with its own capital. They share
+      no broker session, margin, rate limit or aggregate exposure, so two accounts on one symbol
+      would double the real-market footprint and breach any combined limit this script never checks.
+      No per-account risk limit is accepted or enforced.
+    - Aggregation is a plain sum of final equity over summed capital, not time-weighted, and it
+      ignores each account's brokerage, taxes and cash flows. Every account trades the same
+      synthetic uptrend one share at a time, so the figures show the arithmetic, not any edge.
+    - --accounts YAML is not validated: a missing key is a KeyError, and two entries with the same
+      id are silently both counted. A file that does not exist is an error (it used to fall back to
+      the demo accounts). Keep per-account credentials out of that file.
+    - After a restart each account's position must be re-synced from its own broker account; the in-
+      process fills computed here are not a ledger.
 """
 
 from __future__ import annotations

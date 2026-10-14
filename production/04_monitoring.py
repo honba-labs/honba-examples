@@ -1,11 +1,28 @@
 """production/04_monitoring: Health checks and metrics endpoint.
 
-Exposes adapter latency, order throughput, position drift, and system health
-via a simple HTTP endpoint for Prometheus/Grafana scraping.
+Serves adapter latency, order throughput, position drift, and system health on a
+simple HTTP endpoint for Prometheus/Grafana scraping. The values are simulated
+(random per scrape), so it shows the endpoint shape, not real measurements.
 
 Run::
 
     python production/04_monitoring.py --port 9090
+
+Pitfalls::
+
+    - Simulated numbers: latency, order counts, drift, P&L and utilisation are drawn at random on
+      every scrape and /health is always "healthy" with hard-coded checks. A dashboard or alert
+      built on this cannot fail, so it proves nothing about the system it will watch. Wire real
+      counters first.
+    - Counters and staleness: the *_total series are re-drawn each scrape, so they go backwards and
+      break rate(). There are no HELP/TYPE lines or sample timestamps, and a hung process would keep
+      answering scrapes. Alert on scrape failure and on the age of the last real event, not just on
+      a value.
+    - The server binds 0.0.0.0 with no authentication, which exposes P&L to the network. Bind a
+      loopback or internal address, or firewall the port. It also stops after --duration seconds.
+    - Drift needs a real definition: broker positions against the internal ledger in quantity, with
+      a tolerance and a re-check after every restart. honba_uptime_seconds is seconds since this
+      process started; use UTC for timestamps and convert to IST only for display.
 """
 
 from __future__ import annotations

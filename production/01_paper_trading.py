@@ -1,13 +1,29 @@
 """production/01_paper_trading: Paper trading session with simulated fills.
 
 Strategy: inline `SmaPaper`, a 10/30 SMA crossover (`--strategy sma_crossover`).
-Runs it against the fake adapter with next-open fills, risk guards and real-time
-P&L/equity reporting. Teaches the paper-trading loop before live capital; runs are
-offline and deterministic on synthetic bars.
+Replays it on synthetic bars with next-open fills and reports equity marked to each
+bar close. The risk-limit arguments are echoed in the config but not enforced. Teaches
+the paper-trading loop before live capital; runs are offline and deterministic.
 
 Run::
 
     python production/01_paper_trading.py --strategy sma_crossover --capital 100000
+
+Pitfalls::
+
+    - Paper is not live: fills are the replay engine's next-bar open on synthetic bars. There is no
+      spread, queue position, partial fill, rejection, latency beyond one bar, brokerage or STT, and
+      a buy is never refused for lack of cash. The synthetic series rises 0.5 a bar with close equal
+      to open, so it crosses once and holds; its P&L says nothing about the strategy.
+    - Risk guards are not enforced: --max-position-pct and --max-daily-loss are echoed in config
+      only, and the order size is a fixed 1 share. Wire real limits (and a kill switch that flattens
+      and stops the loop) before treating a paper run as a rehearsal of live risk control.
+    - Equity is marked at each bar close for one symbol, so drawdown is a daily-close number and
+      misses intraday moves. Bars are dated weekdays from 2026-01-01 with no IST session times,
+      exchange holidays or market-hours guard, which a live loop needs.
+    - Idempotency and restarts: replay never re-sends an order, but a live loop that restarts and
+      replays its last bar can double-submit unless every order carries a client_order_id and the
+      loop reconciles with the broker's order book first.
 """
 
 from __future__ import annotations

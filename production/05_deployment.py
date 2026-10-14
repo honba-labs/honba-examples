@@ -7,6 +7,25 @@ Run::
 
     python production/05_deployment.py --output /etc/honba/
     python production/05_deployment.py  # prints to stdout
+
+Pitfalls::
+
+    - The generated unit and Dockerfile run `python -m honba.session.run`, which does not exist in
+      the honba package (session is a single module). Under Restart=on-failure the service would
+      restart every 10 seconds without ever trading. Treat the files as a template and set a real
+      entry point.
+    - Secrets: .env.template has blank DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN. The real .env must be
+      mode 600, owned by the service user and never committed. `COPY . .` bakes it into the image
+      unless .dockerignore excludes it, and EnvironmentFile=- means a missing file is silently
+      ignored, so the service can start without credentials.
+    - Config drift: capital and risk limits appear in both the .env and the TOML with nothing saying
+      which wins. The unit reads {workdir}/config but the script writes under --output, so they
+      agree only when those match. The base image is python:3.11-slim with an unpinned
+      requirements.txt and an image tagged :latest, so a redeploy can change behaviour.
+    - Restarts and shutdown: only the default SIGTERM is configured, with no ExecStop or timeout to
+      cancel open orders. A restart mid-session must reconcile with the broker, and containers
+      default to UTC, so set TZ or use IST-aware times and add a market-hours guard. strategy_name
+      is validated, since it becomes file names.
 """
 
 from __future__ import annotations

@@ -1,14 +1,32 @@
 """production/02_live_trading_dhan: Live trading with the Dhan adapter.
 
 Strategy: inline `SmaLive`, a 10/30 SMA crossover (`--strategy sma_crossover`).
-Shows how a live session connects to Dhan, places real orders, handles rejections
-and syncs positions. Requires valid Dhan credentials (client_id, access_token); it
-runs in dry-run mode by default and only connects with `--no-dry-run`.
+Sketches how a live session would connect to Dhan and place orders. It is a template:
+dry-run (the default) only echoes the config, and with `--no-dry-run` the connection
+and session code is still commented out, so nothing connects or trades. It takes
+Dhan credentials (client_id, access_token) as arguments.
 
 Run::
 
     python production/02_live_trading_dhan.py \
         --client-id XXX --access-token YYY --strategy sma_crossover
+
+Pitfalls::
+
+    - Template, not a trader: --no-dry-run returns status "template" and the adapter, session and
+      risk limit code is commented out, so no connection is made, and max_position_pct and
+      max_daily_loss are not enforced anywhere. There is no kill switch, no reconciliation and no
+      market-hours guard here.
+    - Secrets: --access-token on the command line lands in shell history and the process list, and
+      the first four characters of the client id are echoed. Read credentials from the environment
+      or a secret store, and expect tokens to expire and need rotation during a long run.
+    - Order lifecycle: a timeout or reject is not proof an order did not reach the exchange. Without
+      a client_order_id on every order a retry can double-send, so look up the broker's order book
+      before resending, and expect partial fills, so a position can differ from the intent.
+    - Clock and restarts: trading hours are 09:15 to 15:30 IST, so use timezone-aware IST rather
+      than the server's local clock, and send nothing outside the session. The strategy starts flat
+      after a restart even if the broker still holds shares, so sync positions before the first
+      signal.
 """
 
 from __future__ import annotations
