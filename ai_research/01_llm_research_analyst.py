@@ -48,11 +48,19 @@ from honba.screener.catalog import MetricCatalog, load_catalog
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 
-__all__ = ["main", "run"]
+__all__ = ["DEFAULT_FILTER", "DEFAULT_QUERY", "EmptyFilterError", "main", "run"]
+
+DEFAULT_QUERY = "large cap stocks with volume > 1m"
+# What the offline fake "repairs" DEFAULT_QUERY to: the metric catalog's market cap and volume.
+DEFAULT_FILTER = "market_cap_basic > 100000000000 and volume > 1000000"
+
+
+class EmptyFilterError(ValueError):
+    """The model's reply parsed, but to a filter with no condition (it would match everything)."""
 
 
 def run(
-    query: str = "large cap stocks with volume > 1m",
+    query: str = DEFAULT_QUERY,
     *,
     fake_response: str | None = None,
     catalog: MetricCatalog | None = None,
@@ -62,11 +70,18 @@ def run(
     # Build the knowledge pack from the local catalog (offline, content-hashed)
     knowledge: KnowledgePack = build_knowledge_pack(version="1.0.0")
 
-    # Use the fake LLM with a deterministic response (or a provided one for tests)
-    if fake_response is None:
-        # Default: the shipped CLI's fallback — just echo the query as the filter
-        fake_response = query
-    llm: LlmPort = ScriptedFakeLlm(responses=[fake_response])
+    # Use the fake LLM with a deterministic script (or a provided single response for tests).
+    # Default: first echo the query as the "filter" (fails validation, like a bad model reply),
+    # then, for the default query only, answer the repair prompt with DEFAULT_FILTER. Any other
+    # query gets an empty repair, which is rejected below: the fake does not know it.
+    responses: list[str]
+    if fake_response is not None:
+        responses = [fake_response]
+    elif query == DEFAULT_QUERY:
+        responses = [query, DEFAULT_FILTER]
+    else:
+        responses = [query]
+    llm: LlmPort = ScriptedFakeLlm(responses=responses)
 
     # Execute the ask pipeline (repair loop is handled inside)
     result: AskResult = translate_query(
@@ -75,6 +90,14 @@ def run(
         catalog=catalog or load_catalog(),
         max_repairs=max_repairs,
     )
+
+    # An empty filter parses (as an empty AND group) but selects every stock: never accept it.
+    if not result.filter_text.strip() or not result.filter_group.items:
+        raise EmptyFilterError(
+            f"the model returned an empty filter for {query!r} after {result.repair_count} "
+            "repair(s); refusing to treat 'no condition' as a valid screen. The offline fake "
+            f"only knows {DEFAULT_QUERY!r}; pass --fake-response for other queries."
+        )
 
     # The system prompt the LLM saw — useful for debugging what knowledge was injected
     sys_prompt = build_system_prompt(knowledge)
@@ -102,16 +125,18 @@ def run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = make_parser(__doc__)
-    parser.add_argument(
-        "--query", default="large cap stocks with volume > 1m", help="natural-language question"
-    )
+    parser.add_argument("--query", default=DEFAULT_QUERY, help="natural-language question")
     parser.add_argument(
         "--fake-response", default=None, help="override the scripted LLM response (for testing)"
     )
     add_out_arg(parser)
     args = parser.parse_args(argv)
 
-    result = run(args.query, fake_response=args.fake_response)
+    try:
+        result = run(args.query, fake_response=args.fake_response)
+    except EmptyFilterError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     emit_json(result, args.out)
     return 0
