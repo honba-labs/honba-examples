@@ -36,14 +36,39 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba.domain.order import OrderSide
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Atr, Sma
 
 from honba_examples.cli import run_example
 from honba_examples.replay_report import replay_report
-from honba_examples.synthetic import trending_bars
+from honba_examples.synthetic import oscillating_bars
 
 __all__ = ["main", "run"]
+
+
+def fractional_kelly(
+    returns: list[float], fraction: float = 0.5, cap: float = 0.25, min_trades: int = 3
+) -> float | None:
+    """Fractional Kelly: the share of equity to commit, from past per-trade returns.
+
+    ``f* = p - (1 - p) / b`` with ``p`` the win rate and ``b`` the average win over the average
+    loss (both from ``returns``). The result is ``fraction * f*`` clamped to ``[0, cap]``.
+    Returns ``None`` with fewer than ``min_trades`` returns (no usable estimate), ``0.0`` when
+    the estimated edge is not positive, and ``cap`` when there is no loss to measure ``b`` against.
+    """
+    if len(returns) < min_trades:
+        return None
+    wins = [r for r in returns if r > 0]
+    losses = [-r for r in returns if r < 0]
+    if not wins:
+        return 0.0
+    if not losses:
+        return cap
+    p = len(wins) / len(returns)
+    b = (sum(wins) / len(wins)) / (sum(losses) / len(losses))
+    full = p - (1.0 - p) / b
+    return min(cap, max(0.0, fraction * full))
 
 
 class SmaSizing(Strategy):
@@ -60,6 +85,10 @@ class SmaSizing(Strategy):
         fixed_qty: float = 1.0,
         risk_pct: float = 0.01,
         kelly_lookback: int = 20,
+        kelly_fraction: float = 0.5,
+        kelly_cap: float = 0.25,
+        kelly_min_trades: int = 3,
+        equity: float = 100_000.0,
     ) -> None:
         super().__init__()
         self.fast_sma = Sma(fast)
@@ -69,7 +98,19 @@ class SmaSizing(Strategy):
         self.fixed_qty = fixed_qty
         self.risk_pct = risk_pct
         self.kelly_lookback = kelly_lookback
-        self._trade_pnl: list[float] = []
+        self.kelly_fraction = kelly_fraction
+        self.kelly_cap = kelly_cap
+        self.kelly_min_trades = kelly_min_trades
+        self.equity = equity
+        self._entry_price: float | None = None
+        self._trade_returns: list[float] = []  # closed round trips: exit / entry - 1
+
+    def on_fill(self, fill) -> None:
+        if fill.side is OrderSide.BUY:
+            self._entry_price = fill.price
+        elif self._entry_price:
+            self._trade_returns.append(fill.price / self._entry_price - 1.0)
+            self._entry_price = None
 
     def on_bar(self, bar) -> None:
         close = bar.close
@@ -92,32 +133,28 @@ class SmaSizing(Strategy):
         elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
 
-        # Track PnL for Kelly
-        for fill in self.drain_intents():
-            pass  # replay doesn't expose fills this way; Kelly is illustrative
-
     def _size(self, atr_val: float, price: float) -> int:
-        equity = 100_000.0
-        if self.sizing == "fixed":
-            return int(self.fixed_qty)
-        elif self.sizing == "volatility":
-            risk_amount = equity * self.risk_pct
-            return max(1, int(risk_amount / (atr_val * 2)))
+        """Shares to buy, never more than ``equity`` can pay for (no leverage)."""
+        if self.sizing == "volatility":
+            qty = max(1, int(self.equity * self.risk_pct / (atr_val * 2)))
         elif self.sizing == "kelly":
-            # kelly_fraction not available; use fixed qty as fallback
-            return int(self.fixed_qty)
-        return int(self.fixed_qty)
+            recent = self._trade_returns[-self.kelly_lookback :]
+            f = fractional_kelly(recent, self.kelly_fraction, self.kelly_cap, self.kelly_min_trades)
+            qty = int(self.fixed_qty) if f is None else int(self.equity * f / price)
+        else:
+            qty = int(self.fixed_qty)
+        return min(qty, int(self.equity // price))
 
 
 def run(
-    bars: int = 100,
+    bars: int = 200,
     fast: int = 10,
     slow: int = 30,
     sizing: str = "fixed",
     fixed_qty: float = 1.0,
     risk_pct: float = 0.01,
 ) -> dict[str, Any]:
-    bars_list = trending_bars("RELIANCE", bars)
+    bars_list = oscillating_bars("RELIANCE", bars, amplitude=60.0, drift=4.0)
 
     strat = SmaSizing(fast=fast, slow=slow, sizing=sizing, fixed_qty=fixed_qty, risk_pct=risk_pct)
     return replay_report(
@@ -135,7 +172,7 @@ def run(
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--bars", type=int, default=100)
+    parser.add_argument("--bars", type=int, default=200)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)
     parser.add_argument("--sizing", choices=["fixed", "volatility", "kelly"], default="fixed")

@@ -55,3 +55,44 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main([]) == 0
     assert "sma_sizing" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("sizing", ["fixed", "volatility", "kelly"])
+def test_every_sizing_mode_places_and_fills_orders(example, sizing):
+    """The harness must see the intents: a silent no-op once looked like success."""
+    res = example.run(sizing=sizing)["result"]
+    assert len(res["intents"]) >= 2
+    assert len(res["fills"]) == len(res["intents"])
+
+
+def test_fractional_kelly_formula_and_cap(example):
+    wins_loses = [0.02] * 6 + [-0.01] * 4  # p=0.6, b=2 -> full Kelly 0.4
+    assert example.fractional_kelly(wins_loses, fraction=0.5, cap=0.25, min_trades=5) == (
+        pytest.approx(0.2)
+    )
+    assert example.fractional_kelly(wins_loses, fraction=1.0, cap=0.25, min_trades=5) == 0.25
+
+
+def test_fractional_kelly_no_edge_and_too_few_trades(example):
+    assert example.fractional_kelly([-0.01, 0.01, -0.02, 0.005, -0.01], min_trades=5) == 0.0
+    assert example.fractional_kelly([0.02, 0.03], min_trades=5) is None
+    assert example.fractional_kelly([0.01] * 6, min_trades=5) == 0.25  # no losses: cap only
+
+
+def test_kelly_mode_sizes_from_trailing_trades_and_is_capped(example):
+    res = example.run(sizing="kelly")["result"]
+    buys = [f["quantity"] for f in res["fills"] if f["side"] == "buy"]
+    equity = 100_000.0
+    assert len(buys) >= 5
+    assert buys[0] == 1  # no trade history yet: the fixed_qty fallback
+    assert max(buys) > 1  # later entries are sized from the trade stats
+    for f in res["fills"]:
+        if f["side"] == "buy":
+            assert f["quantity"] * f["price"] <= equity * 0.25 + f["price"]
+
+
+def test_volatility_sizing_never_exceeds_equity(example):
+    res = example.run(sizing="volatility")["result"]
+    for f in res["fills"]:
+        if f["side"] == "buy":
+            assert f["quantity"] * f["price"] <= 100_000.0
