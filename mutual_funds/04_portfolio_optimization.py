@@ -10,6 +10,25 @@ Run::
 
     python mutual_funds/04_portfolio_optimization.py \
         --schemes 120503,120504,120505 --start 2022-01-01
+
+Pitfalls::
+
+    - Estimation error and overfitting: expected return is the mean daily NAV return over the one
+      window times 252, and mean-variance piles into whatever had the highest past mean. Weights
+      change a lot with the start date, hit the bounds, and everything reported (return, volatility,
+      sharpe) is in-sample. Sharpe here is return over volatility with a zero risk-free rate. Test
+      on a later period.
+    - Alignment: series are put on the union of dates and forward-filled, so a day with no new NAV
+      counts as a 0 percent return, which lowers volatility and flatters diversification. A scheme
+      that stopped publishing (merger, closure) is flat-filled, and all series are cut to the
+      shortest history.
+    - Infeasible bounds: if min_weight times the scheme count exceeds 1, or max_weight times it is
+      below 1, SLSQP fails and the output falls back to equal weights. Those weights break the
+      bounds and the portfolio stats are still printed, so check optimization_success.
+    - Dependencies and inputs: needs scipy (declared in the mutual-funds extra), without which even
+      --help fails at import. The scheme codes are yours: choose Direct or Regular consistently and
+      do not pick them after seeing their returns. Exit loads, taxes and switching costs are
+      ignored.
 """
 
 from __future__ import annotations

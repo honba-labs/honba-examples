@@ -11,10 +11,21 @@ live in `honba-strategies/mutual_funds/*`.
 
 | #  | File                            | Strategy / focus | What you learn                                                         |
 |----|---------------------------------|------------------|------------------------------------------------------------------------|
-| 01 | `01_fetch_nav.py`               | —                | Download/load AMFI NAV history; resample to daily; handle missing days |
+| 01 | `01_fetch_nav.py`               | —                | Load AMFI NAV history from the local store as published; latest NAV |
 | 02 | `02_sip_backtest.py`            | —                | SIP simulation: fixed-date monthly investment, units at NAV, XIRR      |
 | 03 | `03_category_analysis.py`       | —                | Category-level stats: rolling returns, risk metrics, quartile ranking  |
 | 04 | `04_portfolio_optimization.py`  | —                | Mean-variance optimization on fund NAVs; constraint-aware allocation   |
+
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as NAV
+publication timing (a NAV dated D is not known during D), SIP date versus NAV date and skipped
+instalments, Direct versus Regular and IDCW scheme codes, survivorship and category
+reclassification, trailing-window CAGRs, forward-filled NAVs, and the estimation error of
+mean-variance weights fitted in-sample. Read it before trusting a number. For the general treatment
+see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
 
 ## The AMFI NAV feed
 

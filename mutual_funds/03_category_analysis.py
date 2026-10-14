@@ -8,6 +8,21 @@ deterministic on recorded NAV fixtures.
 Run::
 
     python mutual_funds/03_category_analysis.py --category "Equity:Large Cap" --start 2020-01-01
+
+Pitfalls::
+
+    - Empty today: `load_category` returns no schemes, so the report has total_schemes 0 and no
+      ranking until a category mapping exists. Read nothing into an empty table.
+    - Survivorship and reclassification: category membership is today's mapping applied to the whole
+      history. Merged and closed funds are gone, and a scheme that was recategorised (SEBI's 2017
+      re-categorisation) is placed in its current category for years it did not belong to, so a top
+      quartile is partly survivors. Mixing Direct and Regular plans mixes expense ratios.
+    - Short history reads as zero: cagr_3y and cagr_5y are trailing windows and stay 0.0 when a fund
+      has less history, which is not a 0 percent return yet sorts like one. cagr_1y is
+      the last 252 observations, so it spans more than a year when NAV rows are missing.
+    - Backward-looking ranks: quartiles come from trailing 3y CAGR at one end date and do not
+      persist. Rolling CAGR windows overlap, so their std is not independent; Sharpe uses daily NAV
+      returns with a zero risk-free rate and 252 sessions a year.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
 """mutual_funds/01_fetch_nav: Load and explore AMFI NAV history.
 
 Uses `honba_examples.amfi.AmfiNavLoader` to read NAV series for a scheme from the
-local Parquet store, resample to daily bars, and surface missing days. Teaches the
-NAV-as-bar model (`open=high=low=close=nav`, zero volume) the other mutual-fund
+local Parquet store and print them as stored (no resampling; gaps are not reported).
+Teaches the NAV-as-bar model (`open=high=low=close=nav`, zero volume) the other mutual-fund
 examples build on. There is no `Strategy` here — runs are offline and deterministic
 on recorded NAV fixtures.
 
@@ -10,6 +10,22 @@ Run::
 
     python mutual_funds/01_fetch_nav.py --scheme 120503 --start 2023-01-01 --end 2024-12-31
     python mutual_funds/01_fetch_nav.py --scheme 120503 --latest
+
+Pitfalls::
+
+    - NAV timing: a NAV is struck at the close and published by AMFI afterwards (later for some
+      categories), yet the bar is stamped 09:15 IST of its own date. Acting on nav[D] during day D
+      is lookahead; a decision that uses a NAV should only trade at the next NAV that can still be
+      bought.
+    - Series as stored: nothing is resampled and no missing days are reported. Holidays and
+      publication gaps are simply absent, and `latest_nav` returns the last stored NAV however old
+      it is, with no staleness check against today.
+    - Scheme code is the plan: Direct and Regular plans, and Growth and IDCW options, have separate
+      AMFI codes and separate NAVs. An IDCW NAV drops on each payout, so it is not a total-return
+      series.
+    - Survivorship: only schemes that were imported appear, and merged or wound-up schemes drop out
+      of the current NAVAll feed. `--category` is not usable yet, because `load_category` is a stub
+      that returns no schemes.
 """
 
 from __future__ import annotations

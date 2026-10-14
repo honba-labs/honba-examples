@@ -10,6 +10,22 @@ and deterministic on recorded NAV fixtures.
 Run::
 
     python mutual_funds/02_sip_backtest.py --scheme 120503 --monthly 10000 --start 2023-01-01
+
+Pitfalls::
+
+    - SIP date versus NAV date: sip_day is a calendar day, and a non-publication day (weekend,
+      holiday) is filled at the next published NAV, never an earlier one. An instalment with no NAV
+      within 7 days (before the scheme existed, a data gap, past the last NAV) is skipped and listed
+      in skipped_sip_dates, so check it before comparing two schemes.
+    - Result measure: return_pct is gain over total invested, not annualised and not XIRR, and it is
+      valued at the last NAV in the window, so the end date moves it. Use XIRR from
+      `honba_examples.metrics` to compare plans with different cash-flow timing.
+    - Costs and taxes are absent: exit load, stamp duty on purchase and tax on gains are not
+      charged. NAV is already net of the expense ratio, so a Direct and a Regular code of the same
+      fund differ by that cost; do not subtract the expense ratio again.
+    - Selection and survivorship: one scheme named after the fact, from schemes that exist today, so
+      merged and wound-up funds never appear. Run several start dates and SIP days, and report the
+      range.
 """
 
 from __future__ import annotations
