@@ -42,7 +42,7 @@ from honba.strategies.indicators import Atr, Rsi, Sma
 
 from honba_examples.cli import run_example
 from honba_examples.replay_report import replay_report
-from honba_examples.synthetic import trending_bars
+from honba_examples.synthetic import oscillating_bars
 
 __all__ = ["main", "run"]
 
@@ -113,7 +113,7 @@ def run(
     atr_period: int = 14,
     risk_pct: float = 0.01,
 ) -> dict[str, Any]:
-    bars_list = trending_bars("RELIANCE", bars)
+    bars_list = oscillating_bars("RELIANCE", bars)
 
     strat = CompositeSmaRsi(
         fast=fast, slow=slow, rsi_period=rsi_period, atr_period=atr_period, risk_pct=risk_pct
