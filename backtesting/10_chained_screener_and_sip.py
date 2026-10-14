@@ -144,6 +144,7 @@ class ChainedScreenerSipExample(HonbaExample):
     allocation: str = "52w-ratio"
     top: int = 5
     max_stale_days: int = 10
+    allow_missing: bool = False
     screen_only: bool = False
     symbols: str | None = None
     out: Path | None = None
@@ -228,6 +229,7 @@ class ChainedScreenerSipExample(HonbaExample):
                 self.top,
                 self.graham_mode,
                 max_stale_days=self.max_stale_days,
+                allow_missing=self.allow_missing,
             )
             target_symbols = [c["symbol"] for c in candidates]
             screened = True

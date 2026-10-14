@@ -58,7 +58,9 @@ class FundamentalQualityFilter(Step):
         max_debt_to_equity: float = 1.0,
         min_operating_margin: float = 0.0,
         report: Sequence[str] | None = None,
+        allow_missing: bool = False,
     ) -> None:
+        self.allow_missing = allow_missing
         self.report = check_report_columns(report or [])
         self.min_roce = min_roce
         self.max_debt_to_equity = max_debt_to_equity
@@ -70,8 +72,9 @@ class FundamentalQualityFilter(Step):
             "filter.fundamental_quality",
             "Fundamental quality filter",
             "Drops candidates below a ROCE floor, above a debt-to-equity cap, or with an operating "
-            "margin at or below the minimum. A value that is missing on a candidate passes; "
-            "the operating-margin test only applies if the candidate carries operating_margin_pct.",
+            "margin at or below the minimum. A missing ROCE or debt-to-equity (None or absent) "
+            "fails the gate unless allow_missing is set; the operating-margin test only applies "
+            "if the candidate carries an operating_margin_pct key, and a None there also fails.",
             {
                 "min_roce": param(
                     "float", "Minimum ROCE (%).", default=15.0, min=-100.0, max=100.0, step=0.5
@@ -87,6 +90,12 @@ class FundamentalQualityFilter(Step):
                     max=100.0,
                     step=0.5,
                 ),
+                "allow_missing": param(
+                    "bool",
+                    "Let candidates with a missing ROCE / debt-to-equity / margin pass instead "
+                    "of failing the gate.",
+                    default=False,
+                ),
             },
             "candidates",
             "candidates",
@@ -97,13 +106,23 @@ class FundamentalQualityFilter(Step):
 
     def _passes(self, candidate: dict[str, Any]) -> bool:
         roce = candidate.get("roce_pct")
-        if roce is not None and float(roce) < self.min_roce:
+        if roce is None:
+            if not self.allow_missing:
+                return False
+        elif float(roce) < self.min_roce:
             return False
         debt = candidate.get("debt_to_equity")
-        if debt is not None and float(debt) > self.max_debt_to_equity:
+        if debt is None:
+            if not self.allow_missing:
+                return False
+        elif float(debt) > self.max_debt_to_equity:
             return False
-        margin = candidate.get("operating_margin_pct")
-        return margin is None or float(margin) > self.min_operating_margin
+        if "operating_margin_pct" not in candidate:
+            return True  # the candidate does not carry the column: the test does not apply
+        margin = candidate["operating_margin_pct"]
+        if margin is None:
+            return self.allow_missing
+        return float(margin) > self.min_operating_margin
 
     def run(self, ctx: dict[str, Any]) -> dict[str, Any]:
         candidates = ctx.get("candidates")

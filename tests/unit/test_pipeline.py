@@ -102,7 +102,8 @@ def test_fundamental_quality_filter_filters_by_roce() -> None:
     result = FundamentalQualityFilter(
         min_roce=15.0, max_debt_to_equity=1.0, min_operating_margin=0.0
     ).run(ctx)
-    assert result["symbols"] == ["PASS", "UNKNOWN"]
+    # UNKNOWN (missing ROCE/debt) now fails the gate; THIN_MARGIN lacks debt/equity
+    assert result["symbols"] == ["PASS"]
 
 
 def test_market_regime_filter_passes_and_blocks() -> None:

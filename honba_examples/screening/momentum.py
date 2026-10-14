@@ -22,6 +22,7 @@ def screen_multibaggers(
     max_pct_from_high: float = 15.0,
     max_debt_to_equity: float = 1.5,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+    allow_missing: bool = False,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen prospective 'going-to-be' multibaggers strictly as of asof_date.
@@ -34,7 +35,9 @@ def screen_multibaggers(
     5. Fundamental discipline: ROCE capital efficiency and debt coverage.
 
     A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
-    is skipped (delisted / suspended); ``None`` or ``0`` disables the check.
+    is skipped (delisted / suspended); ``None`` or ``0`` disables the check. A missing
+    debt-to-equity (or no fundamentals row) fails the leverage gate unless ``allow_missing=True``;
+    a missing ROCE adds 0 points to ``mb_score``.
     """
     import duckdb
 
@@ -67,6 +70,14 @@ def screen_multibaggers(
         if max_return_1y is not None
         else ""
     )
+
+    # DuckDB's least() ignores NULLs, so a missing ROCE must be mapped to 0 points explicitly.
+    roce_points_sql = (
+        "CASE WHEN r.roce_pct IS NULL THEN 0.0 ELSE least(r.roce_pct, 20.0) * 0.5 END"
+        if db_path
+        else "7.5"
+    )
+    null_de_sql = "r.debt_to_equity IS NULL OR " if allow_missing else ""
 
     query = f"""
     WITH bars AS (
@@ -119,7 +130,7 @@ def screen_multibaggers(
             least(greatest(((m.close / m.close_3m) - 1.0) * 100, 0.0), 50.0) * 0.25 +
             (100.0 + greatest(((m.close / m.high52) - 1.0) * 100, -50.0)) * 0.15 +
             least(m.vol20 / nullif(m.vol200, 0) * 10.0, 20.0) +
-            coalesce(least({"r.roce_pct" if db_path else "15.0"}, 20.0) * 0.5, 5.0),
+            {roce_points_sql},
             1
         ) as mb_score
     FROM metrics m
@@ -133,7 +144,7 @@ def screen_multibaggers(
       AND ((m.close / m.close_1y) - 1.0) * 100 >= {min_return_1y}
       AND ((m.close / m.high52) - 1.0) * 100 >= -{abs(max_pct_from_high)}
       {max_ret_filter}
-      AND ({"r.debt_to_equity IS NULL OR r.debt_to_equity <= " + str(max_debt_to_equity) if db_path else "1=1"})
+      AND ({null_de_sql + "r.debt_to_equity <= " + str(max_debt_to_equity) if db_path else "1=1"})
     ORDER BY mb_score DESC, ret_3m DESC, vol_surge DESC
     {f"LIMIT {top}" if top and top > 0 else ""}
     """

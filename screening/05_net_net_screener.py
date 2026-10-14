@@ -72,6 +72,7 @@ class NetNetScreenerExample(ScreenerCLIExample):
     min_current_ratio: float = 1.0
     fiscal_lag_days: int = 0
     max_stale_days: int = 10
+    allow_missing: bool = False
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -133,6 +134,15 @@ class NetNetScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--allow-missing",
+            action=argparse.BooleanOptionalAction,
+            default=self.allow_missing,
+            help=(
+                "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+                "ratio gates instead of failing them (default: off)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -152,6 +162,7 @@ class NetNetScreenerExample(ScreenerCLIExample):
             min_current_ratio=self.min_current_ratio,
             fiscal_lag_days=self.fiscal_lag_days,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 

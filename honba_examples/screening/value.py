@@ -27,6 +27,7 @@ def screen_value_and_dividend(
     require_positive_fcf: bool = False,
     fiscal_lag_days: int = 0,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+    allow_missing: bool = False,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen contrarian value / high-dividend candidates near the 52-week low.
@@ -42,6 +43,8 @@ def screen_value_and_dividend(
 
     A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     is skipped (delisted / suspended); ``None`` or ``0`` disables the check.
+    Missing fundamentals (NULL debt/equity, ROCE, current assets/liabilities, or no fundamentals
+    row at all) FAIL the corresponding gate unless ``allow_missing=True``.
     """
     import duckdb
 
@@ -116,8 +119,10 @@ def screen_value_and_dividend(
 
     filters = [f"AND ((p.close / p.low52) - 1.0) * 100 <= {max_pct_from_52w_low}"]
     if use_fund:
-        filters.append(f"AND (r.debt_to_equity IS NULL OR r.debt_to_equity <= {max_debt_equity})")
-        filters.append(f"AND (r.roce_pct IS NULL OR r.roce_pct >= {min_roce})")
+        null_de = "r.debt_to_equity IS NULL OR " if allow_missing else ""
+        null_roce = "r.roce_pct IS NULL OR " if allow_missing else ""
+        filters.append(f"AND ({null_de}r.debt_to_equity <= {max_debt_equity})")
+        filters.append(f"AND ({null_roce}r.roce_pct >= {min_roce})")
         if min_div_yield > 0:
             filters.append(f"AND {div_expr} IS NOT NULL AND {div_expr} >= {min_div_yield}")
         if max_pe is not None:

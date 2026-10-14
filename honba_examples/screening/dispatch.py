@@ -26,6 +26,7 @@ def run_screener(
     top: int,
     graham_mode: str = "defensive",
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+    allow_missing: bool = False,
 ) -> list[dict[str, Any]]:
     """Run the screener named by ``strategy`` as of ``asof_date`` (zero lookahead)."""
     if strategy == "multibagger":
@@ -34,6 +35,7 @@ def run_screener(
             asof_date=asof_date,
             train_years=train_years,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
             top=top,
         )
     if strategy in ("graham", "intelligent_investor"):
@@ -43,6 +45,7 @@ def run_screener(
             train_years=train_years,
             mode=graham_mode,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
             top=top,
         )
     if strategy in ("net_net", "ncav"):
@@ -51,6 +54,7 @@ def run_screener(
             asof_date=asof_date,
             train_years=train_years,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
             top=top,
         )
     return screen_value_and_dividend(
@@ -59,6 +63,7 @@ def run_screener(
         train_years=train_years,
         mode=strategy,
         max_stale_days=max_stale_days,
+        allow_missing=allow_missing,
         top=top,
     )
 

@@ -111,6 +111,12 @@ def _screen_params(**extra: dict[str, Any]) -> dict[str, dict[str, Any]]:
             max=3650,
             step=1,
         ),
+        "allow_missing": param(
+            "bool",
+            "Let symbols with missing fundamentals (no row, or NULL debt/equity or ROCE) pass "
+            "those gates instead of failing them.",
+            default=False,
+        ),
         "top": param("int", "Keep only the best N candidates.", optional=True, min=1, step=1),
     }
 
@@ -128,8 +134,10 @@ class ScreenerStep(Step):
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+        allow_missing: bool = False,
     ) -> None:
         self.max_stale_days = max_stale_days
+        self.allow_missing = allow_missing
         self.asof = asof
         self.train_years = train_years
         self.top = top
@@ -191,6 +199,7 @@ class MultibaggerScreener(ScreenerStep):
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+        allow_missing: bool = False,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -199,6 +208,7 @@ class MultibaggerScreener(ScreenerStep):
             catalog_dir=catalog_dir,
             report=report,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
         )
         self.min_return_1y = min_return_1y
         self.max_return_1y = max_return_1y
@@ -215,6 +225,7 @@ class MultibaggerScreener(ScreenerStep):
             max_pct_from_high=self.max_pct_from_high,
             max_debt_to_equity=self.max_debt_to_equity,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 
@@ -246,7 +257,7 @@ class MultibaggerScreener(ScreenerStep):
                 ),
                 max_debt_to_equity=param(
                     "float",
-                    "Maximum debt-to-equity (missing values pass).",
+                    "Maximum debt-to-equity (a missing value fails unless allow_missing).",
                     default=1.5,
                     min=0.0,
                     max=20.0,
@@ -290,6 +301,7 @@ class ValueScreener(ScreenerStep):
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+        allow_missing: bool = False,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -298,6 +310,7 @@ class ValueScreener(ScreenerStep):
             catalog_dir=catalog_dir,
             report=report,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
         )
         self.max_pct_from_52w_low = max_pct_from_52w_low
         self.min_roce = min_roce
@@ -319,6 +332,7 @@ class ValueScreener(ScreenerStep):
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 
@@ -400,6 +414,7 @@ class DividendYieldScreener(ScreenerStep):
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+        allow_missing: bool = False,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -408,6 +423,7 @@ class DividendYieldScreener(ScreenerStep):
             catalog_dir=catalog_dir,
             report=report,
             max_stale_days=max_stale_days,
+            allow_missing=allow_missing,
         )
         self.min_yield_pct = min_yield_pct
         self.max_pct_from_52w_low = max_pct_from_52w_low
@@ -427,6 +443,7 @@ class DividendYieldScreener(ScreenerStep):
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 

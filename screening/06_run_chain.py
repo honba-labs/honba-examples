@@ -24,8 +24,9 @@ Pitfalls::
     - Order truncates: in quality_value.toml screen.value keeps its top 10 first and
       filter.fundamental_quality then prunes that list, so you do not get the best 10 that pass
       the quality test and the survivors can be very few. The filter logs kept/total at INFO level.
-    - Missing values pass: FundamentalQualityFilter keeps a candidate whose ROCE, debt/equity or
-      operating margin is missing, so a quality filter can pass names it never measured.
+    - Missing values fail: FundamentalQualityFilter drops a candidate whose ROCE or debt/equity
+      is missing (and whose operating margin is None when the column is present) unless the step
+      sets allow_missing = true. An absent operating_margin_pct column is simply not tested.
     - Hand-set parameters and small samples: P/E 25, P/B 3, ROCE 12 and the other values in the
       TOML were chosen by hand; editing the chain until the backtest looks good is data snooping.
       A SIP backtest of a few survivors is anecdote, not evidence.

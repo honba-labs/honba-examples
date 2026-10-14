@@ -28,6 +28,7 @@ def screen_intelligent_investor(
     require_positive_fcf: bool = False,
     fiscal_lag_days: int = 0,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+    allow_missing: bool = False,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen value candidates based on Benjamin Graham's *The Intelligent Investor*.
@@ -45,6 +46,8 @@ def screen_intelligent_investor(
 
     Symbols whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     are skipped (delisted / suspended); ``None`` or ``0`` disables the check.
+    Missing fundamentals (NULL debt/equity, ROCE, current assets/liabilities, or no fundamentals
+    row at all) FAIL the corresponding gate unless ``allow_missing=True``.
     """
     import duckdb
 
@@ -61,6 +64,10 @@ def screen_intelligent_investor(
 
     con = duckdb.connect()
     con.execute(f"ATTACH '{db_path}' AS fund (READ_ONLY)")
+    null_de = "r.debt_to_equity IS NULL OR " if allow_missing else ""
+    null_cr_ii = (
+        "s.current_assets IS NULL OR s.current_liabilities IS NULL OR " if allow_missing else ""
+    )
 
     # Adjust default thresholds for mode
     effective_max_product = 22.5 if mode == "defensive" else max_graham_product
@@ -96,12 +103,12 @@ def screen_intelligent_investor(
         )
 
     if effective_max_debt_eq and effective_max_debt_eq > 0:
-        filters.append(f"(r.debt_to_equity IS NULL OR r.debt_to_equity <= {effective_max_debt_eq})")
+        filters.append(f"({null_de}r.debt_to_equity <= {effective_max_debt_eq})")
 
     if min_current_ratio and min_current_ratio > 0:
         filters.append(
-            f"(s.current_assets IS NULL OR s.current_liabilities IS NULL OR "
-            f"(s.current_assets / nullif(s.current_liabilities, 0)) >= {min_current_ratio})"
+            f"({null_cr_ii}(s.current_assets / nullif(s.current_liabilities, 0)) >= "
+            f"{min_current_ratio})"
         )
 
     if min_div_yield > 0 or mode == "defensive":
@@ -234,6 +241,7 @@ def screen_net_net(
     min_current_ratio: float = 1.0,
     fiscal_lag_days: int = 0,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
+    allow_missing: bool = False,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen deep value Net-Net (Net Current Asset Value / NCAV) stocks based on Benjamin Graham.
@@ -253,6 +261,8 @@ def screen_net_net(
 
     Symbols whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     are skipped (delisted / suspended); ``None`` or ``0`` disables the check.
+    Missing fundamentals (NULL debt/equity, ROCE, current assets/liabilities, or no fundamentals
+    row at all) FAIL the corresponding gate unless ``allow_missing=True``.
     """
     import duckdb
 
@@ -269,6 +279,8 @@ def screen_net_net(
 
     con = duckdb.connect()
     con.execute(f"ATTACH '{db_path}' AS fund (READ_ONLY)")
+    null_de = "r.debt_to_equity IS NULL OR " if allow_missing else ""
+    null_cr_nn = "s.current_liabilities IS NULL OR " if allow_missing else ""
 
     filters = [
         "s.shares IS NOT NULL AND s.shares > 0",
@@ -296,11 +308,12 @@ def screen_net_net(
         filters.append("r.eps IS NOT NULL AND r.eps > 0")
 
     if max_debt_equity is not None and max_debt_equity > 0:
-        filters.append(f"(r.debt_to_equity IS NULL OR r.debt_to_equity <= {max_debt_equity})")
+        filters.append(f"({null_de}r.debt_to_equity <= {max_debt_equity})")
 
     if min_current_ratio > 0:
         filters.append(
-            f"(s.current_liabilities IS NULL OR (s.current_assets / nullif(s.current_liabilities, 0)) >= {min_current_ratio})"
+            f"({null_cr_nn}(s.current_assets / nullif(s.current_liabilities, 0)) >= "
+            f"{min_current_ratio})"
         )
 
     filter_sql = (chr(10) + "      AND ").join(filters)

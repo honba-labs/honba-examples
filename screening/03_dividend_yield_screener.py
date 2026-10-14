@@ -17,7 +17,8 @@ Pitfalls::
       collapse inflates it too, so a high yield at a 52-week low is often a coming cut, not a gift.
     - Period end, not publication date: fundamentals use fiscal_date <= --asof with no filing date
       in the tables; --fiscal-lag-days (default 0) is a flat-day proxy. NULL ROCE and NULL
-      debt/equity pass, while a missing dividend line counts as 0 and fails the yield test.
+      debt/equity (or no fundamentals row) fail their gates unless --allow-missing is passed,
+      and a missing dividend line counts as 0 and fails the yield test.
     - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
       calendar days had a low within 2 percent of the 252-session low. Many candidates sit
       above that; rely on pct_from_low for the actual distance.
@@ -57,6 +58,7 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
     require_positive_fcf: bool = True
     fiscal_lag_days: int = 0
     max_stale_days: int = 10
+    allow_missing: bool = False
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -124,6 +126,15 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--allow-missing",
+            action=argparse.BooleanOptionalAction,
+            default=self.allow_missing,
+            help=(
+                "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+                "ratio gates instead of failing them (default: off)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -142,6 +153,7 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
             require_positive_fcf=self.require_positive_fcf,
             fiscal_lag_days=self.fiscal_lag_days,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 

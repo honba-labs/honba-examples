@@ -98,6 +98,7 @@ def test_screen_value_and_dividend_returns_data():
         asof_date=dt.date(2023, 1, 1),
         train_years=3,
         mode="value",
+        allow_missing=True,  # real fundamentals are sparse at 2023-01-01; missing values now fail
         top=3,
     )
     assert len(candidates) > 0
@@ -188,6 +189,7 @@ def test_main_screen_only_json(example, capsys):
             "--asof",
             "2023-01-01",
             "--screen-only",
+            "--allow-missing",
             "--top",
             "2",
             "--format",
@@ -211,6 +213,7 @@ def test_main_chained_json_output(example, tmp_path):
             "2023-01-01",
             "--end-date",
             "2023-12-31",
+            "--allow-missing",
             "--top",
             "2",
             "--format",

@@ -78,6 +78,15 @@ def add_chain_args(
         ),
     )
     parser.add_argument(
+        "--allow-missing",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+            "ratio gates instead of failing them (default: off)"
+        ),
+    )
+    parser.add_argument(
         "--sip-amount",
         "--sip",
         dest="sip_amount",

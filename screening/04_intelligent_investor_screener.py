@@ -27,7 +27,8 @@ Pitfalls::
       ratio mean little for banks.
     - Mode overrides your flags: in --mode defensive the thresholds are fixed in code (P/E 15,
       P/B 1.5, P/E x P/B 22.5, debt/equity 0.6) and --max-pe, --max-pb and --max-debt-equity are
-      ignored. A missing debt/equity, current assets or current liabilities passes its test.
+      ignored. A missing debt/equity, current assets or current liabilities fails its test unless
+      --allow-missing is passed.
     - Period end, not publication date: fundamentals use fiscal_date <= --asof (no filing-date
       column exists); --fiscal-lag-days defaults to 0. The ratios and statements tables each pick
       their own latest fiscal_date, so EPS and share count can come from different years.
@@ -66,6 +67,7 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
     require_positive_fcf: bool = False
     fiscal_lag_days: int = 0
     max_stale_days: int = 10
+    allow_missing: bool = False
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -146,6 +148,15 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--allow-missing",
+            action=argparse.BooleanOptionalAction,
+            default=self.allow_missing,
+            help=(
+                "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+                "ratio gates instead of failing them (default: off)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -167,6 +178,7 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             require_positive_fcf=self.require_positive_fcf,
             fiscal_lag_days=self.fiscal_lag_days,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 

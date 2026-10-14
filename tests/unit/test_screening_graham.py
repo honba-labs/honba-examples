@@ -19,6 +19,7 @@ def netnet_world(catalog_dir, add_series, fund, monkeypatch):
     for sym, price in (("DEEP", 40.0), ("FAIR", 72.0), ("RICH", 200.0)):
         add_series(sym, [price] * 150)
         fund.company(sym)
+        fund.ratio(sym, FY, debt_to_equity=0.3)
         fund.stmt(
             sym,
             FY,

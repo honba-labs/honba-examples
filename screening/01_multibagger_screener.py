@@ -19,9 +19,11 @@ Pitfalls::
       latest FY row with fiscal_date <= --asof. The fundamentals tables have no filing or
       announcement date column and this screener has no --fiscal-lag-days option, so a March
       year-end is usable from 31 March although results appear weeks later.
-    - Missing fundamentals pass: NULL debt/equity clears the leverage filter, ROCE is never a
-      filter (it only feeds the score, and a missing ROCE scores the same 5.0 points as ROCE 10),
-      and with no fundamentals.duckdb the fundamentals test is skipped for every symbol.
+    - Missing fundamentals fail the leverage gate: NULL debt/equity (or no fundamentals row)
+      excludes the symbol unless --allow-missing is passed. ROCE is never a filter, it only
+      feeds the score, and a missing ROCE now adds 0 points (it used to add 10, as if ROCE were
+      20 or more, because DuckDB's least() skips NULLs). With no fundamentals.duckdb the
+      fundamentals test is skipped for every symbol.
     - Survivorship: only symbols that have bars in the catalog are scanned, so companies that
       delisted are absent from a past-dated screen. A symbol whose last bar is more than
       --max-stale-days (default 10 calendar days) before --asof is skipped, but a name that
@@ -56,6 +58,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
     max_pct_from_high: float = 15.0
     max_debt_equity: float = 1.2
     max_stale_days: int = 10
+    allow_missing: bool = False
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -99,6 +102,15 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--allow-missing",
+            action=argparse.BooleanOptionalAction,
+            default=self.allow_missing,
+            help=(
+                "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+                "ratio gates instead of failing them (default: off)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -112,6 +124,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             max_pct_from_high=self.max_pct_from_high,
             max_debt_to_equity=self.max_debt_equity,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 

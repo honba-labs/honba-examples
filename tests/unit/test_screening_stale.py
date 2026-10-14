@@ -56,11 +56,13 @@ def test_net_net_drops_stale_symbol(catalog_dir, add_series, fund, monkeypatch) 
     monkeypatch.setattr(graham, "find_duckdb_path", lambda: fund.path)
     for sym, last in (("LIVE", SCREEN_ASOF), ("DEAD", STALE_LAST)):
         add_series(sym, [40.0] * 150, last_date=last)
+        fund.ratio(sym, dt.date(2024, 3, 31), debt_to_equity=0.3)
         fund.stmt(
             sym,
             dt.date(2024, 3, 31),
             {
                 "Current Assets": 1000.0,
+                "Current Liabilities": 100.0,
                 "Total Liabilities Net Minority Interest": 200.0,
                 "Diluted Average Shares": 10.0,
             },

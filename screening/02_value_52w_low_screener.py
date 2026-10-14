@@ -14,9 +14,10 @@ Pitfalls::
       --asof, and the fundamentals tables carry no filing date. --fiscal-lag-days (default 0)
       shifts that cutoff by a flat number of days, a crude proxy for the reporting lag, not the
       real announcement date. Compare a run with and without a lag before trusting a date.
-    - Missing data passes some tests and fails others: NULL debt/equity and NULL ROCE pass, but
-      max P/E and max P/B need a non-NULL value, and P/E exists only when EPS > 0, so loss-makers
-      silently drop out while a missing leverage figure does not. EPS (ratios table) and diluted
+    - Missing data fails the gates: NULL debt/equity or ROCE (or no fundamentals row) excludes the
+      symbol unless --allow-missing is passed, and max P/E and max P/B need a non-NULL value. P/E
+      exists only when EPS > 0, so loss-makers silently drop out. With no fundamentals.duckdb
+      these gates are skipped for every symbol. EPS (ratios table) and diluted
       average shares (statements table) are each taken from their own latest fiscal_date.
     - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
       calendar days had a low within 2 percent of the 252-session low (in a wide run on
@@ -59,6 +60,7 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
     require_positive_fcf: bool = False
     fiscal_lag_days: int = 0
     max_stale_days: int = 10
+    allow_missing: bool = False
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -126,6 +128,15 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--allow-missing",
+            action=argparse.BooleanOptionalAction,
+            default=self.allow_missing,
+            help=(
+                "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
+                "ratio gates instead of failing them (default: off)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -144,6 +155,7 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             require_positive_fcf=self.require_positive_fcf,
             fiscal_lag_days=self.fiscal_lag_days,
             max_stale_days=self.max_stale_days,
+            allow_missing=self.allow_missing,
             top=self.top,
         )
 
