@@ -6,6 +6,7 @@ Used by the example scripts and the unit tests alike.
 from __future__ import annotations
 
 import datetime as dt
+import math
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
@@ -62,6 +63,32 @@ def trending_bars(
         bar(symbol, d, base + i * step, exchange=exchange)
         for i, d in enumerate(weekdays(start, count))
     ]
+
+
+def oscillating_bars(
+    symbol: str,
+    count: int,
+    start: dt.date = dt.date(2026, 1, 1),
+    base: float = 2500.0,
+    amplitude: float = 100.0,
+    period: int = 40,
+    drift: float = 0.0,
+    exchange: str = "NSE",
+) -> list[Bar]:
+    """``count`` weekday bars whose close is a sine wave around ``base`` (plus ``drift`` per bar).
+
+    Deterministic and trade-friendly: unlike the ramp, price rises and falls, so RSI leaves 100
+    and moving-average strategies enter *and* exit. Each bar opens at the previous close.
+    """
+    closes = [
+        round(base + i * drift + amplitude * math.sin(2 * math.pi * i / period), 2)
+        for i in range(count)
+    ]
+    out: list[Bar] = []
+    for i, d in enumerate(weekdays(start, count)):
+        open_ = closes[i - 1] if i else base
+        out.append(bar(symbol, d, open_, closes[i], exchange=exchange))
+    return out
 
 
 def load_real_bars(
