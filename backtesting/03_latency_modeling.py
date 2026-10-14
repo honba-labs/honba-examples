@@ -1,23 +1,23 @@
-"""backtesting/03_latency_modeling: next-open vs next-close fill models.
+"""backtesting/03_latency_modeling: bar-close vs next-open vs later-open fill models.
 
-Honba supports multiple fill models: ``next_open`` (daily, next session's open),
-``next_close`` (next session's close), and ``bar_close`` (current bar close,
-vectorized backtests). This example runs the same strategy under each model
-and compares fill prices and equity curves.
+Honba has two fill models for bar data: ``bar_close`` (the decision bar's close, the single-price
+conformance model) and ``next_open`` (daily, next session's open, simulated by
+``honba.backtest.simulated.NextOpenExecution``). This example runs the same strategy under both
+and under a third stress case, ``open_after_2_bars`` (``fill_delay=2``: the open two bars after the
+signal), and compares fill prices. The engine has no next-close model.
 
 Run::
 
     python backtesting/03_latency_modeling.py
+    python backtesting/03_latency_modeling.py --fast 5 --slow 20
 
 Pitfalls::
 
     - Label versus engine: replay's fill_delay counts bars. 0 fills at the signal bar's close, and 1
-      or 2 fill at the open of the bar 1 or 2 later. The 'next_close' entry here is fill_delay=2,
-      the open two bars on, not the next session's close described above. Only bar_close and
-      next_open match Honba's fill models.
-    - Ignored parameters: run() echoes --fast and --slow into config, but _run_model builds
-      SmaLatency() with its 10/30 defaults, so changing them changes nothing. The same trap in your
-      own code is a parameter you believe you varied but did not.
+      or 2 fill at the open of the bar 1 or 2 later. Only bar_close and next_open match Honba's
+      fill models; open_after_2_bars is a latency stress test, not an engine model.
+    - Check that a knob reaches the code: --fast and --slow used to be echoed into config while the
+      strategy kept its 10/30 defaults. Vary a parameter and confirm the output moves.
     - Lookahead is the gap: bar_close fills at a close that is only known after the session ends.
       The price difference between the bar_close and next_open rows is the move you would otherwise
       book as profit.
