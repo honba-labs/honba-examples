@@ -42,3 +42,17 @@ def test_oscillating_bars_parameters_and_ohlc_validity() -> None:
     assert max(b.close for b in bars) <= 110.0 + 1e-6
     assert min(b.close for b in bars) >= 90.0 - 1e-6
     assert all(b.low <= min(b.open, b.close) and b.high >= max(b.open, b.close) for b in bars)
+
+
+def test_get_bars_with_source_labels_where_the_bars_came_from(monkeypatch) -> None:
+    import honba_examples.synthetic as syn
+
+    monkeypatch.setattr(syn, "load_real_bars", lambda *a, **k: [])
+    bars, source = syn.get_bars_with_source("RELIANCE", count=12)
+    assert source == "synthetic" and bars == trending_bars("RELIANCE", 12)
+
+    real = trending_bars("RELIANCE", 12, base=100.0)
+    monkeypatch.setattr(syn, "load_real_bars", lambda *a, **k: real)
+    bars, source = syn.get_bars_with_source("RELIANCE", count=12)
+    assert source == "lakehouse" and bars == real
+    assert syn.get_bars("RELIANCE", count=12) == real

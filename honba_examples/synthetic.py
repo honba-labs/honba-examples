@@ -114,9 +114,16 @@ def load_real_bars(
         return []
 
 
-def get_bars(symbol: str = "RELIANCE", count: int = 60, exchange: str = "NSE") -> list[Bar]:
-    """Return real bars from honba-data lakehouse if available, falling back to synthetic bars."""
+def get_bars_with_source(
+    symbol: str = "RELIANCE", count: int = 60, exchange: str = "NSE"
+) -> tuple[list[Bar], str]:
+    """Like :func:`get_bars` but also says where the bars came from: ``lakehouse`` or ``synthetic``."""
     real = load_real_bars(symbol, exchange=exchange, limit=count)
     if len(real) >= min(count, 10):
-        return real
-    return trending_bars(symbol, count)
+        return real, "lakehouse"
+    return trending_bars(symbol, count), "synthetic"
+
+
+def get_bars(symbol: str = "RELIANCE", count: int = 60, exchange: str = "NSE") -> list[Bar]:
+    """Return real bars from honba-data lakehouse if available, falling back to synthetic bars."""
+    return get_bars_with_source(symbol, count, exchange)[0]

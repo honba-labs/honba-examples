@@ -56,3 +56,43 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main([]) == 0
     assert "sma_backtest" in capsys.readouterr().out
+
+
+@pytest.fixture
+def synthetic_only(monkeypatch):
+    import honba_examples.synthetic as syn
+
+    monkeypatch.setattr(syn, "load_real_bars", lambda *a, **k: [])
+
+
+def test_orders_fill_at_the_next_bar_open(example, synthetic_only):
+    """The first signal is on the 30th bar (close 2514.5); the fill is the next open, 2515.0."""
+    fills = example.run(bars=60)["result"]["fills"]
+    assert fills[0]["side"] == "buy"
+    assert fills[0]["price"] == pytest.approx(2515.0)
+
+
+def test_capital_sizes_the_position_and_marks_the_equity(example, synthetic_only):
+    small = example.run(bars=60, capital=10_000.0)
+    big = example.run(bars=60, capital=100_000.0)
+    price = big["result"]["fills"][0]["price"]
+    assert big["result"]["fills"][0]["quantity"] == int(100_000.0 // price)
+    assert small["result"]["fills"][0]["quantity"] == int(10_000.0 // price)
+    assert big["summary"]["final_equity"] > 100_000.0  # the ramp is profitable, gross of costs
+    assert big["summary"]["net_pnl"] == pytest.approx(big["summary"]["final_equity"] - 100_000.0)
+
+
+def test_report_says_which_data_source_was_used(example, synthetic_only):
+    result = example.run(bars=60)
+    assert result["config"]["data_source"] == "synthetic"
+    assert result["summary"]["data_source"] == "synthetic"
+
+
+def test_synthetic_flag_ignores_real_bars(example, monkeypatch):
+    import honba_examples.synthetic as syn
+
+    monkeypatch.setattr(
+        syn, "load_real_bars", lambda *a, **k: syn.trending_bars("RELIANCE", 60, base=50.0)
+    )
+    assert example.run(bars=60)["config"]["data_source"] == "lakehouse"
+    assert example.run(bars=60, synthetic=True)["config"]["data_source"] == "synthetic"

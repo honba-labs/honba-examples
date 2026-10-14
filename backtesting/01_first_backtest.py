@@ -53,10 +53,11 @@ class SmaBacktest(Strategy):
     name = "sma_backtest"
     warmup_bars = 30
 
-    def __init__(self, fast: int = 10, slow: int = 30) -> None:
+    def __init__(self, fast: int = 10, slow: int = 30, capital: float = 100_000.0) -> None:
         super().__init__()
         self.fast = Sma(fast)
         self.slow = Sma(slow)
+        self.capital = capital
 
     def on_bar(self, bar) -> None:
         fast_val = self.fast.update(bar.close)
@@ -67,8 +68,10 @@ class SmaBacktest(Strategy):
 
         position = self.position(bar.instrument_id)
         if fast_val > slow_val and position <= 0:
-            self.buy(bar.instrument_id, 1)
-        elif fast_val < slow_val and position >= 0 and position > 0:
+            qty = int(self.capital // bar.close)  # all-in, whole shares, sized off the signal close
+            if qty > 0:
+                self.buy(bar.instrument_id, qty)
+        elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
 
 
@@ -78,23 +81,32 @@ def run(
     slow: int = 30,
     capital: float = 100_000.0,
     symbol: str = "RELIANCE",
+    synthetic: bool = False,
 ) -> dict[str, Any]:
-    from honba_examples.synthetic import get_bars
+    from honba_examples.synthetic import get_bars_with_source, trending_bars
 
-    bars_list = get_bars(symbol, count=bars)
+    if synthetic:
+        bars_list, data_source = trending_bars(symbol, bars), "synthetic"
+    else:
+        bars_list, data_source = get_bars_with_source(symbol, count=bars)
 
-    strat = SmaBacktest(fast=fast, slow=slow)
+    strat = SmaBacktest(fast=fast, slow=slow, capital=capital)
 
     # Note: BacktestSession requires a real DataProvider; for this learning-path example
-    # we use the honba.strategies.testing.replay harness instead (same fill semantics
-    # for a single-instrument daily backtest).
+    # we use the honba.strategies.testing.replay harness instead. fill_delay=1 fills each order at
+    # the next bar's open (the default 0 would fill at the signal bar's own close).
     from honba.strategies.testing import replay
 
-    result = replay(strat, bars_list)
+    result = replay(strat, bars_list, fill_delay=1)
 
-    # Metrics from honba_examples.metrics (same curve format as production tearsheets)
-    fill_count = len(result.fills)
-    intent_count = len(result.intents)
+    # Net result from the fills: cash flows plus the open position marked at the last close
+    cash = capital
+    held = 0.0
+    for f in result.fills:
+        sign = 1.0 if f.side.value == "buy" else -1.0
+        cash -= sign * f.quantity * f.price
+        held += sign * f.quantity
+    final_equity = cash + held * bars_list[-1].close if bars_list else capital
 
     strategy_repr = {
         "name": strat.name,
@@ -109,11 +121,15 @@ def run(
             "fast": fast,
             "slow": slow,
             "capital": capital,
+            "data_source": data_source,
         },
         "result": jsonable(result),
         "summary": {
-            "fills": fill_count,
-            "intents": intent_count,
+            "fills": len(result.fills),
+            "intents": len(result.intents),
+            "data_source": data_source,
+            "final_equity": final_equity,
+            "net_pnl": final_equity - capital,
         },
     }
 
@@ -131,10 +147,21 @@ def main(argv: list[str] | None = None) -> int:
         default=100_000.0,
         help="Initial capital in INR (default: 100000.0)",
     )
+    parser.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="always use the synthetic ramp, even if the lakehouse holds real bars",
+    )
     add_out_arg(parser)
     args = parser.parse_args(argv)
 
-    result = run(bars=args.bars, fast=args.fast, slow=args.slow, capital=args.capital)
+    result = run(
+        bars=args.bars,
+        fast=args.fast,
+        slow=args.slow,
+        capital=args.capital,
+        synthetic=args.synthetic,
+    )
 
     emit_json(result, args.out)
     return 0
