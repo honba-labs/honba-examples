@@ -121,7 +121,7 @@ def build_strategy(
 ) -> PortfolioStrategy:
     """Equal-weight rebalance of the Alpha 30, composed from parts in code."""
     return PortfolioStrategy(
-        NamedUniverse(UNIVERSE_KEY, EXCHANGE),
+        NamedUniverse(UNIVERSE_KEY, EXCHANGE, point_in_time=True),
         EqualWeight(),
         EveryNDays(rebalance_days),
         allocation=allocation,
@@ -138,6 +138,7 @@ def build_variant(
     params = {
         "universe": UNIVERSE_KEY,
         "exchange": EXCHANGE,
+        "point_in_time": True,
         "weighting": weighting,
         "schedule": schedule,
         "allocation": allocation,

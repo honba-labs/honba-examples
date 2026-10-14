@@ -130,3 +130,9 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main(["--bars", "5"]) == 0
     assert "equal_weight_rebalance" in capsys.readouterr().out
+
+
+def test_universe_is_point_in_time_so_as_of_is_honoured(example):
+    assert example.build_strategy().universe_source.point_in_time is True
+    assert example.build_variant().universe_source.point_in_time is True
+    assert example.build_variant("inverse_vol").universe_source.point_in_time is True
