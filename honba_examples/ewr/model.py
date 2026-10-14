@@ -25,6 +25,7 @@ class SimResult:
     final_holdings: dict[str, int] = field(default_factory=dict)
     never_held: list[str] = field(default_factory=list)
     missing_data: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
     margin_used_curve: list[float] = field(default_factory=list)
     max_margin_used_pct: float = 0.0
     margin_calls: int = 0

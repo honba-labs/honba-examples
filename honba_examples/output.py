@@ -40,6 +40,7 @@ __all__ = [
     "print_equity_summary",
     "print_holdings",
     "print_metrics",
+    "print_notes",
     "print_rebalance_schedule",
     "print_rejections",
     "print_run_header",
@@ -426,6 +427,16 @@ def print_rejections(
         Column("reason", "Reason", style="red"),
     ]
     _table("rejections", "Rejections", cols, raw, opts)
+
+
+def print_notes(notes: Sequence[str], opts: OutputOptions | None = None) -> None:
+    """Free-text caveats (one per line); prints nothing when empty and stays out of machine output."""
+    opts = opts or OutputOptions()
+    if not notes or _machine(opts):
+        return
+    out = _stream(opts)
+    for note in notes:
+        print(f"\nNote: {note}", file=out)
 
 
 def print_data_notes(

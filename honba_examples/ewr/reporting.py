@@ -10,6 +10,7 @@ from honba_examples.output import (
     print_data_notes,
     print_equity_summary,
     print_metrics,
+    print_notes,
     print_rebalance_schedule,
 )
 
@@ -57,3 +58,4 @@ def print_summary(result: SimResult, opts: OutputOptions | None = None) -> None:
     print_metrics(metrics, opts)
     print_equity_summary(result.equity_curve, opts)
     print_data_notes(opts, missing_data=result.missing_data, never_held=result.never_held)
+    print_notes(getattr(result, "notes", ()), opts)

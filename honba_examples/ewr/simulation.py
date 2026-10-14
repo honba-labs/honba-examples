@@ -21,6 +21,11 @@ from honba_examples.ewr.schedule import rebalance_sessions
 from honba_examples.ewr.sizing import buy_shortfall, rebalance_orders, sell_excess
 from honba_examples.metrics import curve_metrics, exposure_metrics
 
+MARGIN_NOTE = (
+    "Margin is tracked, not enforced: a margin call is only counted (the simulation never "
+    "liquidates positions) and no interest is charged on borrowed cash."
+)
+
 
 def simulate(
     bars: list[Bar],
@@ -92,14 +97,15 @@ def simulate(
         if day >= start:
             closes[sym][day] = float(bar.close)
 
+    missing = [s for s in symbols if not closes[s]]  # asked for, but no bars on/after ``start``
     symbols = [s for s in symbols if closes[s]]
     result = SimResult(
         leverage=leverage,
         initial_margin=initial_margin,
         maintenance_margin=maintenance_margin,
     )
+    result.missing_data = missing
     if not symbols:
-        result.missing_data = [s for s in symbols if not closes[s]]
         return result
 
     calendar = sorted({d for by_date in closes.values() for d in by_date})
@@ -281,6 +287,7 @@ def simulate(
     if leverage > 1.0 or result.margin_calls > 0 or result.max_margin_used_pct > 0:
         result.metrics["max_margin_used_pct"] = result.max_margin_used_pct
         result.metrics["margin_calls"] = float(result.margin_calls)
+        result.notes.append(MARGIN_NOTE)
 
     result.final_holdings = {s: q for s, q in qty.items() if q}
     result.never_held = [s for s in sorted(symbols) if s not in ever_held and s in first_price]
