@@ -24,6 +24,8 @@ from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
 
+_STARTED = time.monotonic()
+
 
 class MetricsHandler(BaseHTTPRequestHandler):
     """Simple HTTP handler for /metrics endpoint."""
@@ -80,7 +82,7 @@ def generate_metrics() -> str:
     lines.append(f"honba_capital_utilization_pct {utilization:.2f}")
 
     # Session uptime
-    lines.append(f"honba_uptime_seconds {int(time.time())}")
+    lines.append(f"honba_uptime_seconds {int(time.monotonic() - _STARTED)}")
 
     return "\n".join(lines) + "\n"
 

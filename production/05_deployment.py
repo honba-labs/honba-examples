@@ -11,6 +11,7 @@ Run::
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
+
+_STRATEGY_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 
 
 SYSTEMD_SERVICE = """[Unit]
@@ -152,6 +155,10 @@ def run(
     strategies_dir: str = "/opt/honba/strategies",
     python: str = "/usr/bin/python3",
 ) -> dict[str, Any]:
+    if not _STRATEGY_NAME.fullmatch(strategy_name) or ".." in strategy_name:
+        raise ValueError(
+            f"invalid strategy name {strategy_name!r}: use letters, digits, '_', '-' and '.' only"
+        )
     config = {
         "strategy_name": strategy_name,
         "user": user,
