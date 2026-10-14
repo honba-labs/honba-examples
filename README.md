@@ -137,7 +137,7 @@ Runs on synthetic data via `honba.strategies.testing.replay`.
 |---|---|---|---|
 | 01 | `01_first_strategy.py` | `SmaCrossover` | SMA (fast/slow) |
 | 02 | `02_with_indicators.py` | `CompositeSmaRsi` | SMA + RSI filter + ATR sizing + trailing stop |
-| 03 | `03_position_sizing.py` | `SmaSizing` | SMA + ATR; fixed / volatility / Kelly sizing |
+| 03 | `03_position_sizing.py` | `SmaSizing` | SMA + ATR; fixed / volatility / fractional-Kelly sizing (capped by equity) |
 | 04 | `04_risk_management.py` | `RiskManagedSma` | SMA + drawdown, daily-loss and position guards |
 | 05 | `05_multi_instrument.py` | `BasketSma` | SMA per symbol + equal-weight rebalance |
 | 06 | `06_equal_weight_rebalance.py` | `PortfolioStrategy` | `NamedUniverse` + `EqualWeight`/`InverseVolatility` + `EveryNDays`/`MonthlyFirstSession`/`DriftBand`; matches catalog `equal_weight` |
@@ -162,17 +162,17 @@ India cost model.
 
 | # | File | Strategy class | Adds |
 |---|---|---|---|
-| 01 | `01_first_backtest.py` | `SmaBacktest` | Next-open fills, NSE equity costs |
+| 01 | `01_first_backtest.py` | `SmaBacktest` | Next-open fills (`fill_delay=1`), `--capital` sizing, names its data source; gross of costs |
 | 02 | `02_cost_modeling.py` | — | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST) |
-| 03 | `03_latency_modeling.py` | `SmaLatency` | Fill models: bar_close / next_open / next_close |
-| 04 | `04_walk_forward.py` | `SmaWalk` | Rolling in-sample → out-of-sample windows |
-| 05 | `05_monte_carlo.py` | `SmaMonteCarlo` | Bootstrap equity curves (final equity, DD, Sharpe) |
-| 06 | `06_concurrent_backtest.py` | `SmaSweep` | Thread-pool parameter sweep, Pareto frontier |
+| 03 | `03_latency_modeling.py` | `SmaLatency` | Fill models: bar_close / next_open / open_after_2_bars (latency stress) |
+| 04 | `04_walk_forward.py` | `SmaWalk` | Rolling in-sample → out-of-sample windows, scored by net return |
+| 05 | `05_monte_carlo.py` | `SmaMonteCarlo` | Bootstrap closed round-trip trades (final equity, DD, Sharpe); needs enough trades |
+| 06 | `06_concurrent_backtest.py` | `SmaSweep` | Thread-pool parameter sweep, Pareto frontier, multiple-testing count |
 | 07 | `07_run_via_client.py` | — | Same strategy over in-process and HTTP transports; run_id and assumptions |
 | 08 | `08_sip_buy_and_hold.py` | — | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD |
 | 09 | `09_forward_sip_backtest.py` | — | Forward SIP backtester (``--symbols`` or stdin pipe); alias of 10 |
 | 10 | `10_chained_screener_and_sip.py` | — | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
-| 11 | `11_portfolio_rebalancer.py` | — | Equal-weight periodic rebalance (``--symbols``/stdin-aware) |
+| 11 | `11_portfolio_rebalancer.py` | — | Equal-weight periodic rebalance via the `ewr` simulator (flat fee, T+N; ``--symbols``/stdin-aware) |
 
 Run them:
 
@@ -180,7 +180,7 @@ Run them:
 python backtesting/01_first_backtest.py --out first_backtest.json
 python backtesting/02_cost_modeling.py --price 2500 --qty 10
 python backtesting/03_latency_modeling.py
-python backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
+python backtesting/04_walk_forward.py --bars 400 --window 120 --step 60
 python backtesting/05_monte_carlo.py --paths 1000
 python backtesting/06_concurrent_backtest.py --workers 4
 python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
