@@ -25,6 +25,7 @@ from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
+from honba_examples.metrics import fills_equity_curve
 from honba_examples.synthetic import bar as synth_bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
@@ -74,19 +75,7 @@ def _run_one_account(
     strat = SmaMulti(fast=fast, slow=slow, symbol=symbol)
     result = replay(strat, bars_list, fill_delay=1)
 
-    cash = capital
-    position = 0.0
-    equity_curve = [capital]
-    for fill in result.fills:
-        notional = fill.quantity * fill.price
-        if fill.side.value == "buy":
-            cash -= notional
-            position += fill.quantity
-        else:
-            cash += notional
-            position -= fill.quantity
-        equity = cash + position * fill.price
-        equity_curve.append(equity)
+    equity_curve = fills_equity_curve(capital, result.fills, bars_list)
 
     final = equity_curve[-1] if equity_curve else capital
     return {
@@ -148,7 +137,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     accounts = None
-    if args.accounts and args.accounts.exists():
+    if args.accounts is not None:
+        if not args.accounts.is_file():
+            parser.error(f"--accounts file not found: {args.accounts}")
         import yaml  # pyright: ignore[reportMissingModuleSource]
 
         accounts = yaml.safe_load(args.accounts.read_text())
