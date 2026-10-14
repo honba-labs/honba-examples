@@ -213,3 +213,19 @@ def test_the_check_notices_a_wrong_close(example):
     assert check["fold_match"] is False
     assert check["span_match"] is True
     assert check["aligned"] is False
+
+
+def test_the_check_notices_volume_moved_between_buckets(example):
+    """Totals reconcile when +v and -v are swapped across buckets; the per-bucket fold must not."""
+    days = weekdays(dt.date(2026, 6, 1), 10)
+    fine = _daily_bars(days)
+    coarse = aggregate(fine, "1w")
+    tampered = [
+        dataclasses.replace(coarse[0], volume=coarse[0].volume + 7.0),
+        dataclasses.replace(coarse[1], volume=coarse[1].volume - 7.0),
+        *coarse[2:],
+    ]
+    check = example._alignment(fine, "1d", tampered, "1w")
+    assert check["volume_fine"] == check["volume_coarse"]
+    assert check["fold_match"] is False
+    assert check["aligned"] is False

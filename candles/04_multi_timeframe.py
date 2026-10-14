@@ -138,11 +138,16 @@ def _alignment(
     fold_match = True
     for key, host in zip(coarse_keys, coarse):
         members = sorted(fine_buckets.get(key, ()), key=lambda bar: bar.ts)
-        if not members or (host.open, host.high, host.low, host.close) != (
-            members[0].open,
-            max(bar.high for bar in members),
-            min(bar.low for bar in members),
-            members[-1].close,
+        if (
+            not members
+            or (host.open, host.high, host.low, host.close)
+            != (
+                members[0].open,
+                max(bar.high for bar in members),
+                min(bar.low for bar in members),
+                members[-1].close,
+            )
+            or host.volume != sum(bar.volume for bar in members)
         ):
             fold_match = False
     if fine and coarse:
