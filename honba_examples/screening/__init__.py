@@ -1,6 +1,6 @@
 """honba_examples.screening: Generic Point-in-Time Screener Engine.
 
-Provides zero-lookahead screening primitives powered by DuckDB SQL:
+Provides point-in-time screening primitives (fundamentals by period end plus a lag proxy) powered by DuckDB SQL:
 - `screen_multibaggers`: Prospective "going-to-be" multibagger screener identifying early Stage 2
   breakouts, unexhausted consolidation bases, volume surges, and capital efficiency prior to --asof.
 - `screen_value_and_dividend`: Contrarian value & high dividend yield screener near 52-week low.

@@ -10,15 +10,15 @@ Usage:
 
 Pitfalls::
 
-    - Period end, not publication date: ratios and statements are filtered with fiscal_date <=
-      --asof, and the fundamentals tables carry no filing date. --fiscal-lag-days (default 0)
-      shifts that cutoff by a flat number of days, a crude proxy for the reporting lag, not the
-      real announcement date. Compare a run with and without a lag before trusting a date.
+    - Period end plus a flat lag, not publication date: ratios and statements are filtered with
+      fiscal_date <= --asof minus --fiscal-lag-days (default 90), a crude proxy for the reporting
+      lag, not the real announcement date, because the tables carry no filing date. EPS and
+      shares come from one common fiscal date per symbol. Compare lags before trusting a date.
     - Missing data fails the gates: NULL debt/equity or ROCE (or no fundamentals row) excludes the
       symbol unless --allow-missing is passed, and max P/E and max P/B need a non-NULL value. P/E
       exists only when EPS > 0, so loss-makers silently drop out. With no fundamentals.duckdb
-      these gates are skipped for every symbol. EPS (ratios table) and diluted
-      average shares (statements table) are each taken from their own latest fiscal_date.
+      these gates are skipped for every symbol. A statements year with no ratios row for the same
+      fiscal date is ignored, so P/B and yield are blank rather than mixing two years.
     - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
       calendar days had a low within 2 percent of the 252-session low (in a wide run on
       2025-03-01, 48 of 112 candidates). The 30 days only gate the flag; the low itself spans
@@ -58,7 +58,7 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
     max_pb: float = 2.0
     max_debt_equity: float = 1.5
     require_positive_fcf: bool = False
-    fiscal_lag_days: int = 0
+    fiscal_lag_days: int = 90
     max_stale_days: int = 10
     allow_missing: bool = False
     top: int = 10
@@ -116,7 +116,10 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             "--fiscal-lag-days",
             type=int,
             default=self.fiscal_lag_days,
-            help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
+            help=(
+                "Use fundamentals whose fiscal period ended at least N days before --asof "
+                "(default: 90; an approximation of the disclosure lag, not a filing date)"
+            ),
         )
         parser.add_argument(
             "--max-stale-days",

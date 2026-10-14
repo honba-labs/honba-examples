@@ -27,7 +27,7 @@ from honba_examples.screening import (
     screen_multibaggers,
     screen_value_and_dividend,
 )
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
+from honba_examples.screening.common import DEFAULT_FISCAL_LAG_DAYS, DEFAULT_MAX_STALE_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,16 @@ def _screen_params(**extra: dict[str, Any]) -> dict[str, dict[str, Any]]:
             max=3650,
             step=1,
         ),
+        "fiscal_lag_days": param(
+            "int",
+            "Fundamentals must have a fiscal period end at least this many days before the "
+            "evaluation date (default 90, an approximation of the SEBI disclosure window: the "
+            "data has no filing date, so this is not a guarantee).",
+            default=DEFAULT_FISCAL_LAG_DAYS,
+            min=0,
+            max=730,
+            step=1,
+        ),
         "allow_missing": param(
             "bool",
             "Let symbols with missing fundamentals (no row, or NULL debt/equity or ROCE) pass "
@@ -135,7 +145,9 @@ class ScreenerStep(Step):
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
         allow_missing: bool = False,
+        fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     ) -> None:
+        self.fiscal_lag_days = fiscal_lag_days
         self.max_stale_days = max_stale_days
         self.allow_missing = allow_missing
         self.asof = asof
@@ -173,7 +185,9 @@ class ScreenerStep(Step):
         asof = self.resolve_asof(catalog_dir)
         candidates = self.screen(catalog_dir, asof)
         if self.report:
-            candidates = add_report_columns(candidates, self.report, asof)
+            candidates = add_report_columns(
+                candidates, self.report, asof, fiscal_lag_days=self.fiscal_lag_days
+            )
         ctx["candidates"] = candidates
         ctx["symbols"] = [c["symbol"] for c in candidates]
         ctx["asof"] = asof
@@ -200,6 +214,7 @@ class MultibaggerScreener(ScreenerStep):
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
         allow_missing: bool = False,
+        fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -209,6 +224,7 @@ class MultibaggerScreener(ScreenerStep):
             report=report,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
         )
         self.min_return_1y = min_return_1y
         self.max_return_1y = max_return_1y
@@ -226,6 +242,7 @@ class MultibaggerScreener(ScreenerStep):
             max_debt_to_equity=self.max_debt_to_equity,
             max_stale_days=self.max_stale_days,
             allow_missing=self.allow_missing,
+            fiscal_lag_days=self.fiscal_lag_days,
             top=self.top,
         )
 
@@ -302,6 +319,7 @@ class ValueScreener(ScreenerStep):
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
         allow_missing: bool = False,
+        fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -311,6 +329,7 @@ class ValueScreener(ScreenerStep):
             report=report,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
         )
         self.max_pct_from_52w_low = max_pct_from_52w_low
         self.min_roce = min_roce
@@ -333,6 +352,7 @@ class ValueScreener(ScreenerStep):
             require_positive_fcf=self.require_positive_fcf,
             max_stale_days=self.max_stale_days,
             allow_missing=self.allow_missing,
+            fiscal_lag_days=self.fiscal_lag_days,
             top=self.top,
         )
 
@@ -415,6 +435,7 @@ class DividendYieldScreener(ScreenerStep):
         report: Sequence[str] | None = None,
         max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
         allow_missing: bool = False,
+        fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     ) -> None:
         super().__init__(
             asof=asof,
@@ -424,6 +445,7 @@ class DividendYieldScreener(ScreenerStep):
             report=report,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
         )
         self.min_yield_pct = min_yield_pct
         self.max_pct_from_52w_low = max_pct_from_52w_low
@@ -444,6 +466,7 @@ class DividendYieldScreener(ScreenerStep):
             require_positive_fcf=self.require_positive_fcf,
             max_stale_days=self.max_stale_days,
             allow_missing=self.allow_missing,
+            fiscal_lag_days=self.fiscal_lag_days,
             top=self.top,
         )
 

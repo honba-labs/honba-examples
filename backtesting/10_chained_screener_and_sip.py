@@ -51,9 +51,10 @@ Pitfalls::
       on or after --asof. On a trading day that is the open of a session whose close the screen
       already used. A non-trading --asof (the default 2025-03-01 is a Saturday) avoids it by
       accident.
-    - Fundamentals dating: ROCE and debt/equity are chosen with fiscal_date <= asof, the period end,
-      not the date the results were published. Unless the store holds filing dates, the screen can
-      use numbers the market did not have yet, which flatters quality screens.
+    - Fundamentals dating: ROCE and debt/equity are chosen with fiscal_date <= asof minus
+      --fiscal-lag-days (default 90), the period end plus a flat lag, not the date the results
+      were published. The store holds no filing dates, so a late filer or a restatement can still
+      let the screen use numbers the market did not have yet, which flatters quality screens.
     - Survivorship: the screener ranks every symbol under the catalog directory, whatever is on disk
       today, and --universe is not passed to it. In the simulation a symbol with no bars after
       --asof is valued flat at its last close (sip.py) and one with no data is skipped, so a name
@@ -145,6 +146,7 @@ class ChainedScreenerSipExample(HonbaExample):
     top: int = 5
     max_stale_days: int = 10
     allow_missing: bool = False
+    fiscal_lag_days: int = 90
     screen_only: bool = False
     symbols: str | None = None
     out: Path | None = None
@@ -230,6 +232,7 @@ class ChainedScreenerSipExample(HonbaExample):
                 self.graham_mode,
                 max_stale_days=self.max_stale_days,
                 allow_missing=self.allow_missing,
+                fiscal_lag_days=self.fiscal_lag_days,
             )
             target_symbols = [c["symbol"] for c in candidates]
             screened = True

@@ -17,10 +17,10 @@ Usage:
 
 Pitfalls::
 
-    - Each step keeps its own point-in-time rules: screen steps use fiscal_date <= asof (period
-      end, no filing-date column) and no step manifest exposes a fiscal lag. report columns use
-      the same rule at the as-of date. A chain that validates is still only a well-formed chain,
-      not a lookahead-free one.
+    - Each step keeps its own point-in-time rules: screen steps use fiscal_date <= asof minus
+      fiscal_lag_days (default 90; period end plus a flat lag, no filing-date column exists) and
+      report columns use the same cutoff. A chain that validates is still only a well-formed
+      chain, not a lookahead-free one.
     - Order truncates: in quality_value.toml screen.value keeps its top 10 first and
       filter.fundamental_quality then prunes that list, so you do not get the best 10 that pass
       the quality test and the survivors can be very few. The filter logs kept/total at INFO level.

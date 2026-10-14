@@ -4,7 +4,8 @@ A step LOOKS AT some data to filter and separately REPORTS columns the user want
 SQL fixes its own output columns, so a column such as ``market_cap`` could not be shown unless the
 screen filtered on it. :func:`add_report_columns` fills that gap for a fixed set of
 :data:`REPORTABLE` columns, read point-in-time from ``fundamentals.duckdb``: the latest FY ratios
-and statements with ``fiscal_date <= asof`` (the same rule and rounding the screeners use), with
+and statements for ONE fiscal date per symbol, with ``fiscal_date <= asof - fiscal_lag_days``
+(default 90; the same rule and rounding the screeners use), with
 prices taken from each candidate's own ``close``. Nothing is fabricated: a column that cannot be
 derived raises a ``ValueError`` listing the reportable columns, and a symbol with no data for a
 column gets ``None``.
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from honba_examples.screening import find_duckdb_path
+from honba_examples.screening.common import DEFAULT_FISCAL_LAG_DAYS, fiscal_cutoff
 
 __all__ = ["REPORTABLE", "add_report_columns", "check_report_columns", "reportable_beyond"]
 
@@ -92,6 +94,7 @@ def add_report_columns(
     asof: dt.date | None = None,
     *,
     db_path: Path | None = None,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
 ) -> list[dict[str, Any]]:
     """Return ``candidates`` with ``columns`` added (copies; columns already present are kept)."""
     cols = check_report_columns(columns)
@@ -111,7 +114,7 @@ def add_report_columns(
 
     import duckdb
 
-    cutoff = asof_date.isoformat()
+    cutoff = fiscal_cutoff(asof_date, fiscal_lag_days)
     select = ",\n        ".join(f"{_EXPR[c]} AS {c}" for c in todo)
     values = ", ".join("(?, ?)" for _ in candidates)
     params: list[Any] = []
@@ -120,7 +123,7 @@ def add_report_columns(
     query = f"""
     WITH px(symbol, close) AS (VALUES {values}),
     ratios AS (
-        SELECT symbol, roce_pct, roe_pct, debt_to_equity, operating_margin_pct, net_margin_pct,
+        SELECT symbol, fiscal_date, roce_pct, roe_pct, debt_to_equity, operating_margin_pct, net_margin_pct,
                eps, free_cash_flow, stockholders_equity
         FROM fund.financial_ratios
         WHERE fiscal_date <= '{cutoff}' AND (period_type = 'FY' OR period_type IS NULL)
@@ -136,8 +139,9 @@ def add_report_columns(
         GROUP BY symbol, fiscal_date
     ),
     s AS (
-        SELECT symbol, div_cfo, div_common, shares FROM stmt
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
+        SELECT st.symbol, st.div_cfo, st.div_common, st.shares
+        FROM stmt st
+        JOIN ratios r2 ON st.symbol = r2.symbol AND st.fiscal_date = r2.fiscal_date
     )
     SELECT p.symbol,
         {select}

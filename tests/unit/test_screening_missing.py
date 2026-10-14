@@ -10,7 +10,7 @@ from honba_examples.pipeline import FundamentalQualityFilter
 from honba_examples.screening import graham, momentum, value
 from tests.unit.conftest import SCREEN_ASOF
 
-FY = dt.date(2024, 3, 31)
+FY = dt.date(2023, 12, 31)
 
 
 # ---- FundamentalQualityFilter -------------------------------------------------------------

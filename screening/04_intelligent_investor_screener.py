@@ -31,9 +31,10 @@ Pitfalls::
       turns that cap off) and the effective thresholds are printed to stderr. Defensive also
       still requires a dividend yield of at least 0.5 percent whatever flags you pass. A missing
       debt/equity, current assets or current liabilities fails its test unless --allow-missing.
-    - Period end, not publication date: fundamentals use fiscal_date <= --asof (no filing-date
-      column exists); --fiscal-lag-days defaults to 0. The ratios and statements tables each pick
-      their own latest fiscal_date, so EPS and share count can come from different years.
+    - Period end plus a flat lag, not publication date: fundamentals use fiscal_date <= --asof
+      minus --fiscal-lag-days (default 90); no filing-date column exists, so this is a proxy. EPS
+      and share count are read from the same fiscal date, and a symbol whose ratios and
+      statements do not share one is dropped.
     - Survivorship and lookahead: delisted value traps are absent from the catalog, and chaining
       to the SIP backtest buys at the --asof open after reading that day's close.
 """
@@ -67,7 +68,7 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
     min_current_ratio: float = 1.2
     min_div_yield: float = 0.0
     require_positive_fcf: bool = False
-    fiscal_lag_days: int = 0
+    fiscal_lag_days: int = 90
     max_stale_days: int = 10
     allow_missing: bool = False
     top: int = 10
@@ -138,7 +139,10 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             "--fiscal-lag-days",
             type=int,
             default=self.fiscal_lag_days,
-            help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
+            help=(
+                "Use fundamentals whose fiscal period ended at least N days before --asof "
+                "(default: 90; an approximation of the disclosure lag, not a filing date)"
+            ),
         )
         parser.add_argument(
             "--max-stale-days",

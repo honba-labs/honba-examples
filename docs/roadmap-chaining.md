@@ -167,7 +167,7 @@ results.print_summary()
 | Phase | Milestone | Deliverables |
 |:---|:---|:---|
 | **Phase 1** | **Standardize CLI I/O Stream Contract** | Ensure all screeners support pure symbol/JSON streams on `stdout` and diagnostic logs on `stderr`. Update backtester to ingest stdin pipes automatically. |
-| **Phase 2** | **Add Value & Dividend 52w-Low Screeners** | Implement `02_value_52w_low_screener.py` and `03_dividend_yield_screener.py` using DuckDB fundamentals and 1D Parquet catalog with zero lookahead. |
+| **Phase 2** | **Add Value & Dividend 52w-Low Screeners** | Implement `02_value_52w_low_screener.py` and `03_dividend_yield_screener.py` using DuckDB fundamentals and 1D Parquet catalog with point-in-time rules (fundamentals by period end plus a lag proxy). |
 | **Phase 3** | **Core Pipeline Abstraction (`honba_examples.pipeline`)** | Implement `Step`, `Pipeline`, and operator overloads (`>>`) for Python in-code composition. |
 | **Phase 4** | **Restructure & Document Example Recipes** | Organize into `screening/`, `strategies/`, and `backtesting/` directories with full integration test coverage. |
 | **Phase 5** | **Manifests and chains** | `describe()` step manifests, `report=[...]` columns and the TOML chain runner (`pipeline/chain.py`, `screening/06_run_chain.py`); see below. |

@@ -44,7 +44,7 @@ If a company generates **30% ROCE** and reinvests **70% of its profits**, its ea
 
 ---
 
-## 4. Quantitative Screener Rules (Zero Look-Ahead)
+## 4. Quantitative Screener Rules (Prices to As-Of; Fundamentals by Period End Plus Lag)
 
 ### Rule 1: Minervini Stage 2 Trend Template
 - $\text{Price} \ge \text{SMA}_{50} \ge \text{SMA}_{200}$

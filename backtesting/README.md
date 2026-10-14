@@ -98,7 +98,7 @@ pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or 
 5. **Monte Carlo** — Resample fills with replacement to estimate distribution of outcomes
 6. **Concurrent sweep** — `ThreadPoolExecutor` over parameter grid; deterministic ordering preserved
 7. **Systematic investment plan (SIP)** — Monthly/weekly cash inflows, rupee cost averaging, XIRR and drawdown metrics
-8. **Point-in-time screening & forward backtesting** — Zero lookahead candidate selection evaluated strictly as of `--asof` with subsequent out-of-sample forward SIP compounding
+8. **Point-in-time screening & forward backtesting** — Candidate selection evaluated as of `--asof` (prices to that day's close; fundamentals by period end plus a 90-day lag proxy, not filing dates) with subsequent out-of-sample forward SIP compounding
 
 ## From here to production backtests
 

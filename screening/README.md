@@ -41,7 +41,7 @@ Value/dividend/Graham screeners share the fundamental options:
 | `--max-debt-equity F` | Maximum debt-to-equity |
 | `--min-div-yield F` | Minimum trailing dividend yield % (0 = disabled) |
 | `--require-positive-fcf` / `--no-require-positive-fcf` | Require positive free cash flow |
-| `--fiscal-lag-days N` | Reporting-lag buffer (days) so only fundamentals published by `--asof` are used |
+| `--fiscal-lag-days N` | Only use fundamentals whose fiscal period ended at least N days before `--asof` (default: 90, an approximation of the SEBI disclosure window; the data has no filing date, so this is **not** a guarantee that figures were public) |
 
 ### 7. Mutual Fund Screener (`07_mutual_fund_screener.py`)
 
@@ -64,8 +64,9 @@ python screening/07_mutual_fund_screener.py --holding-symbol RELIANCE --format s
 
 Every numbered script in this directory has a `Pitfalls::` section in its module docstring
 (enforced by `tests/unit/test_pitfalls_sections.py`). The recurring traps for screens: fundamentals
-are filtered by fiscal period end and the tables hold no filing or announcement date, so "zero
-lookahead" below means period end only (`--fiscal-lag-days` is a flat-day proxy, default 0);
+are filtered by fiscal period end and the tables hold no filing or announcement date, so the
+fundamentals side is only period end plus a flat lag (`--fiscal-lag-days`, default 90), an
+approximation of the disclosure delay and not a guarantee a figure was public on `--asof`;
 a symbol missing a ratio fails its gate unless `--allow-missing` is given; only symbols present in the catalog are scanned, so
 delisted names never appear (a last bar more than `--max-stale-days`, default 10, before `--asof` is rejected); thresholds fitted by looking at
 past winners (a "multibagger" is defined by its future return) are hindsight; top-N lists from a
@@ -73,12 +74,19 @@ handful of names are unstable; and the screen reads the `--asof` close while the
 buys at that day's open. For the general treatment see
 [Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
 
-## Point-in-Time Valuation (Zero Lookahead)
+## Point-in-Time Valuation (Period End Plus Lag)
 
-Prices come from the 1D Parquet catalog up to `--asof`. Fundamentals come from
-`fundamentals.duckdb`, restricted to the latest fiscal period ending on or before
-`--asof` (optionally shifted back by `--fiscal-lag-days`). Valuation is **derived**, never
-read from a live snapshot:
+Prices come from the 1D Parquet catalog up to `--asof` (including `--asof`'s own close). Fundamentals
+come from `fundamentals.duckdb`, restricted to the latest FY period whose end is on or before
+`--asof` minus `--fiscal-lag-days` (default 90). Ratios and statements are read from the same
+fiscal date for a symbol. Valuation is **derived**, never read from a live snapshot.
+
+What this does and does not guarantee: the fundamentals tables hold no filing or announcement
+date, so the lag is a flat approximation of the disclosure delay (SEBI gives listed companies
+about 60 days after a financial year end). It does **not** guarantee a figure was public on
+`--asof`: late filers, restated numbers and the current-vintage data in the store can still leak
+information the market did not have. Use `--fiscal-lag-days 0` only to reproduce old behaviour.
+
 
 | Metric | Derivation |
 |--------|------------|

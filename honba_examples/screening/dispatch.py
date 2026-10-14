@@ -10,7 +10,7 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
+from honba_examples.screening.common import DEFAULT_FISCAL_LAG_DAYS, DEFAULT_MAX_STALE_DAYS
 from honba_examples.screening.graham import screen_intelligent_investor, screen_net_net
 from honba_examples.screening.momentum import screen_multibaggers
 from honba_examples.screening.value import screen_value_and_dividend
@@ -27,8 +27,9 @@ def run_screener(
     graham_mode: str = "defensive",
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
 ) -> list[dict[str, Any]]:
-    """Run the screener named by ``strategy`` as of ``asof_date`` (zero lookahead)."""
+    """Run the screener named by ``strategy`` as of ``asof_date`` (fundamentals lagged by ``fiscal_lag_days``)."""
     if strategy == "multibagger":
         return screen_multibaggers(
             catalog_dir=catalog_dir,
@@ -36,6 +37,7 @@ def run_screener(
             train_years=train_years,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
             top=top,
         )
     if strategy in ("graham", "intelligent_investor"):
@@ -46,6 +48,7 @@ def run_screener(
             mode=graham_mode,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
             top=top,
         )
     if strategy in ("net_net", "ncav"):
@@ -55,6 +58,7 @@ def run_screener(
             train_years=train_years,
             max_stale_days=max_stale_days,
             allow_missing=allow_missing,
+            fiscal_lag_days=fiscal_lag_days,
             top=top,
         )
     return screen_value_and_dividend(
@@ -64,6 +68,7 @@ def run_screener(
         mode=strategy,
         max_stale_days=max_stale_days,
         allow_missing=allow_missing,
+        fiscal_lag_days=fiscal_lag_days,
         top=top,
     )
 

@@ -15,10 +15,11 @@ Pitfalls::
       debt/equity 1.2, the mb_score weights) was chosen knowing what past winners looked like
       (see docs/multibagger_screening_research.md). Fix the rules first and test them on dates they
       were not fitted on; a list of known winners reverse-engineered into rules proves nothing.
-    - Fundamentals are keyed on period end, not publication: ROCE and debt/equity come from the
-      latest FY row with fiscal_date <= --asof. The fundamentals tables have no filing or
-      announcement date column and this screener has no --fiscal-lag-days option, so a March
-      year-end is usable from 31 March although results appear weeks later.
+    - Fundamentals are keyed on period end plus a flat lag, not publication: ROCE and debt/equity
+      come from the latest FY row whose period end is at least --fiscal-lag-days (default 90) before --asof.
+      That is a proxy for the disclosure delay (SEBI allows about 60 days after a year end), not
+      a filing date: the tables hold none, so a late filer or a later restatement can still leak
+      numbers the market did not yet have.
     - Missing fundamentals fail the leverage gate: NULL debt/equity (or no fundamentals row)
       excludes the symbol unless --allow-missing is passed. ROCE is never a filter, it only
       feeds the score, and a missing ROCE now adds 0 points (it used to add 10, as if ROCE were
@@ -59,6 +60,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
     max_debt_equity: float = 1.2
     max_stale_days: int = 10
     allow_missing: bool = False
+    fiscal_lag_days: int = 90
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -102,6 +104,15 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             ),
         )
         parser.add_argument(
+            "--fiscal-lag-days",
+            type=int,
+            default=self.fiscal_lag_days,
+            help=(
+                "Use fundamentals whose fiscal period ended at least N days before --asof "
+                "(default: 90; an approximation of the disclosure lag, not a filing date)"
+            ),
+        )
+        parser.add_argument(
             "--allow-missing",
             action=argparse.BooleanOptionalAction,
             default=self.allow_missing,
@@ -125,6 +136,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             max_debt_to_equity=self.max_debt_equity,
             max_stale_days=self.max_stale_days,
             allow_missing=self.allow_missing,
+            fiscal_lag_days=self.fiscal_lag_days,
             top=self.top,
         )
 

@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
+from honba_examples.screening.common import (
+    DEFAULT_FISCAL_LAG_DAYS,
+    DEFAULT_MAX_STALE_DAYS,
+    fiscal_cutoff,
+    stale_price_sql,
+)
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -65,7 +70,7 @@ def screen_intelligent_investor(
     min_current_ratio: float = 1.2,
     min_div_yield: float = 0.0,
     require_positive_fcf: bool = False,
-    fiscal_lag_days: int = 0,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
     top: int | None = None,
@@ -84,6 +89,10 @@ def screen_intelligent_investor(
       D/E <= 0.6, positive dividend).
     - ``enterprising``: Relaxed multiples (P/E <= 20, P/B <= 2, D/E <= 1.0) allowing turnaround
       opportunities with large margin of safety.
+
+    Fundamentals come from the latest FY period ending at least ``fiscal_lag_days`` (default 90,
+    a lag proxy, not a filing date) before ``asof_date``; ratios and statements are read from the
+    SAME fiscal date, never mixed across years.
 
     ``max_pe`` / ``max_pb`` / ``max_graham_product`` / ``max_debt_equity`` default to ``None``,
     meaning "use the mode's value" (see :func:`graham_thresholds`); an explicit number overrides
@@ -105,7 +114,7 @@ def screen_intelligent_investor(
 
     train_start = (asof_date - dt.timedelta(days=int(train_years * 365.25))).isoformat()
     asof_str = asof_date.isoformat()
-    cutoff_str = (asof_date - dt.timedelta(days=max(0, fiscal_lag_days))).isoformat()
+    cutoff_str = fiscal_cutoff(asof_date, fiscal_lag_days)
 
     con = duckdb.connect()
     con.execute(f"ATTACH '{db_path}' AS fund (READ_ONLY)")
@@ -188,7 +197,7 @@ def screen_intelligent_investor(
         FROM bars
     ),
     ratios AS (
-        SELECT symbol, roce_pct, debt_to_equity, operating_margin_pct,
+        SELECT symbol, fiscal_date, roce_pct, debt_to_equity, operating_margin_pct,
                eps, free_cash_flow, stockholders_equity, net_income
         FROM fund.financial_ratios
         WHERE fiscal_date <= '{cutoff_str}'
@@ -208,9 +217,9 @@ def screen_intelligent_investor(
         GROUP BY symbol, fiscal_date
     ),
     stmt_latest AS (
-        SELECT symbol, current_assets, current_liabilities, div_cfo, div_common, shares
-        FROM stmt
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
+        SELECT s.symbol, s.current_assets, s.current_liabilities, s.div_cfo, s.div_common, s.shares
+        FROM stmt s
+        JOIN ratios r ON s.symbol = r.symbol AND s.fiscal_date = r.fiscal_date
     )
     SELECT 
         p.symbol,
@@ -285,7 +294,7 @@ def screen_net_net(
     require_positive_eps: bool = False,
     max_debt_equity: float | None = 1.0,
     min_current_ratio: float = 1.0,
-    fiscal_lag_days: int = 0,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
     top: int | None = None,
@@ -321,7 +330,7 @@ def screen_net_net(
 
     train_start = (asof_date - dt.timedelta(days=int(train_years * 365.25))).isoformat()
     asof_str = asof_date.isoformat()
-    cutoff_str = (asof_date - dt.timedelta(days=max(0, fiscal_lag_days))).isoformat()
+    cutoff_str = fiscal_cutoff(asof_date, fiscal_lag_days)
 
     con = duckdb.connect()
     con.execute(f"ATTACH '{db_path}' AS fund (READ_ONLY)")
@@ -384,12 +393,14 @@ def screen_net_net(
         FROM bars
     ),
     ratios AS (
-        SELECT symbol, roce_pct, debt_to_equity, operating_margin_pct,
+        SELECT symbol, fiscal_date, roce_pct, debt_to_equity, operating_margin_pct,
                eps, free_cash_flow, stockholders_equity, total_debt, operating_cash_flow
         FROM fund.financial_ratios
         WHERE fiscal_date <= '{cutoff_str}'
           AND (period_type = 'FY' OR period_type IS NULL)
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY symbol, fiscal_date ORDER BY period_type NULLS LAST
+        ) = 1
     ),
     stmt AS (
         SELECT symbol, fiscal_date,
@@ -405,7 +416,7 @@ def screen_net_net(
         GROUP BY symbol, fiscal_date
     ),
     stmt_latest AS (
-        SELECT symbol, current_assets, total_liabilities, current_liabilities, 
+        SELECT symbol, fiscal_date, current_assets, total_liabilities, current_liabilities,
                non_current_liabilities, shares, cash
         FROM stmt
         QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
@@ -435,7 +446,7 @@ def screen_net_net(
     FROM prices p
     LEFT JOIN fund.companies c ON p.symbol = c.symbol
     JOIN stmt_latest s ON p.symbol = s.symbol
-    LEFT JOIN ratios r ON p.symbol = r.symbol
+    LEFT JOIN ratios r ON p.symbol = r.symbol AND r.fiscal_date = s.fiscal_date
     WHERE p.rn = 1 AND p.bar_count >= 100
       {stale_price_sql(asof_date, max_stale_days, "p.bar_date")}
       AND {filter_sql}

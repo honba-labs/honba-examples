@@ -196,3 +196,16 @@ def test_graham_cli_passes_only_explicit_thresholds(graham_script, monkeypatch, 
     ex.screen(Path("."), _ASOF)
     assert seen["max_pe"] == 25.0 and seen["max_pb"] == 0.0
     assert "P/E <= 25" in capsys.readouterr().err
+
+
+def test_all_screener_scripts_default_to_ninety_day_fiscal_lag(
+    multibagger_script, value_script, dividend_script, graham_script, net_net_script
+):
+    for cls in (
+        multibagger_script.MultibaggerScreenerExample,
+        value_script.Value52wLowScreenerExample,
+        dividend_script.DividendYieldScreenerExample,
+        graham_script.IntelligentInvestorScreenerExample,
+        net_net_script.NetNetScreenerExample,
+    ):
+        assert cls.fiscal_lag_days == 90, cls.__name__

@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
+from honba_examples.screening.common import (
+    DEFAULT_FISCAL_LAG_DAYS,
+    DEFAULT_MAX_STALE_DAYS,
+    fiscal_cutoff,
+    stale_price_sql,
+)
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -21,6 +26,7 @@ def screen_multibaggers(
     max_return_1y: float | None = None,
     max_pct_from_high: float = 15.0,
     max_debt_to_equity: float = 1.5,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
     top: int | None = None,
@@ -32,7 +38,9 @@ def screen_multibaggers(
     2. Consolidation base: Price within 15% of 52-week high.
     3. Momentum acceleration: Positive 3-month momentum (> 0%).
     4. Volume accumulation: Recent 20-day volume expansion over 200-day baseline.
-    5. Fundamental discipline: ROCE capital efficiency and debt coverage.
+    5. Fundamental discipline: ROCE capital efficiency and debt coverage, from the latest FY row
+       whose period end is at least ``fiscal_lag_days`` before ``asof_date`` (a lag proxy, not a
+       filing date: the tables have none).
 
     A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     is skipped (delisted / suspended); ``None`` or ``0`` disables the check. A missing
@@ -45,6 +53,7 @@ def screen_multibaggers(
     db_path = find_duckdb_path()
     train_start = (asof_date - dt.timedelta(days=int(train_years * 365.25))).isoformat()
     asof_str = asof_date.isoformat()
+    cutoff_str = fiscal_cutoff(asof_date, fiscal_lag_days)
 
     con = duckdb.connect()
     if db_path:
@@ -56,7 +65,7 @@ def screen_multibaggers(
         LEFT JOIN (
             SELECT symbol, roce_pct, debt_to_equity
             FROM fund.financial_ratios
-            WHERE fiscal_date <= '{asof_str}'
+            WHERE fiscal_date <= '{cutoff_str}'
               AND (period_type = 'FY' OR period_type IS NULL)
             QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
         ) r ON m.symbol = r.symbol

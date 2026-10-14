@@ -35,7 +35,8 @@ Pitfalls::
       --max-p-ncav 0 restores that rank-only mode, which is not a net-net screen.
     - Stale balance sheet: the latest annual statement with fiscal_date <= --asof is used with no
       filing date in the tables, so it is up to a year old plus the reporting lag, and
-      --fiscal-lag-days (default 0) is only a flat-day proxy. Shares are diluted average shares
+      --fiscal-lag-days (default 90) is only a flat-day proxy. Ratios
+      (debt/equity, EPS) are read from the balance sheet's own fiscal date. Shares are diluted average shares
       for the year, not the share count today.
     - Liquidity and survivorship: nothing here tests turnover or volume, and net-nets are
       typically illiquid small caps where the open or close print may not be tradeable in size.
@@ -70,7 +71,7 @@ class NetNetScreenerExample(ScreenerCLIExample):
     require_positive_eps: bool = False
     max_debt_equity: float = 1.0
     min_current_ratio: float = 1.0
-    fiscal_lag_days: int = 0
+    fiscal_lag_days: int = 90
     max_stale_days: int = 10
     allow_missing: bool = False
     top: int = 10
@@ -122,7 +123,10 @@ class NetNetScreenerExample(ScreenerCLIExample):
             "--fiscal-lag-days",
             type=int,
             default=self.fiscal_lag_days,
-            help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
+            help=(
+                "Use fundamentals whose fiscal period ended at least N days before --asof "
+                "(default: 90; an approximation of the disclosure lag, not a filing date)"
+            ),
         )
         parser.add_argument(
             "--max-stale-days",

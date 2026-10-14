@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
+from honba_examples.screening.common import DEFAULT_FISCAL_LAG_DAYS, DEFAULT_MAX_STALE_DAYS
 
 __all__ = ["add_chain_args", "add_nl_screener_args"]
 
@@ -84,6 +84,15 @@ def add_chain_args(
         help=(
             "Let symbols with missing fundamentals (NULL or no row) pass the debt/ROCE/current-"
             "ratio gates instead of failing them (default: off)"
+        ),
+    )
+    parser.add_argument(
+        "--fiscal-lag-days",
+        type=int,
+        default=DEFAULT_FISCAL_LAG_DAYS,
+        help=(
+            "Use fundamentals whose fiscal period ended at least N days before --asof "
+            "(default: 90; an approximation of the disclosure lag, not a filing date)"
         ),
     )
     parser.add_argument(

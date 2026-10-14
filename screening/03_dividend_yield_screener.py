@@ -15,8 +15,8 @@ Pitfalls::
       FY cash-flow line (Cash Dividends Paid, else Common Stock Dividend Paid) divided by diluted
       average shares and the as-of close. A one-off special dividend inflates it, and a price
       collapse inflates it too, so a high yield at a 52-week low is often a coming cut, not a gift.
-    - Period end, not publication date: fundamentals use fiscal_date <= --asof with no filing date
-      in the tables; --fiscal-lag-days (default 0) is a flat-day proxy. NULL ROCE and NULL
+    - Period end, not publication date: fundamentals use fiscal_date <= --asof minus
+      --fiscal-lag-days (default 90), a flat-day proxy: the tables hold no filing date. NULL ROCE and NULL
       debt/equity (or no fundamentals row) fail their gates unless --allow-missing is passed,
       and a missing dividend line counts as 0 and fails the yield test.
     - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
@@ -56,7 +56,7 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
     max_pb: float = 0.0
     max_debt_equity: float = 1.0
     require_positive_fcf: bool = True
-    fiscal_lag_days: int = 0
+    fiscal_lag_days: int = 90
     max_stale_days: int = 10
     allow_missing: bool = False
     top: int = 10
@@ -114,7 +114,10 @@ class DividendYieldScreenerExample(ScreenerCLIExample):
             "--fiscal-lag-days",
             type=int,
             default=self.fiscal_lag_days,
-            help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
+            help=(
+                "Use fundamentals whose fiscal period ended at least N days before --asof "
+                "(default: 90; an approximation of the disclosure lag, not a filing date)"
+            ),
         )
         parser.add_argument(
             "--max-stale-days",

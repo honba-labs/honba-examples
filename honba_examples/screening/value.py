@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
+from honba_examples.screening.common import (
+    DEFAULT_FISCAL_LAG_DAYS,
+    DEFAULT_MAX_STALE_DAYS,
+    fiscal_cutoff,
+    stale_price_sql,
+)
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -25,16 +30,19 @@ def screen_value_and_dividend(
     max_pb: float | None = None,
     max_debt_equity: float = 1.5,
     require_positive_fcf: bool = False,
-    fiscal_lag_days: int = 0,
+    fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen contrarian value / high-dividend candidates near the 52-week low.
 
-    Point-in-time (zero lookahead): prices come from the 1D Parquet catalog up to ``asof_date``;
+    Point-in-time (approximately): prices come from the 1D Parquet catalog up to ``asof_date``;
     fundamentals come from ``fundamentals.duckdb`` restricted to fiscal periods ending on or before
-    ``asof_date`` (optionally shifted back by ``fiscal_lag_days`` to model the reporting lag).
+    ``asof_date`` shifted back by ``fiscal_lag_days`` (default 90, a proxy for the reporting lag:
+    the tables hold no filing date, so this is an approximation, not a guarantee). Ratios and
+    statements share ONE fiscal date per symbol; a statement year without a matching ratios row
+    is ignored.
     Valuation is derived, never read from a live snapshot:
 
     * ``P/E`` = as-of close / latest reported EPS (only when EPS > 0).
@@ -53,7 +61,7 @@ def screen_value_and_dividend(
     use_fund = db_path is not None
     train_start = (asof_date - dt.timedelta(days=int(train_years * 365.25))).isoformat()
     asof_str = asof_date.isoformat()
-    cutoff_str = (asof_date - dt.timedelta(days=max(0, fiscal_lag_days))).isoformat()
+    cutoff_str = fiscal_cutoff(asof_date, fiscal_lag_days)
 
     con = duckdb.connect()
     if use_fund:
@@ -81,7 +89,7 @@ def screen_value_and_dividend(
 
     fund_ctes = (
         f"""
-    , ratios AS (\n        SELECT symbol, roce_pct, debt_to_equity, operating_margin_pct,
+    , ratios AS (\n        SELECT symbol, fiscal_date, roce_pct, debt_to_equity, operating_margin_pct,
                eps, free_cash_flow, stockholders_equity
         FROM fund.financial_ratios
         WHERE fiscal_date <= '{cutoff_str}'
@@ -99,9 +107,9 @@ def screen_value_and_dividend(
         GROUP BY symbol, fiscal_date
     ),
     stmt_latest AS (
-        SELECT symbol, div_cfo, div_common, shares
-        FROM stmt
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY fiscal_date DESC) = 1
+        SELECT s.symbol, s.div_cfo, s.div_common, s.shares
+        FROM stmt s
+        JOIN ratios r ON s.symbol = r.symbol AND s.fiscal_date = r.fiscal_date
     )
     """
         if use_fund
