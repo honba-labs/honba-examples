@@ -2,10 +2,10 @@
 
 Simulates a Systematic Investment Plan: invest a fixed amount on a fixed calendar
 date each month, buy units at that day's NAV (falling back to the next published NAV,
-and skipping a SIP with none), and track units, invested amount, current value and
-return. Teaches the units-at-NAV accounting behind SIP returns; the XIRR helper lives
-in `honba_examples.metrics`. No `Strategy` subclass — runs are offline and
-deterministic on recorded NAV fixtures.
+and skipping a SIP with none within a week), and track units, invested amount, current
+value and return. Teaches the units-at-NAV accounting behind SIP returns; the XIRR
+helper lives in `honba_examples.metrics`. No `Strategy` subclass — runs are offline
+and deterministic on recorded NAV fixtures.
 
 Run::
 
@@ -26,6 +26,9 @@ from honba_examples.amfi import AmfiNavLoader
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 
 __all__ = ["main", "run"]
+
+MAX_FILL_DELAY_DAYS = 7
+"""Longest wait for the next NAV (weekend plus holidays); beyond it the instalment is skipped."""
 
 
 def _sip_dates(start: dt.date, end: dt.date, day_of_month: int) -> list[dt.date]:
@@ -70,9 +73,10 @@ def run(
 
     for sip_date in sip_dates:
         # An order placed on a non-publication day is processed at the NEXT NAV; the
-        # previous day's NAV is already history, and a SIP with no later NAV cannot fill.
+        # previous day's NAV is already history. A SIP with no NAV within a week (before the scheme
+        # existed, a data gap, past the last NAV) is skipped, not filled at a faraway price.
         effective_date = next((d for d in publication_dates if d >= sip_date), None)
-        if effective_date is None:
+        if effective_date is None or (effective_date - sip_date).days > MAX_FILL_DELAY_DAYS:
             skipped.append(sip_date.isoformat())
             continue
         nav = nav_by_date[effective_date]

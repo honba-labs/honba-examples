@@ -80,3 +80,26 @@ def test_sip_with_no_later_nav_is_skipped_not_filled_at_a_stale_price(example, t
     assert out["legs"] == []
     assert out["summary"]["sip_count"] == 0
     assert out["skipped_sip_dates"] == ["2025-06-07"]
+
+
+def test_instalments_before_the_first_nav_are_not_bought_at_the_first_nav(
+    example, tmp_path
+) -> None:
+    """A fund whose NAVs start in June cannot take the January-May instalments."""
+    data = _write(tmp_path, NAVS)
+    out = example.run(
+        scheme=CODE,
+        monthly=1200.0,
+        start=dt.date(2025, 1, 1),
+        end=dt.date(2025, 6, 10),
+        sip_day=7,
+        data_dir=data,
+    )
+    assert [leg["sip_date"] for leg in out["legs"]] == ["2025-06-07"]
+    assert out["skipped_sip_dates"] == [
+        "2025-01-07",
+        "2025-02-07",
+        "2025-03-07",
+        "2025-04-07",
+        "2025-05-07",
+    ]
