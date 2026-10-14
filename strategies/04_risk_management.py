@@ -12,21 +12,20 @@ Run::
 
 Pitfalls::
 
-    - The equity estimate is wrong: _estimate_equity returns 100000 plus the market value of
-      positions and never subtracts the cash spent buying them, so equity is inflated by the cost
-      basis. Drawdown, daily-loss and position-weight checks run on a number that does not track the
-      account.
-    - A cap that also blocks exits: the position_pct >= max_position_pct check returns before the
-      sell branch, so once a winner grows past the cap the strategy ignores its own exit signal. A
-      guard against adding should not stop selling.
+    - Equity is an estimate, not the account: it is the constant 100000 plus fill cash flows plus
+      the position marked at the last close. Costs, margin and other instruments are not in it, so
+      drawdown and weight checks drift from the real account.
+    - Exits are never blocked here: the size cap only stops new entries. A guard against adding
+      should not stop selling, so keep the exit path ahead of every cap check.
     - One bar is one day: _current_day changes with every bar timestamp, so the daily loss limit is
-      a single close-to-close move on daily data. Intraday gaps and the price you actually exit at
+      a close-to-close move versus the previous bar's equity. Intraday gaps and the price you actually exit at
       are not seen; the flatten order fills at the same close that triggered it.
     - Guards that never fire: the synthetic ramp never draws down, so by default there is one buy of
       seven shares and no guard triggers. Test risk rules on falling and gappy series, otherwise
       they are untested code.
-    - Starting equity and peak are constants (100000), not the account. Limits expressed as
-      percentages of a made-up base give a false sense of safety.
+    - The drawdown guard latches: after it flattens, equity stays below the old peak, so the
+      strategy flattens on every later bar and never trades again. Real kill switches need a reset
+      rule and a human in the loop.
 """
 
 from __future__ import annotations
