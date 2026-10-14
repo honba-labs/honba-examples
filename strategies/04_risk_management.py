@@ -38,6 +38,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba.domain.order import OrderSide
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
@@ -71,6 +72,12 @@ class RiskManagedSma(Strategy):
         self._peak_equity = 100_000.0
         self._day_start_equity = 100_000.0
         self._current_day = None
+        self._last_equity: float | None = None
+        self._cash = 100_000.0
+
+    def on_fill(self, fill) -> None:
+        sign = -1.0 if fill.side is OrderSide.BUY else 1.0
+        self._cash += sign * fill.quantity * fill.price
 
     def on_bar(self, bar) -> None:
         close = bar.close
@@ -84,7 +91,9 @@ class RiskManagedSma(Strategy):
         equity = self._estimate_equity(close)
         if self._current_day != bar.ts:
             self._current_day = bar.ts
-            self._day_start_equity = equity
+            # previous close-to-close baseline: a bar's own equity would make the loss always 0
+            self._day_start_equity = self._last_equity if self._last_equity is not None else equity
+        self._last_equity = equity
         self._peak_equity = max(self._peak_equity, equity)
 
         # Risk checks
@@ -99,23 +108,21 @@ class RiskManagedSma(Strategy):
         if daily_loss >= self.max_daily_loss_pct:
             self._flatten_all()
             return
-        if position_pct >= self.max_position_pct:
-            return  # don't add to position
 
-        # Normal signals
-        if fast_val > slow_val and position <= 0:
+        # Exits are never blocked by the size cap; the cap only stops new entries
+        if fast_val < slow_val and position > 0:
+            self.sell(bar.instrument_id, position)
+        elif fast_val > slow_val and position <= 0 and position_pct < self.max_position_pct:
             qty = self._size(close, equity)
             if qty > 0:
                 self.buy(bar.instrument_id, qty)
-        elif fast_val < slow_val and position > 0:
-            self.sell(bar.instrument_id, position)
 
     def _estimate_equity(self, price: float) -> float:
         """Rough equity estimate from cash + position value."""
-        cash = 100_000.0  # Simplified
+        equity = self._cash  # starting cash, less what buys cost, plus what sells returned
         for qty in self.ctx.positions().values():
-            cash += qty * price
-        return cash
+            equity += qty * price
+        return equity
 
     def _size(self, price: float, equity: float) -> int:
         max_qty = int(equity * self.max_position_pct / price)
