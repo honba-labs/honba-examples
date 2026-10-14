@@ -14,7 +14,7 @@ dependencies = ["honba"]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
-mutual-funds = ["honba-data"]
+mutual-funds = ["honba-data", "scipy"]
 
 [tool.setuptools.packages.find]
 where = ["."]
