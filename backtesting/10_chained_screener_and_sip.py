@@ -143,6 +143,7 @@ class ChainedScreenerSipExample(HonbaExample):
     sip_mode: str = "portfolio"
     allocation: str = "52w-ratio"
     top: int = 5
+    max_stale_days: int = 10
     screen_only: bool = False
     symbols: str | None = None
     out: Path | None = None
@@ -226,6 +227,7 @@ class ChainedScreenerSipExample(HonbaExample):
                 self.train_years,
                 self.top,
                 self.graham_mode,
+                max_stale_days=self.max_stale_days,
             )
             target_symbols = [c["symbol"] for c in candidates]
             screened = True

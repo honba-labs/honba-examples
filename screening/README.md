@@ -26,6 +26,7 @@ All screeners share these options:
 | `--asof YYYY-MM-DD` | Evaluation date (defaults to latest available market date) |
 | `--format FORMAT` | Output: `table` (rich), `json` (machine), `symbols` (space-separated), `plain` (newline-separated), `csv` |
 | `--data-dir PATH` | Override catalog directory |
+| `--max-stale-days N` | Skip symbols whose last bar is more than N calendar days before `--asof` (default: 10; 0 disables). Guards against delisted/suspended names qualifying on an old close |
 
 Value/dividend/Graham screeners share the fundamental options:
 
@@ -65,7 +66,7 @@ Every numbered script in this directory has a `Pitfalls::` section in its module
 are filtered by fiscal period end and the tables hold no filing or announcement date, so "zero
 lookahead" below means period end only (`--fiscal-lag-days` is a flat-day proxy, default 0);
 symbols missing a ratio often pass its filter; only symbols present in the catalog are scanned, so
-delisted names never appear and a stale last bar is not rejected; thresholds fitted by looking at
+delisted names never appear (a last bar more than `--max-stale-days`, default 10, before `--asof` is rejected); thresholds fitted by looking at
 past winners (a "multibagger" is defined by its future return) are hindsight; top-N lists from a
 handful of names are unstable; and the screen reads the `--asof` close while the chained backtest
 buys at that day's open. For the general treatment see

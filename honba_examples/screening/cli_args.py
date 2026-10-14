@@ -11,6 +11,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
+
 __all__ = ["add_chain_args", "add_nl_screener_args"]
 
 
@@ -65,6 +67,15 @@ def add_chain_args(
         type=int,
         default=train_years,
         help="Number of in-sample training years prior to asof date (default: 3)",
+    )
+    parser.add_argument(
+        "--max-stale-days",
+        type=int,
+        default=DEFAULT_MAX_STALE_DAYS,
+        help=(
+            "Skip screened symbols whose last bar is more than N calendar days before --asof "
+            "(delisted/suspended; default: 10, 0 disables)"
+        ),
     )
     parser.add_argument(
         "--sip-amount",

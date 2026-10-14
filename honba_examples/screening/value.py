@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ def screen_value_and_dividend(
     max_debt_equity: float = 1.5,
     require_positive_fcf: bool = False,
     fiscal_lag_days: int = 0,
+    max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen contrarian value / high-dividend candidates near the 52-week low.
@@ -37,6 +39,9 @@ def screen_value_and_dividend(
     * ``P/E`` = as-of close / latest reported EPS (only when EPS > 0).
     * ``P/B`` = as-of close / book value per share (equity / diluted average shares).
     * ``dividend yield`` = trailing annual cash dividend per share / as-of close.
+
+    A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
+    is skipped (delisted / suspended); ``None`` or ``0`` disables the check.
     """
     import duckdb
 
@@ -172,6 +177,7 @@ def screen_value_and_dividend(
     LEFT JOIN recent_touch t ON p.symbol = t.symbol
     {fund_join}
     WHERE p.rn = 1 AND p.bar_count >= 252
+      {stale_price_sql(asof_date, max_stale_days, "p.bar_date")}
       {filter_sql}
     ORDER BY {order_sql}
     {f"LIMIT {top}" if top and top > 0 else ""}

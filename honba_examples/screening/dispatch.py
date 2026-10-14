@@ -10,6 +10,7 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
 from honba_examples.screening.graham import screen_intelligent_investor, screen_net_net
 from honba_examples.screening.momentum import screen_multibaggers
 from honba_examples.screening.value import screen_value_and_dividend
@@ -24,11 +25,16 @@ def run_screener(
     train_years: int,
     top: int,
     graham_mode: str = "defensive",
+    max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
 ) -> list[dict[str, Any]]:
     """Run the screener named by ``strategy`` as of ``asof_date`` (zero lookahead)."""
     if strategy == "multibagger":
         return screen_multibaggers(
-            catalog_dir=catalog_dir, asof_date=asof_date, train_years=train_years, top=top
+            catalog_dir=catalog_dir,
+            asof_date=asof_date,
+            train_years=train_years,
+            max_stale_days=max_stale_days,
+            top=top,
         )
     if strategy in ("graham", "intelligent_investor"):
         return screen_intelligent_investor(
@@ -36,17 +42,23 @@ def run_screener(
             asof_date=asof_date,
             train_years=train_years,
             mode=graham_mode,
+            max_stale_days=max_stale_days,
             top=top,
         )
     if strategy in ("net_net", "ncav"):
         return screen_net_net(
-            catalog_dir=catalog_dir, asof_date=asof_date, train_years=train_years, top=top
+            catalog_dir=catalog_dir,
+            asof_date=asof_date,
+            train_years=train_years,
+            max_stale_days=max_stale_days,
+            top=top,
         )
     return screen_value_and_dividend(
         catalog_dir=catalog_dir,
         asof_date=asof_date,
         train_years=train_years,
         mode=strategy,
+        max_stale_days=max_stale_days,
         top=top,
     )
 

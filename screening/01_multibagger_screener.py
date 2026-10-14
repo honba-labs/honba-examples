@@ -22,9 +22,10 @@ Pitfalls::
     - Missing fundamentals pass: NULL debt/equity clears the leverage filter, ROCE is never a
       filter (it only feeds the score, and a missing ROCE scores the same 5.0 points as ROCE 10),
       and with no fundamentals.duckdb the fundamentals test is skipped for every symbol.
-    - Survivorship and stale prices: only symbols that have bars in the catalog are scanned, and
-      each symbol's last bar at or before --asof is used with no check that it is recent, so a
-      symbol that stopped trading months earlier can still qualify on its last close.
+    - Survivorship: only symbols that have bars in the catalog are scanned, so companies that
+      delisted are absent from a past-dated screen. A symbol whose last bar is more than
+      --max-stale-days (default 10 calendar days) before --asof is skipped, but a name that
+      still printed a bar inside that window can qualify on a thin or suspended-looking tape.
     - Unstable top N and one-session lookahead: mb_score is a capped, hand-weighted sum and --top
       defaults to 10, so small changes to --asof or a threshold reshuffle the list. The screen
       reads --asof's close; piped into backtesting/10 the buy is at that day's open.
@@ -54,6 +55,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
     max_return_1y: float = 175.0
     max_pct_from_high: float = 15.0
     max_debt_equity: float = 1.2
+    max_stale_days: int = 10
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -88,6 +90,15 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             help="Maximum debt-to-equity ratio (default: 1.2)",
         )
         parser.add_argument(
+            "--max-stale-days",
+            type=int,
+            default=self.max_stale_days,
+            help=(
+                "Skip symbols whose last bar is more than N calendar days before --asof "
+                "(delisted/suspended; default: 10, 0 disables)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -100,6 +111,7 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             max_return_1y=self.max_return_1y,
             max_pct_from_high=self.max_pct_from_high,
             max_debt_to_equity=self.max_debt_equity,
+            max_stale_days=self.max_stale_days,
             top=self.top,
         )
 

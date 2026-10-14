@@ -27,6 +27,7 @@ from honba_examples.screening import (
     screen_multibaggers,
     screen_value_and_dividend,
 )
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,15 @@ def _screen_params(**extra: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "train_years": param(
             "int", "In-sample price history window in years.", default=3, min=1, max=20, step=1
         ),
+        "max_stale_days": param(
+            "int",
+            "Skip symbols whose last bar is more than this many calendar days before the "
+            "evaluation date (delisted/suspended); 0 disables.",
+            default=DEFAULT_MAX_STALE_DAYS,
+            min=0,
+            max=3650,
+            step=1,
+        ),
         "top": param("int", "Keep only the best N candidates.", optional=True, min=1, step=1),
     }
 
@@ -117,7 +127,9 @@ class ScreenerStep(Step):
         top: int | None = None,
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
+        max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     ) -> None:
+        self.max_stale_days = max_stale_days
         self.asof = asof
         self.train_years = train_years
         self.top = top
@@ -178,9 +190,15 @@ class MultibaggerScreener(ScreenerStep):
         top: int | None = None,
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
+        max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     ) -> None:
         super().__init__(
-            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+            asof=asof,
+            train_years=train_years,
+            top=top,
+            catalog_dir=catalog_dir,
+            report=report,
+            max_stale_days=max_stale_days,
         )
         self.min_return_1y = min_return_1y
         self.max_return_1y = max_return_1y
@@ -196,6 +214,7 @@ class MultibaggerScreener(ScreenerStep):
             max_return_1y=self.max_return_1y,
             max_pct_from_high=self.max_pct_from_high,
             max_debt_to_equity=self.max_debt_to_equity,
+            max_stale_days=self.max_stale_days,
             top=self.top,
         )
 
@@ -270,9 +289,15 @@ class ValueScreener(ScreenerStep):
         top: int | None = None,
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
+        max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     ) -> None:
         super().__init__(
-            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+            asof=asof,
+            train_years=train_years,
+            top=top,
+            catalog_dir=catalog_dir,
+            report=report,
+            max_stale_days=max_stale_days,
         )
         self.max_pct_from_52w_low = max_pct_from_52w_low
         self.min_roce = min_roce
@@ -293,6 +318,7 @@ class ValueScreener(ScreenerStep):
             max_pb=self.max_pb,
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
+            max_stale_days=self.max_stale_days,
             top=self.top,
         )
 
@@ -373,9 +399,15 @@ class DividendYieldScreener(ScreenerStep):
         top: int | None = None,
         catalog_dir: Path | str | None = None,
         report: Sequence[str] | None = None,
+        max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     ) -> None:
         super().__init__(
-            asof=asof, train_years=train_years, top=top, catalog_dir=catalog_dir, report=report
+            asof=asof,
+            train_years=train_years,
+            top=top,
+            catalog_dir=catalog_dir,
+            report=report,
+            max_stale_days=max_stale_days,
         )
         self.min_yield_pct = min_yield_pct
         self.max_pct_from_52w_low = max_pct_from_52w_low
@@ -394,6 +426,7 @@ class DividendYieldScreener(ScreenerStep):
             min_roce=self.min_roce,
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
+            max_stale_days=self.max_stale_days,
             top=self.top,
         )
 

@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ def screen_intelligent_investor(
     min_div_yield: float = 0.0,
     require_positive_fcf: bool = False,
     fiscal_lag_days: int = 0,
+    max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen value candidates based on Benjamin Graham's *The Intelligent Investor*.
@@ -40,6 +42,9 @@ def screen_intelligent_investor(
     Modes:
     - ``defensive``: Stricter Graham criteria (P/E * P/B <= 22.5, D/E <= 0.6, positive dividend).
     - ``enterprising``: Relaxed multiples allowing turnaround opportunities with large margin of safety.
+
+    Symbols whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
+    are skipped (delisted / suspended); ``None`` or ``0`` disables the check.
     """
     import duckdb
 
@@ -180,6 +185,7 @@ def screen_intelligent_investor(
     JOIN ratios r ON p.symbol = r.symbol
     JOIN stmt_latest s ON p.symbol = s.symbol
     WHERE p.rn = 1 AND p.bar_count >= 100
+      {stale_price_sql(asof_date, max_stale_days, "p.bar_date")}
       AND {filter_sql}
     ORDER BY margin_of_safety_pct DESC, graham_product ASC, pe_ratio ASC
     {f"LIMIT {top}" if top and top > 0 else ""}
@@ -227,6 +233,7 @@ def screen_net_net(
     max_debt_equity: float | None = 1.0,
     min_current_ratio: float = 1.0,
     fiscal_lag_days: int = 0,
+    max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen deep value Net-Net (Net Current Asset Value / NCAV) stocks based on Benjamin Graham.
@@ -243,6 +250,9 @@ def screen_net_net(
     Provides downside liquidation asset buffer:
     - Current Assets (cash, receivables, inventory) exceed ALL liabilities (short + long-term debt).
     - Fixed assets, real estate, brand, plant & machinery are acquired for free.
+
+    Symbols whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
+    are skipped (delisted / suspended); ``None`` or ``0`` disables the check.
     """
     import duckdb
 
@@ -368,6 +378,7 @@ def screen_net_net(
     JOIN stmt_latest s ON p.symbol = s.symbol
     LEFT JOIN ratios r ON p.symbol = r.symbol
     WHERE p.rn = 1 AND p.bar_count >= 100
+      {stale_price_sql(asof_date, max_stale_days, "p.bar_date")}
       AND {filter_sql}
     ORDER BY price_to_ncav ASC, ncav_margin_of_safety_pct DESC
     {f"LIMIT {top}" if top and top > 0 else ""}

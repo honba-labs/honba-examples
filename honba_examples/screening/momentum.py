@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from honba_examples.screening.common import DEFAULT_MAX_STALE_DAYS, stale_price_sql
 from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ def screen_multibaggers(
     max_return_1y: float | None = None,
     max_pct_from_high: float = 15.0,
     max_debt_to_equity: float = 1.5,
+    max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     top: int | None = None,
 ) -> list[dict[str, Any]]:
     """Screen prospective 'going-to-be' multibaggers strictly as of asof_date.
@@ -30,6 +32,9 @@ def screen_multibaggers(
     3. Momentum acceleration: Positive 3-month momentum (> 0%).
     4. Volume accumulation: Recent 20-day volume expansion over 200-day baseline.
     5. Fundamental discipline: ROCE capital efficiency and debt coverage.
+
+    A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
+    is skipped (delisted / suspended); ``None`` or ``0`` disables the check.
     """
     import duckdb
 
@@ -90,7 +95,7 @@ def screen_multibaggers(
     ),
     metrics AS (
         SELECT 
-            symbol, close, sma50, sma200, sma200_prior, high52, first_train_close,
+            symbol, bar_date, close, sma50, sma200, sma200_prior, high52, first_train_close,
             coalesce(close_1y, first_train_close) as close_1y,
             coalesce(close_3m, close) as close_3m,
             vol20, vol200, rn, bar_count
@@ -120,6 +125,7 @@ def screen_multibaggers(
     FROM metrics m
     {fund_join}
     WHERE m.rn = 1 AND m.bar_count >= 252
+      {stale_price_sql(asof_date, max_stale_days, "m.bar_date")}
       AND m.close >= m.sma50
       AND m.sma50 >= m.sma200
       AND m.sma200 >= m.sma200_prior

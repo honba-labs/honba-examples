@@ -58,6 +58,7 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
     max_debt_equity: float = 1.5
     require_positive_fcf: bool = False
     fiscal_lag_days: int = 0
+    max_stale_days: int = 10
     top: int = 10
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
@@ -116,6 +117,15 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             help="Reporting-lag buffer in days to avoid lookahead (default: 0)",
         )
         parser.add_argument(
+            "--max-stale-days",
+            type=int,
+            default=self.max_stale_days,
+            help=(
+                "Skip symbols whose last bar is more than N calendar days before --asof "
+                "(delisted/suspended; default: 10, 0 disables)"
+            ),
+        )
+        parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
@@ -133,6 +143,7 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             max_debt_equity=self.max_debt_equity,
             require_positive_fcf=self.require_positive_fcf,
             fiscal_lag_days=self.fiscal_lag_days,
+            max_stale_days=self.max_stale_days,
             top=self.top,
         )
 
