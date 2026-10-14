@@ -161,17 +161,17 @@ class AmfiNavLoader:
     def load(
         self, scheme: str, start: dt.date | None = None, end: dt.date | None = None
     ) -> list[NavPoint]:
-        """Load NAV points for a single scheme."""
+        """NAV points for a single scheme from ``start`` to ``end``, both days inclusive."""
         from honba.screener.coverage import DateInterval
 
         inst = InstrumentId(symbol=scheme, exchange=EXCHANGE)
         start_d = start or dt.date(2000, 1, 1)
         end_d = end or dt.date(2099, 1, 1)
-        interval = DateInterval(start_d, end_d)
+        interval = DateInterval(start_d, end_d + dt.timedelta(days=1))  # store is half-open
         bars = self._store.read(inst, "1D", interval)
         return [
             NavPoint(
-                date=dt.datetime.fromtimestamp(b.ts // _NS_PER_DAY, tz=dt.timezone.utc).date(),
+                date=dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.timezone.utc).date(),
                 nav=b.close,
             )
             for b in bars
