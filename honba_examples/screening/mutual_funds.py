@@ -6,8 +6,6 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
-from honba_data.store.mutual_funds import DuckDbMutualFundsStore
-
 from honba_examples.screening.paths import find_duckdb_path, find_mutual_funds_db_path
 
 __all__ = ["screen_mutual_funds"]
@@ -46,6 +44,14 @@ def screen_mutual_funds(
     5. Portfolio Overlap Exclusion:
        - Ensure selected funds have low correlation/overlap with an existing holding (e.g. < 30% overlap).
     """
+    try:  # lazy: honba-data is an optional extra (``pip install honba-examples[mutual-funds]``)
+        from honba_data.store.mutual_funds import DuckDbMutualFundsStore
+    except ModuleNotFoundError as exc:  # pragma: no cover - exercised via test
+        raise ModuleNotFoundError(
+            "screen_mutual_funds needs the optional 'honba-data' package "
+            "(pip install 'honba-examples[mutual-funds]')"
+        ) from exc
+
     db_file = mf_db_path or find_mutual_funds_db_path()
     if db_file is None or not db_file.is_file():
         # Auto-initialize store and seed reference data if not found
