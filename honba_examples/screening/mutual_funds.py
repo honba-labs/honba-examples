@@ -63,7 +63,7 @@ def screen_mutual_funds(
     eq_db = equity_db_path or find_duckdb_path()
     asof = asof_date or dt.datetime.now(dt.timezone.utc).date()
 
-    schemes = store.get_schemes(category=category, plan=plan, option=option)
+    schemes: list[dict[str, Any]] = store.get_schemes(category=category, plan=plan, option=option)
 
     candidates: list[dict[str, Any]] = []
 
@@ -105,7 +105,7 @@ def screen_mutual_funds(
             continue
 
         # 2. Portfolio Lookthrough Cross-Referencing
-        lookthrough = store.get_portfolio_fundamentals(
+        lookthrough: dict[str, Any] = store.get_portfolio_fundamentals(
             scheme_code=code,
             asof_date=asof,
             equity_db_path=eq_db,
@@ -133,7 +133,9 @@ def screen_mutual_funds(
         overlap_pct = 0.0
         if max_overlap_with:
             ref_scheme, max_allowed = max_overlap_with
-            overlap_res = store.get_portfolio_overlap(code, ref_scheme, asof_date=asof)
+            overlap_res: dict[str, Any] = store.get_portfolio_overlap(
+                code, ref_scheme, asof_date=asof
+            )
             overlap_pct = overlap_res.get("overlap_pct", 0.0)
             if overlap_pct > max_allowed:
                 continue
