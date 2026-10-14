@@ -3,9 +3,14 @@
 Three sizing methods on the same SMA crossover:
 1. Fixed: same quantity every trade
 2. Volatility (ATR): risk = equity * risk_pct / (2 * ATR)
-3. Kelly fraction: f* = (bp - q) / b where p=win rate, b=avg win/loss
+3. Fractional Kelly: f* = p - (1 - p) / b with p the win rate and b the average win over the
+   average loss of the strategy's own last ``kelly_lookback`` round trips; the stake is
+   ``kelly_fraction * f*`` (default half) of equity, hard-capped at ``kelly_cap`` (25%). Until
+   ``kelly_min_trades`` round trips exist it falls back to ``fixed_qty``; with no positive edge
+   it stops entering.
 
-Uses ``honba.strategies.sizing`` helpers and synthetic bars.
+Runs on deterministic drifting sine-wave bars (``oscillating_bars``); every mode is capped by
+equity / price (no leverage).
 
 Run::
 
@@ -13,18 +18,16 @@ Run::
 
 Pitfalls::
 
-    - The strategy never places an order: the loop for fill in self.drain_intents(): pass at the end
-      of on_bar consumes the intents just emitted, so replay finds none. Every sizing mode prints
-      intents [] and fills []. A silent no-op looks like success, so assert a minimum trade count.
-    - Kelly is a stub: sizing='kelly' falls back to fixed_qty. The real formula needs a win rate and
-      payoff ratio estimated from past trades; from a few trades those estimates are noisy and full
-      Kelly overbets, so practitioners use a fraction of it.
+    - Kelly is only as good as its estimate: with the handful of round trips this demo has, win rate
+      and payoff ratio are noisy, so the code uses half Kelly, a 25% hard cap and a fixed-size
+      fallback until 3 trades exist. Once the estimated edge is not positive it stops entering, so
+      the statistics freeze and it never recovers; real use needs a longer history.
     - Judge sizers on risk, not final P&L: the same signals with a bigger size always make or lose
       more. Compare drawdown and risk-adjusted return, and remember sizing was computed from the
       signal bar's close and filled at it (fill_delay=0), so a gap changes the risk you really took.
-    - Volatility sizing on synthetic data explodes: the ramp has ATR 0.5, so int(equity x risk_pct /
-      (2 x ATR)) is 1000 shares, about 2.5 million INR against a hard-coded 100000 equity. Real
-      sizing needs a cap by capital and by liquidity.
+    - Equity is a constant (100000, the strategy's equity argument), not the live account, so sizes do not
+      shrink after losses or grow after gains. Volatility sizing is capped at equity / price here;
+      real sizing also needs a cap by liquidity (average daily volume).
 """
 
 from __future__ import annotations
