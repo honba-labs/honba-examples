@@ -1,10 +1,10 @@
 """mutual_funds/02_sip_backtest: SIP simulation with fixed-date monthly investment.
 
 Simulates a Systematic Investment Plan: invest a fixed amount on a fixed calendar
-date each month, buy units at that day's NAV (falling back to the nearest trading
-day), and track units, invested amount, current value and return. Teaches the
-units-at-NAV accounting behind SIP returns; the XIRR helper lives in
-`honba_examples.metrics`. No `Strategy` subclass — runs are offline and
+date each month, buy units at that day's NAV (falling back to the next published NAV,
+and skipping a SIP with none), and track units, invested amount, current value and
+return. Teaches the units-at-NAV accounting behind SIP returns; the XIRR helper lives
+in `honba_examples.metrics`. No `Strategy` subclass — runs are offline and
 deterministic on recorded NAV fixtures.
 
 Run::
@@ -51,11 +51,12 @@ def run(
     start: dt.date | None = None,
     end: dt.date | None = None,
     sip_day: int = 7,
+    data_dir: Path | None = None,
 ) -> dict[str, Any]:
     start = start or dt.date(2023, 1, 1)
     end = end or dt.date(2024, 12, 31)
 
-    loader = AmfiNavLoader()
+    loader = AmfiNavLoader(data_dir)
     nav_points = loader.load(scheme, start=start, end=end)
     nav_by_date = {p.date: p.nav for p in nav_points}
 
@@ -64,14 +65,17 @@ def run(
     total_units = 0.0
     total_invested = 0.0
 
+    skipped: list[str] = []
+    publication_dates = sorted(nav_by_date)
+
     for sip_date in sip_dates:
-        nav = nav_by_date.get(sip_date)
-        if nav is None:
-            nearest = min(nav_by_date, key=lambda d: abs((d - sip_date).days))
-            nav = nav_by_date[nearest]
-            effective_date = nearest
-        else:
-            effective_date = sip_date
+        # An order placed on a non-publication day is processed at the NEXT NAV; the
+        # previous day's NAV is already history, and a SIP with no later NAV cannot fill.
+        effective_date = next((d for d in publication_dates if d >= sip_date), None)
+        if effective_date is None:
+            skipped.append(sip_date.isoformat())
+            continue
+        nav = nav_by_date[effective_date]
 
         units = monthly / nav
         total_units += units
@@ -102,6 +106,7 @@ def run(
             "sip_day": sip_day,
         },
         "legs": legs,
+        "skipped_sip_dates": skipped,
         "summary": {
             "total_invested": total_invested,
             "total_units": total_units,
