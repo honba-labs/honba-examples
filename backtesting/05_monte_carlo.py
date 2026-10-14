@@ -29,11 +29,11 @@ Pitfalls::
 
 from __future__ import annotations
 
-import datetime as dt
 import random
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
@@ -43,10 +43,11 @@ from honba.strategies.testing import replay
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.metrics import curve_metrics
-from honba_examples.synthetic import bar as synth_bar
-from honba_examples.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import oscillating_bars
 
 __all__ = ["main", "run"]
+
+CAPITAL = 100_000.0
 
 
 class SmaMonteCarlo(Strategy):
@@ -70,130 +71,145 @@ class SmaMonteCarlo(Strategy):
         position = self.position(bar.instrument_id)
         if fast_val > slow_val and position <= 0:
             self.buy(bar.instrument_id, 1)
-        elif fast_val < slow_val and position >= 0 and position > 0:
+        elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
 
 
-def _equity_curve_from_fills(fills: list, capital: float) -> list[dict[str, Any]]:
-    """Reconstruct equity curve from a list of fills (simplified: no costs).
+class RoundTrip(NamedTuple):
+    """One closed long trade: entry, exit and the return on the entry price."""
 
-    If there's only one type of fill (e.g. all buys), add a closing fill at the
-    end so the equity curve has a meaningful path.
+    entry_price: float
+    exit_price: float
+    exit_ts: int
+
+    @property
+    def ret(self) -> float:
+        return self.exit_price / self.entry_price - 1.0
+
+
+def _round_trips(fills: list) -> list[RoundTrip]:
+    """Pair each buy with the next sell; a final unmatched buy (open position) is dropped."""
+    trips: list[RoundTrip] = []
+    entry: float | None = None
+    for f in fills:
+        if f.side.value == "buy":
+            entry = f.price
+        elif entry is not None:
+            trips.append(RoundTrip(entry, f.price, f.ts))
+            entry = None
+    return trips
+
+
+def _iso(ts_ns: int) -> str:
+    return datetime.fromtimestamp(ts_ns / 1e9, tz=timezone.utc).date().isoformat()
+
+
+def _bootstrap_curve(returns: list[float], capital: float, dates: list[str]) -> list[dict]:
+    """Equity after each trade when ``capital`` is fully invested and compounds ``returns``.
+
+    ``dates`` has one more entry than ``returns``: the start and the exit date of each slot.
     """
-    if not fills:
-        return []
-
-    # Ensure we have both buy and sell for a round trip
-    has_buy = any(f.side.value == "buy" for f in fills)
-    has_sell = any(f.side.value == "sell" for f in fills)
-
-    cash = capital
-    position = 0.0
-    curve = []
-
-    for fill in fills:
-        notional = fill.quantity * fill.price
-        if fill.side.value == "buy":
-            cash -= notional
-            position += fill.quantity
-        else:
-            cash += notional
-            position -= fill.quantity
-        equity = cash + position * fill.price
-        curve.append({"date": fill.ts, "value": equity, "cash": cash})
-
-    # If never sold, close at last fill's price
-    if has_buy and not has_sell and position > 0:
-        last = fills[-1]
-        notional = position * last.price
-        cash += notional
-        equity = cash
-        curve.append({"date": last.ts + 1, "value": equity, "cash": cash})
-
+    value = capital
+    curve = [{"date": dates[0], "value": value, "cash": value}]
+    for r, day in zip(returns, dates[1:], strict=True):
+        value *= 1.0 + r
+        curve.append({"date": day, "value": value, "cash": value})
     return curve
 
 
+def _summary(values: list[float]) -> dict[str, float]:
+    ordered = sorted(values)
+    n = len(ordered)
+    return {
+        "mean": sum(ordered) / n,
+        "p5": ordered[int(0.05 * n)],
+        "p95": ordered[min(n - 1, int(0.95 * n))],
+    }
+
+
 def run(
-    bars: int = 100,
+    bars: int = 400,
     fast: int = 10,
     slow: int = 30,
     paths: int = 200,
     seed: int = 42,
+    min_trades: int = 8,
 ) -> dict[str, Any]:
-    random.seed(seed)
+    rng = random.Random(seed)
 
-    start = dt.date(2026, 1, 1)
-    bars_list = [
-        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
-    ]
+    bars_list = oscillating_bars(
+        "RELIANCE", bars, amplitude=60.0, period=40, drift=3.0, noise=30.0, seed=7
+    )
 
     # Base backtest
-    strat = SmaMonteCarlo(fast=fast, slow=slow)
-    base = replay(strat, bars_list)
+    base = replay(SmaMonteCarlo(fast=fast, slow=slow), bars_list)
+    trips = _round_trips(base.fills)
+    if len(trips) < min_trades:
+        raise ValueError(
+            f"only {len(trips)} closed round-trip trades; a trade bootstrap needs at least "
+            f"{min_trades} (more bars, or a faster signal). Resampling fewer trades only "
+            "reports the sample back as false precision."
+        )
 
-    # Extract fill returns (simplified: each fill's PnL contribution)
-    base_fills = base.fills
-
-    # Monte Carlo: resample fills with replacement
-    final_equities = []
-    max_drawdowns = []
-    sharpes = []
-
+    # Monte Carlo: resample whole round-trip trades with replacement; each path compounds the
+    # drawn trade returns in drawn order on the slots of the base trade dates
+    returns = [t.ret for t in trips]
+    first_entry = _iso(base.fills[0].ts)
+    dates = [first_entry] + [_iso(t.exit_ts) for t in trips]
+    final_equities, max_drawdowns, sharpes = [], [], []
     for _ in range(paths):
-        resampled = random.choices(base_fills, k=len(base_fills))
-        curve = _equity_curve_from_fills(resampled, 100_000.0)
-        if len(curve) < 2:
-            continue
-        # Format for curve_metrics: dates must be ISO YYYY-MM-DD strings
-        from datetime import datetime, timezone
-
-        metric_curve = [
-            {
-                "date": datetime.fromtimestamp(c["date"] / 1e9, tz=timezone.utc).date().isoformat(),
-                "value": c["value"],
-                "cash": c["cash"],
-            }
-            for c in curve
-        ]
-        metrics = curve_metrics(metric_curve, 100_000.0)
+        drawn = rng.choices(returns, k=len(returns))
+        metrics = curve_metrics(_bootstrap_curve(drawn, CAPITAL, dates), CAPITAL)
         final_equities.append(metrics["final_value"])
         max_drawdowns.append(metrics["max_drawdown_pct"])
         sharpes.append(metrics["sharpe"])
 
     return {
-        "config": {"bars": bars, "fast": fast, "slow": slow, "paths": paths, "seed": seed},
-        "base": {"fills": len(base_fills)},
+        "config": {
+            "bars": bars,
+            "fast": fast,
+            "slow": slow,
+            "paths": paths,
+            "seed": seed,
+            "min_trades": min_trades,
+        },
+        "base": {
+            "fills": len(base.fills),
+            "round_trips": len(trips),
+            "mean_trade_return": sum(returns) / len(returns),
+        },
         "mc": {
-            "final_equity": {
-                "mean": sum(final_equities) / len(final_equities),
-                "p5": sorted(final_equities)[int(0.05 * len(final_equities))],
-                "p95": sorted(final_equities)[int(0.95 * len(final_equities))],
-            },
-            "max_drawdown_pct": {
-                "mean": sum(max_drawdowns) / len(max_drawdowns),
-                "p5": sorted(max_drawdowns)[int(0.05 * len(max_drawdowns))],
-                "p95": sorted(max_drawdowns)[int(0.95 * len(max_drawdowns))],
-            },
-            "sharpe": {
-                "mean": sum(sharpes) / len(sharpes),
-                "p5": sorted(sharpes)[int(0.05 * len(sharpes))],
-                "p95": sorted(sharpes)[int(0.95 * len(sharpes))],
-            },
+            "final_equity": _summary(final_equities),
+            "max_drawdown_pct": _summary(max_drawdowns),
+            "sharpe": _summary(sharpes),
         },
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = make_parser(__doc__)
-    parser.add_argument("--bars", type=int, default=100)
+    parser.add_argument("--bars", type=int, default=400)
     parser.add_argument("--fast", type=int, default=10)
     parser.add_argument("--slow", type=int, default=30)
     parser.add_argument("--paths", type=int, default=200)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--min-trades", type=int, default=8, help="minimum closed round trips to bootstrap"
+    )
     add_out_arg(parser)
     args = parser.parse_args(argv)
 
-    result = run(bars=args.bars, fast=args.fast, slow=args.slow, paths=args.paths, seed=args.seed)
+    try:
+        result = run(
+            bars=args.bars,
+            fast=args.fast,
+            slow=args.slow,
+            paths=args.paths,
+            seed=args.seed,
+            min_trades=args.min_trades,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     emit_json(result, args.out)
     return 0
