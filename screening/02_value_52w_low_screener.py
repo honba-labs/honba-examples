@@ -18,9 +18,10 @@ Pitfalls::
       max P/E and max P/B need a non-NULL value, and P/E exists only when EPS > 0, so loss-makers
       silently drop out while a missing leverage figure does not. EPS (ratios table) and diluted
       average shares (statements table) are each taken from their own latest fiscal_date.
-    - The "Touch" badge carries no information: hit_52w_low_recently is computed over only the
-      last 30 days of bars, so almost any symbol is flagged. In a wide run every one of 112
-      candidates was a Touch, one of them 139 percent above its 52-week low. Use pct_from_low.
+    - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
+      calendar days had a low within 2 percent of the 252-session low (in a wide run on
+      2025-03-01, 48 of 112 candidates). The 30 days only gate the flag; the low itself spans
+      the full window. Use pct_from_low for the actual distance.
     - Falling knives and survivors: ranking by smallest distance above the 52-week low favours
       names that kept falling, and companies that later delisted are absent from the catalog,
       so a past-dated screen only ever sees the survivors of its own picks.

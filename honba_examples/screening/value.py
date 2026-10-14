@@ -148,14 +148,10 @@ def screen_value_and_dividend(
         FROM bars
     ),
     recent_touch AS (
-        SELECT DISTINCT symbol
-        FROM (
-            SELECT symbol, low,
-                   MIN(low) OVER (PARTITION BY symbol ORDER BY bar_date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) as low52
-            FROM bars
-            WHERE bar_date >= ('{asof_str}'::DATE - INTERVAL 30 DAY)
-        )
-        WHERE low <= low52 * 1.02
+        SELECT symbol, MIN(low) AS recent_low
+        FROM bars
+        WHERE bar_date >= ('{asof_str}'::DATE - INTERVAL 30 DAY)
+        GROUP BY symbol
     ){fund_ctes}
     SELECT 
         p.symbol,
@@ -164,7 +160,7 @@ def screen_value_and_dividend(
         round(p.low52, 2) as low52,
         round(((p.close / p.low52) - 1.0) * 100, 1) as pct_from_low,
         round(((p.close / p.first_train_close) - 1.0) * 100, 1) as train_ret_pct,
-        (t.symbol IS NOT NULL) as hit_52w_low_recently,
+        coalesce(t.recent_low <= p.low52 * 1.02, false) as hit_52w_low_recently,
         {div_expr} as div_yield_pct,
         {pe_expr} as pe_ratio,
         {pb_expr} as pb_ratio,

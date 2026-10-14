@@ -18,8 +18,9 @@ Pitfalls::
     - Period end, not publication date: fundamentals use fiscal_date <= --asof with no filing date
       in the tables; --fiscal-lag-days (default 0) is a flat-day proxy. NULL ROCE and NULL
       debt/equity pass, while a missing dividend line counts as 0 and fails the yield test.
-    - The "Touch" badge carries no information: hit_52w_low_recently is computed over only the
-      last 30 days of bars, so almost any symbol is flagged. Rely on pct_from_low instead.
+    - The "Touch" badge is narrow: hit_52w_low_recently is true only when a bar in the last 30
+      calendar days had a low within 2 percent of the 252-session low. Many candidates sit
+      above that; rely on pct_from_low for the actual distance.
     - Survivorship: payers that cut, fell and delisted are not in the catalog, so a screen dated
       years back sees only the high yielders that lived. Yield screens are most flattered by this.
     - Small samples and lookahead: with the defaults the screen returned 1 name as of 2023-06-01
