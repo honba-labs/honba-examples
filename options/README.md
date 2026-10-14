@@ -19,6 +19,17 @@ Catalog equivalents live in `honba-strategies/options/*`.
 Catalog equivalents: `options/nifty_short_straddle`, `options/banknifty_iron_condor`,
 `options/expiry_day_scalp`.
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as a
+synthetic chain whose price and iv are unrelated, bid/ask versus last and quote staleness,
+Black-Scholes assumptions (European, flat vol, no dividends, calendar-day tau), payoff tables
+mistaken for backtests, fills at theoretical mid, STT on exercise, lot-size changes, assignment and
+pin risk, and why a seeded path with realised vol equal to implied vol says nothing about edge. Read
+it before trusting a number. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## Option chain structure
 
 ```python

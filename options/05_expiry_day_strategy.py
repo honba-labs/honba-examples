@@ -9,6 +9,26 @@ so runs are offline and deterministic.
 Run::
 
     python options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
+
+Pitfalls::
+
+    - Simulated, so it proves nothing about edge: one seeded GBM path (seed 42, re-seeded on each
+      call, which also resets the global random state) whose volatility equals the iv used for
+      pricing. Realised equals implied, so the result is noise around the theta-versus-gamma
+      breakeven, and a single path says nothing about edge. Real expiry-day profit depends on
+      realised versus implied vol, which needs real intraday option data.
+    - Time: tau_open is 1/365 (one calendar day) and the session is cut into --steps equal slices.
+      The real session is about 09:15 to 15:30 IST, and expiry-day implied vol is not flat through
+      it. The last path point is treated as expiry, so the payoff is taken at a spot whose tau is
+      still positive.
+    - Hedging by call quantity: delta is neutralised by resizing the call leg, dividing by the
+      call's delta. That is unbounded when the call is far OTM late in the day, and pin risk at the
+      strike is exactly where gamma and this hedge are least stable. Fills are at Black-Scholes
+      values; bid/ask, slippage, STT on exercised legs and freeze quantities on large orders are
+      ignored.
+    - theta_pnl is signed theta accrued by the position held at each step: a long straddle pays it.
+      The expiry is only a label (it is not used in pricing), and lot_size is an argument, so
+      confirm the real expiry calendar, holidays and the current lot size before trusting any scale.
 """
 
 from __future__ import annotations

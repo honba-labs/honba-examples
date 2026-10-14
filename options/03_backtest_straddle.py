@@ -8,6 +8,22 @@ no `Strategy` subclass; runs are offline and deterministic.
 Run::
 
     python options/03_backtest_straddle.py --underlying NIFTY --expiry 2024-12-26
+
+Pitfalls::
+
+    - Not a historical backtest: it prints the expiry payoff at a fixed grid of spots around entry
+      (entry -/+ 100, 300, 500). There is no price path, no dates and no sample of expiries, so it
+      cannot show how often a straddle profits; use real chain history and many expiries for that.
+    - Entry premium is the Black-Scholes value at one flat --iv and r=0.07, i.e. theoretical mid.
+      Real fills cross the bid/ask spread, and the vol you pay (event premium, skew) is not the iv
+      you assume; IV crush after an event is not modelled because iv never changes.
+    - Costs and settlement are ignored: brokerage, exchange charges, slippage, and STT. STT on an
+      exercised in-the-money option is charged on the settlement value, not the premium, so it can
+      eat the profit near breakeven. Breakevens strike -/+ premium are therefore tighter than
+      reality, and max_loss excludes costs.
+    - lot_size is an argument (default 50), not the current contract specification; exchanges revise
+      lot sizes and freeze quantities, which changes both P&L scale and how many orders a position
+      needs.
 """
 
 from __future__ import annotations

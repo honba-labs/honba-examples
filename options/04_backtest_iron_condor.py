@@ -9,6 +9,24 @@ deterministic.
 Run::
 
     python options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
+
+Pitfalls::
+
+    - Payoff table, not a backtest: P&L is evaluated at fixed spots around entry with all four legs
+      held to expiry and priced at one flat iv, so skew (richer OTM puts), IV changes and early
+      management (stops, rolling at 50 percent of credit) are absent. A real iron condor's drawdown
+      happens before expiry, on a mark-to-market basis.
+    - Strikes are absolute levels (23500/23300/24500/24700) while --spot is separate. Moving --spot
+      without moving the strikes silently changes the structure, and nothing checks that put_long <
+      put_short < call_short < call_long, so a bad ordering gives a nonsense width, not an error.
+    - max_loss is the wider wing minus the credit and holds only if all four legs fill at the model
+      prices. Legging in or out, bid/ask on four legs and partial fills are not modelled; the credit
+      is a theoretical mid and shrinks on four spreads. Brokerage, STT on exercised legs and margin
+      are ignored (margin is far more than the credit and ties up capital).
+    - Assignment and pin risk: the model is European and cash-settled, so there is no early
+      assignment, but a short strike finishing close to spot at expiry is a binary outcome decided
+      in the last minutes. A physically settled stock-option version carries delivery obligations
+      that this does not.
 """
 
 from __future__ import annotations

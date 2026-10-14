@@ -9,6 +9,21 @@ Run::
 
     python options/01_option_chain.py --underlying NIFTY --expiry 2024-12-26
     python options/01_option_chain.py --format json
+
+Pitfalls::
+
+    - Synthetic, not a market: mid is intrinsic plus a made-up time value, bid/ask are mid -/+ 1
+      point for every strike, and the iv column is a separate smile formula (0.15 + 0.005 per strike
+      step), not implied from that mid, so price and iv disagree. open_interest and volume are
+      invented too.
+    - Quotes versus last: a live chain needs bid and ask (and their age), not a last traded price.
+      Far strikes can be stale or one-sided for hours, and mid of a stale or crossed pair is not a
+      price. Nothing here carries a quote timestamp, so staleness is invisible to this script.
+    - All 21 strikes always exist (ATM +/- 10 steps of 50) and every strike has both kinds. Real
+      listings add and drop strikes as spot moves; a backtest that only sees strikes listed today is
+      survivorship.
+    - Moneyness is a +/-2% band around spot per kind, relative to the one spot passed in. The same
+      strike changes label when spot moves, and the table row labels the strike by its call side.
 """
 
 from __future__ import annotations

@@ -8,6 +8,23 @@ subclass — runs are offline and deterministic.
 Run::
 
     python options/02_greeks_calculation.py --spot 24000 --strike 24000 --days-to-expiry 7 --iv 0.15
+
+Pitfalls::
+
+    - Model assumptions: Black-Scholes prices European options on a non-dividend-paying underlying
+      with a flat constant volatility and rate (r defaults to 0.07). Index options carry
+      dividends/forward basis that this ignores, and early exercise (American style) is not modelled
+      at all.
+    - Flat vol: the same --iv prices every strike in the "surface", so it is a Greeks profile across
+      strikes, not a volatility surface. A real smile gives each strike its own iv; plugging one iv
+      into all of them mis-states OTM delta, gamma and vega.
+    - Time and units: tau is days_to_expiry/365 in whole calendar days, so there is no time-of-day
+      (the contract expires at the 15:30 IST close) and 0 days returns intrinsic value with zero
+      gamma, vega and theta. Theta is per calendar day, vega per 1 vol point, rho per 1 percent
+      rate; mixing these conventions with a broker's Greeks is a common source of off-by-100 errors.
+    - Sensitivities, not forecasts: Greeks are local derivatives at one spot and iv. The labelled
+      "atm_greeks" are for the --strike you pass, which is ATM only at the defaults, and delta or
+      gamma will drift as spot, iv and time move.
 """
 
 from __future__ import annotations
