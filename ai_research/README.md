@@ -13,7 +13,7 @@ modules exist in `honba.ai` as 0-byte stubs waiting for the P1/P2 roadmap phases
 |----|-----------------------------------|------------------|----------------------------------------------------------------------------------------------------|
 | 01 | `01_llm_research_analyst.py`      | —                | **Runnable.** NL question → validated screener filter via `ScriptedFakeLlm` + `KnowledgePack`      |
 | 02 | `02_autoresearch_loop.py`         | —                | **Design only.** `ResearchLoop` → generate hypotheses → backtest → journal (Faiss + Parquet)       |
-| 03 | `03_nl_screener.py`               | —                | **Runnable.** NL query → screener filter → historical backtest                                     |
+| 03 | `03_nl_screener.py`               | —                | **Runnable.** NL query → strict screener filter → historical backtest                                   |
 | 04 | `04_nl_to_strategy.py`            | —                | **Design only.** NL description → strategy manifest → `verify_manifest` (parser/AST sandbox)       |
 | 05 | `05_rl_training.py`               | —                | **Design only.** Gym environment + RL policy on synthetic prices (`torch` + `gymnasium` extras)    |
 | 06 | `06_mcp_integration.py`           | —                | **Runnable.** Enumerate the static MCP tools (11 today) from `honba/schema/mcp/mcp_tools.json`             |

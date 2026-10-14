@@ -5,7 +5,7 @@ Python predicates, then executes them across the local stock universe (Parquet b
 
 Supports:
 1. Latest Market Screening: Evaluates live/latest bar snapshot.
-2. Point-in-Time Historical Screening (`--asof` or "5 years ago"): Slices bar history to that
+2. Point-in-Time Historical Screening (`--asof`, an ISO date, "in 2020" or "5 years ago"): Slices bar history to that
    exact date without lookahead bias.
 3. Forward Backtesting & Multibagger Tracking: For historical screens, tracks the forward
    performance of every matched stock up to today, computing Total Return %, CAGR %, and
@@ -25,29 +25,31 @@ Run::
 Pitfalls::
 
     - Survivorship and hindsight in the output: the universe is resolve_universe("nifty50") with
-      no as_of, today's members screened at a past date, and market_cap is the as-of close times
-      one fixed, approximate share-count table with no per-date history (50 crore if a symbol is
-      missing).
-      Historical results are sorted by forward return and cut to --limit, with 2x/5x/10x badges
-      from the future price, so the top rows are the winners. Read matched_count and basket_stats.
-    - Silent predicate failures: generate_python_predicate drops any clause its regex does not
-      match and returns "always true" when nothing parses, and a metric missing from the row
-      defaults to 0, so "rsi < 40" or a hallucinated field (only close, volume, sma20, sma50, rsi
-      and the market cap keys exist) is true for every stock or false for every stock. Compare
-      filter_text and python_predicate in the output with your question.
+      no as_of, today's members screened at a past date. market_cap is the as-of close times one
+      fixed, approximate share-count table with no per-date history (50 crore if a symbol is
+      missing); the output's notes list says so. Historical rows are ordered by as-of market cap
+      before --limit, and the forward returns (rows, basket_stats, forward_returns) are ex post
+      hindsight with 2x/5x/10x badges from the future price. Read matched_count and basket_stats.
+    - Strict predicates: generate_python_predicate raises on an empty filter, on clauses its
+      regex does not match, and on a metric outside KNOWN_METRICS (close, volume, sma20, sma50,
+      rsi and the market cap keys; for example dividend yield is rejected), and a known metric
+      missing from a row makes the predicate False. A filter that parses can still be the wrong
+      filter: compare filter_text and python_predicate in the output with your question.
     - Execution safety: the filter text is never exec'd. Each clause is re-emitted as a tiny
-      match(row) function from an identifier, operator and number, then run with empty builtins.
-      safe_eval_predicate itself does no validation (its AST walk is a no-op), so do not pass it
-      code that did not come from generate_python_predicate.
+      match(row) function over bare metric names, and safe_eval_predicate only evaluates it after
+      a whitelist AST walk (comparisons, and/or/not, + - * / %, numeric constants, known names;
+      no calls, attributes, subscripts, lambdas or strings), with empty builtins. Keep it that
+      way; do not widen the whitelist to accept model-written code.
     - Backend and non-determinism: --backend auto probes localhost:11434 and silently switches
       between Ollama and the regex translator, so one query can give different filters on
       different machines. The Ollama call sends the query as the only message (no system prompt
       or grammar), ignores seed and uses an unpinned model tag; the fake backend returns the same
       filter for every query. The backend is recorded in the output; keep it with the result.
-    - Query parsing hazards: a bare year from 2015 to 2025 anywhere in the text, even a number
-      such as "volume > 2020", is read as an as-of date of that year's 11 October, and "N years
-      ago" counts from today, so the same sentence means a different date tomorrow. The query is
-      untrusted text; only the clause regexes stand between it and the predicate.
+    - Query parsing hazards: the as-of date comes only from date phrasing ("N years ago", an ISO
+      date, "in 2020", "as of 2020"), so "volume > 2020" is a volume. "N years ago" counts from
+      today, so the same sentence means a different date tomorrow, and a bare year means 11
+      October of that year. The query is untrusted text; only the clause regexes and the
+      predicate whitelist stand between it and the evaluator.
     - Terminal price is each symbol's last bar, so a symbol whose data ends early is scored on a
       stale close, and a screen of about 50 names gives small, unstable baskets.
 """
