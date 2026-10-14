@@ -28,12 +28,15 @@ __all__ = ["main", "run"]
 
 
 def _annual_returns(nav_points: list, years: int) -> list[float]:
+    """Annualised return over the trailing ``years`` years, or ``[]`` without that much history."""
     if len(nav_points) < 2:
         return []
-    first, last = nav_points[0], nav_points[-1]
+    last = nav_points[-1]
+    cutoff = last.date - dt.timedelta(days=round(years * 365.25))
+    if nav_points[0].date > cutoff:
+        return []  # history does not reach back far enough: do not label a shorter span "Ny"
+    first = [p for p in nav_points if p.date <= cutoff][-1]  # last NAV published on/before cutoff
     days = (last.date - first.date).days
-    if days < 30:
-        return []
     return [((last.nav / first.nav) ** (365.25 / days)) - 1]
 
 
@@ -76,8 +79,8 @@ def run(
 
         # Compute metrics
         cagr_1y = rets[-1] if rets else 0.0
-        cagr_3y = _annual_returns(nav_points, 3)[0] if len(nav_points) > 750 else 0.0
-        cagr_5y = _annual_returns(nav_points, 5)[0] if len(nav_points) > 1250 else 0.0
+        cagr_3y = next(iter(_annual_returns(nav_points, 3)), 0.0)
+        cagr_5y = next(iter(_annual_returns(nav_points, 5)), 0.0)
 
         # Convert nav_points to format for metrics
         curve = [{"date": p.date.isoformat(), "value": p.nav, "cash": 0} for p in nav_points]
