@@ -17,10 +17,9 @@ What the parser does, asserted here:
   stores;
 * the date column (``TradDt`` / ``DATE1`` / ``TIMESTAMP``) is parsed as
   ``%Y-%m-%d``, ``%d-%b-%Y``, ``%d-%m-%Y`` or ``%Y%m%d``. A missing or
-  unparseable date falls back to ``date.today()`` (the wall clock) and the bar's
-  ``ts`` is stamped from a *naive* 09:15 datetime, so it depends on the machine's
-  timezone - therefore this report and its tests carry the parsed date and
-  OHLCV, never a raw ``ts``;
+  unparseable date falls back to the wall clock's current IST date, and the bar's
+  ``ts`` is stamped 09:15 IST of that date - this report and its tests carry the
+  parsed date and OHLCV, never a raw ``ts``;
 * an unrecognised header is not an error: the parser returns an empty dict
   instead of raising (verified by running it, recorded in the report).
 
@@ -28,6 +27,21 @@ Run::
 
     python storage/02_import_nse_bhavcopy.py
     python storage/02_import_nse_bhavcopy.py --data-dir /tmp/bhavcopy --out report.json
+
+Pitfalls::
+
+    - Unadjusted prices: bhavcopy is the raw traded price. Splits, bonuses and demergers are not
+      applied, so a series stitched across such a day shows a false gap and false returns. Adjust
+      with a corporate-action table before any return or indicator calculation.
+    - One bar per symbol: the parser returns a dict keyed by symbol, so a symbol present in two
+      series in the same file (EQ and BE) keeps only the last row. Series other than EQ, BE and BZ
+      are dropped, and BE and BZ are trade-for-trade segments with different liquidity.
+    - Dates and clock: a missing or unparseable date falls back to today's date in IST, which
+      silently stamps stale data as new. Bars are stamped 09:15 IST of the file date, but the file
+      is published after the close, so nothing in it was known at 09:15.
+    - Clamping hides bad rows: high is raised and low lowered to fit open and close, and a negative
+      volume becomes 0. The row stores cleanly, but the anomaly is evidence of a bad row. Re-
+      importing a corrected file overwrites the stored bar with no history.
 """
 
 from __future__ import annotations

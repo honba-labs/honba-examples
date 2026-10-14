@@ -18,6 +18,21 @@ Run::
 
     python storage/04_export_tearsheet.py
     python storage/04_export_tearsheet.py --out-dir /tmp/tearsheet --out report.json
+
+Pitfalls::
+
+    - Metrics definitions: Sharpe is annualised with the square root of 252 over per-session returns
+      with a zero risk-free rate, and CAGR scales the return by calendar days over 365.25. On a
+      7-session window that gives a Sharpe near 31 and a CAGR near 24 percent from a 0.5 percent
+      gain. Read them as arithmetic on synthetic bars, never as performance.
+    - Synthetic and rising: ten generated sessions, one buy and one sell, no market data, so max
+      drawdown is 0 and the result cannot be compared to a real backtest. The T+2
+      settlement is an explicit what-if; the core default for 2026 sessions is T+1.
+    - Hash is not trust: canonical_hash lets a reader detect a changed file, not a wrong one. It
+      covers the payload only. A restated input or a changed definition gives a different hash for
+      the same strategy, so store the data version alongside the tearsheet.
+    - Fills land at the next session's open, so an exit scheduled on the last session never fills.
+      That is why the sell is placed one session early, and why n_unfilled_at_end matters.
 """
 
 from __future__ import annotations

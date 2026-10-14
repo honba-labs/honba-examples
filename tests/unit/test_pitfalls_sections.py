@@ -30,10 +30,6 @@ PENDING_PITFALLS: frozenset[str] = frozenset(
         "candles/02_realtime_candles.py",
         "candles/03_custom_aggregation.py",
         "candles/04_multi_timeframe.py",
-        "storage/01_parquet_catalog.py",
-        "storage/02_import_nse_bhavcopy.py",
-        "storage/03_import_amfi_nav.py",
-        "storage/04_export_tearsheet.py",
     }
 )
 

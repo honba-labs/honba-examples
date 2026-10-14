@@ -19,6 +19,23 @@ Run::
 
     python storage/01_parquet_catalog.py
     python storage/01_parquet_catalog.py --data-dir /tmp/store --out catalog.json
+
+Pitfalls::
+
+    - Windows and partitions are UTC: read is half-open [start 00:00, end 00:00) and the year file
+      is chosen from the UTC date of ts. Daily bars stamped 09:15 IST (03:45 UTC) fall on the same
+      date in both, but anything stamped between 00:00 and 05:30 IST belongs to the previous UTC
+      day. Ask for end + 1 day, or the last bar is silently missing.
+    - Idempotent means last write wins: append merges by ts, so a corrected bar with the same ts
+      replaces the old one and no earlier version is kept. There is no point-in-time history, so a
+      restated bar changes every later read. Keep the source files if you need to know what was
+      known when.
+    - The coverage ledger counts rows appended, not distinct bars: appending the same data twice
+      doubles row_count (a re-run against the default output directory shows it). A FINAL record
+      over a range asserts completeness; holidays and missing days inside it are not recorded as
+      gaps.
+    - Concurrency: append reads the year file and the ledger, then rewrites them, with no lock in
+      the code path. Run one importer at a time per store.
 """
 
 from __future__ import annotations

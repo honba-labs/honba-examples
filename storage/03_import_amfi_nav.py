@@ -17,6 +17,22 @@ Run::
 
     python storage/03_import_amfi_nav.py
     python storage/03_import_amfi_nav.py --data-dir /tmp/nav --out nav.json
+
+Pitfalls::
+
+    - NAV timing: a NAV is published after the close and is stamped here at 09:15 IST of its own
+      date. Using nav[D] to decide on D is lookahead. Each row keeps its own date, so a late-NAV
+      scheme can carry an older date than the file's Applic Date.
+    - Dedupe is overwrite: the store merges by ts, so a repeated or restated NAV for the same scheme
+      and date replaces the earlier one, and a stale NAV repeated in the next day's file is not
+      flagged. The ledger row_count adds both appends.
+    - Skips become gaps: a row with a missing NAV (`-`) is dropped and reported, but the scheme's
+      ledger record still spans first to last date as FINAL. Holidays and skipped days inside it are
+      not marked, so a later reader assumes continuity that is not there.
+    - Identity and survivorship: the AMFI code is the plan and option (Direct, Regular, Growth,
+      IDCW). The daily sheet lists only live schemes, so merged and closed ones vanish from the
+      feed; keep what you imported. A structurally damaged line is refused, not repaired, and the
+      rest of that file is not imported.
 """
 
 from __future__ import annotations

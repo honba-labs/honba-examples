@@ -18,6 +18,16 @@ writes only under this repo's `output/` (or a `--data-dir` / `--out-dir` you pas
 | 03 | `03_import_amfi_nav.py` | — | Import AMFI `NAVAll.txt` NAVs as flat bars; a skip vs. structural damage |
 | 04 | `04_export_tearsheet.py` | `BuyFirstSellLast` (inline) | Deterministic backtest → `tearsheet.json` + `tearsheet.md` |
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as UTC
+windows and partitions, last-write-wins appends with no point-in-time history, a ledger whose
+row_count and FINAL status overstate what is held, unadjusted bhavcopy prices, one bar per symbol,
+NAV publication timing, and tearsheet metrics annualised from a handful of synthetic sessions. Read
+it before trusting a number. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## Running them
 
 ```bash
