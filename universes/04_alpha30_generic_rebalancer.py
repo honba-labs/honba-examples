@@ -23,19 +23,19 @@ Run::
 
 Pitfalls::
 
-    - Joiners and leavers never occur in a run: _rebalance re-reads resolve_universe(name) with no
-      as_of, which returns the same static tuple every time, so the exit and enter actions only
-      fire if someone edits UNIVERSES mid-run. The docstring's promise that index changes are
-      applied needs a point-in-time resolver passed the bar date.
-    - Rebalance-date prices: sizing uses _last_prices, the last bar seen per instrument, which can
-      be stale for a name that did not trade or has not printed yet. The initial rebalance fires on
+    - Joiners and leavers need history: _rebalance resolves membership with as_of=<bar day>, so
+      they only occur for universes with a registered point-in-time history. Without one it warns
+      and uses today's list. The shipped Alpha 30 history is today's 30 names stamped as members
+      from 2005-04-01 (core), so as_of= changes nothing there until a real history replaces it.
+    - Prices: sizing uses the last close per instrument and skips any name whose close is more
+      than max_price_age_days (4) old on the rebalance day. The initial rebalance still fires on
       the first bar of a new day or once every name has printed, so it can size off partial data.
-    - Fixed capital: target_notional is capital x allocation / n from the constructor, not current
-      equity, so the book does not compound or shrink with losses, and the strategy never checks
-      cash itself. Fills, costs and settlement belong to the runner you plug this into.
-    - Wall clock fallback: _bar_day uses datetime.now when a bar has no usable timestamp and the
-      context clock is 0, which makes a replay non-reproducible. The "every 15 days" counter also
-      counts days on which any instrument printed, not exchange sessions.
+    - Capital: target_notional is (cash + marked holdings) x allocation / n, falling back to the
+      constructor capital only when that equity is not positive. The strategy never checks cash
+      itself; fills, costs and settlement belong to the runner you plug this into.
+    - Bar dates come from the bar or the context clock; with neither, _bar_day raises rather than
+      reading the wall clock. The "every 15 days" counter counts days on which any instrument
+      printed, not exchange sessions.
     - Nothing here is backtested: __main__ only resolves membership, so no performance follows.
 """
 

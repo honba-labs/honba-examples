@@ -3,10 +3,11 @@
 The strategy class is ``Alpha30EqualWeightRebalance``: an Alpha-30 specialization of
 ``UniverseEqualWeightRebalance`` (from 04_alpha30_generic_rebalancer.py), rebalanced
 every 15 trading days. Membership is resolved through the Honba universe API and
-re-fetched on every rebalance so index joiners / leavers are applied:
+re-fetched on every rebalance (as of the bar date) so index joiners / leavers are applied
+when a real history is registered:
 
     from honba.markets.india.universes import resolve_universe
-    ids = resolve_universe("nifty200_alpha_30", exchange="NSE")
+    ids = resolve_universe("nifty200_alpha_30", exchange="NSE", as_of=bar_date)
 
 The ``__main__`` block resolves membership as a smoke test, so the example runs
 offline and deterministically against the bundled universe map.
@@ -17,12 +18,11 @@ Run::
 
 Pitfalls::
 
-    - Same static list every rebalance: resolve_universe("nifty200_alpha_30") returns one fixed
-      tuple, so despite "re-fetched on every rebalance so joiners and leavers are applied", no one
-      joins or leaves in a backtest. Today's members were also picked for past alpha (see 03).
-    - Inherits 04's traps: stale last-seen prices at rebalance, fixed starting capital instead of
-      current equity, a wall-clock fallback for bar dates, and a day counter driven by any
-      instrument's bars.
+    - Point-in-time but not real history: 04 resolves membership with as_of=<bar day>, yet the
+      shipped Alpha 30 history is today's 30 names stamped from 2005-04-01, so no one joins or
+      leaves in a backtest. Today's members were also picked for past alpha (see 03).
+    - Inherits 04's remaining traps: the initial rebalance can size off partial data, prices up to
+      max_price_age_days old are used, and the day counter is driven by any instrument's bars.
     - Not a backtest: __main__ prints how many names resolve and nothing more, so run 07 for a
       Honba-native result. Do not read a performance story into the class from this file.
 """
