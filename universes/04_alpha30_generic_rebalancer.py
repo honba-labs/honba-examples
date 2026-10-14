@@ -72,8 +72,10 @@ class UniverseEqualWeightRebalance(Strategy):
         rebalance_days: int = 15,
         exchange: str = "NSE",
         universe: str = UNIVERSE_NAME,
+        max_price_age_days: int = 4,
     ) -> None:
         self.capital = capital
+        self.max_price_age_days = max_price_age_days
         self.allocation = allocation
         self.rebalance_days = rebalance_days
         self.exchange = exchange
@@ -81,6 +83,8 @@ class UniverseEqualWeightRebalance(Strategy):
 
         self._universe: set[InstrumentId] = set()
         self._last_prices: dict[InstrumentId, float] = {}
+        self._price_day: dict[InstrumentId, date] = {}
+        self._warned_no_history = False
         self._last_day: date | None = None
         self._days_since_rebalance = 0
         self._initial_done = False
@@ -88,8 +92,24 @@ class UniverseEqualWeightRebalance(Strategy):
     # ------------------------------------------------------------------
     # Membership
     # ------------------------------------------------------------------
-    def _resolve(self) -> set[InstrumentId]:
-        """Always go through the engine API (or the 03 fallback)."""
+    def _resolve(self, as_of: date | None = None) -> set[InstrumentId]:
+        """Resolve through the engine API, point-in-time when ``as_of`` is given.
+
+        With ``as_of`` the registered history is used; a universe with no history raises in the
+        core, so we warn once and fall back to today's list (survivorship-biased) rather than die.
+        """
+        if as_of is not None:
+            try:
+                return set(
+                    resolve_universe(self.universe_name, exchange=self.exchange, as_of=as_of)
+                )
+            except ValueError:
+                if not self._warned_no_history:
+                    print(
+                        f"[membership] no point-in-time history for {self.universe_name!r}; "
+                        "using today's list (joiners/leavers cannot occur)"
+                    )
+                    self._warned_no_history = True
         try:
             return set(resolve_universe(self.universe_name, exchange=self.exchange))
         except ValueError:
@@ -106,9 +126,9 @@ class UniverseEqualWeightRebalance(Strategy):
         print(f"[start] {self.universe_name} size={len(self._universe)}")
 
     def on_bar(self, bar: Bar) -> None:
-        self._last_prices[bar.instrument_id] = float(bar.close)
-
         day = _bar_day(bar, self.ctx.now())
+        self._last_prices[bar.instrument_id] = float(bar.close)
+        self._price_day[bar.instrument_id] = day
         day_changed = False
         if self._last_day is None:
             self._last_day = day
@@ -119,21 +139,38 @@ class UniverseEqualWeightRebalance(Strategy):
 
         if not self._initial_done:
             if len(self._last_prices) >= len(self._universe) or day_changed:
-                self._rebalance("initial")
+                self._rebalance("initial", day)
                 self._initial_done = True
                 self._days_since_rebalance = 0
             return
 
         if self._days_since_rebalance >= self.rebalance_days:
-            self._rebalance(f"schedule/{self.rebalance_days}d")
+            self._rebalance(f"schedule/{self.rebalance_days}d", day)
             self._days_since_rebalance = 0
 
     # ------------------------------------------------------------------
     # Core rebalance logic (the three required actions)
     # ------------------------------------------------------------------
-    def _rebalance(self, reason: str) -> None:
+    def _fresh_price(self, iid: InstrumentId, day: date) -> float | None:
+        """Last close if it is at most ``max_price_age_days`` old on ``day``, else None."""
+        px = self._last_prices.get(iid)
+        seen = self._price_day.get(iid)
+        if px is None or seen is None or px <= 0:
+            return None
+        if (day - seen).days > self.max_price_age_days:
+            return None
+        return px
+
+    def _equity(self) -> float:
+        """Cash plus marked holdings from the context; the constructor capital if that is 0."""
+        equity = self.ctx.cash().to_major()
+        for iid, qty in self.ctx.positions().items():
+            equity += qty * self._last_prices.get(iid, 0.0)
+        return equity if equity > 0 else self.capital
+
+    def _rebalance(self, reason: str, day: date) -> None:
         previous = set(self._universe)
-        self._universe = self._resolve()
+        self._universe = self._resolve(day)
 
         if not self._universe:
             print(f"[rebalance:{reason}] empty universe — skip")
@@ -149,7 +186,7 @@ class UniverseEqualWeightRebalance(Strategy):
             )
 
         n = len(self._universe)
-        target_notional = (self.capital * self.allocation) / n
+        target_notional = (self._equity() * self.allocation) / n
 
         # 1. Fully exit names that left the list
         held = {iid for iid, qty in self.ctx.positions().items() if qty > 0}
@@ -164,8 +201,9 @@ class UniverseEqualWeightRebalance(Strategy):
         for iid in self._universe:
             if self.busy(iid):
                 continue
-            px = self._last_prices.get(iid)
-            if px is None or px <= 0:
+            px = self._fresh_price(iid, day)
+            if px is None:
+                print(f"  SKIP {iid.symbol} (no price within {self.max_price_age_days}d)")
                 continue
 
             target_qty = whole_shares(target_notional, 1.0, px)
@@ -196,7 +234,10 @@ def _bar_day(bar: Bar, now_ns: int) -> date:
         return datetime.fromtimestamp(v, tz=timezone.utc).date()
     if now_ns > 0:
         return datetime.fromtimestamp(now_ns / 1e9, tz=timezone.utc).date()
-    return datetime.now(tz=timezone.utc).date()
+    raise ValueError(
+        "bar has no usable timestamp and the context clock is 0; refusing to fall back to the "
+        "wall clock (replays must be reproducible)"
+    )
 
 
 if __name__ == "__main__":
