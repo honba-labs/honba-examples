@@ -55,3 +55,38 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main([]) == 0
     assert "basket_sma" in capsys.readouterr().out
+
+
+def _replay(example, bars=100, **kw):
+    from honba.strategies.testing import replay
+
+    symbols = ("RELIANCE", "TCS", "INFY", "HDFCBANK")
+    bars_list = example.basket_bars(bars, symbols)
+    strat = example.BasketSma(**kw)
+    res = replay(strat, bars_list)
+    last = {b.instrument_id.symbol: b.close for b in bars_list}
+    return strat, res, last
+
+
+def _max_weight_drift(strat, last):
+    values = {s: strat.position(strat._iids[s]) * last[s] for s in last}
+    total = sum(values.values())
+    return max(abs(v / total - 1 / len(values)) for v in values.values())
+
+
+def test_rebalance_places_orders_toward_equal_weight(example):
+    strat, res, last = _replay(example, bars=160, rebalance_every=20)
+    _, res_off, _ = _replay(example, bars=160, rebalance_every=10_000)
+    assert len(res.intents) > len(res_off.intents)  # the rebalance sent orders
+    assert _max_weight_drift(strat, last) < 0.02
+
+
+def test_without_rebalance_the_weights_drift(example):
+    strat, _, last = _replay(example, bars=160, rebalance_every=10_000)
+    assert _max_weight_drift(strat, last) > 0.02
+
+
+def test_bar_count_is_per_symbol(example):
+    strat, _, _ = _replay(example, bars=100)
+    # 30-bar slow SMA: the first usable bar is the 30th, so 71 usable bars per symbol
+    assert strat._bar_count == {"RELIANCE": 71, "TCS": 71, "INFY": 71, "HDFCBANK": 71}

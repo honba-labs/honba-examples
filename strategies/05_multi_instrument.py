@@ -37,6 +37,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
+from honba.domain.order import OrderSide
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
@@ -45,11 +46,31 @@ from honba_examples.replay_report import replay_report
 from honba_examples.synthetic import bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
-__all__ = ["main", "run"]
+__all__ = ["basket_bars", "main", "run"]
+
+
+_DEFAULT_SYMBOLS = ("RELIANCE", "TCS", "INFY", "HDFCBANK")
+_STEPS = (0.5, 0.25, 3.0, 1.5)  # per-symbol ramp slope, so the weights drift apart
+
+
+def basket_bars(bars: int, symbols: tuple[str, ...] = _DEFAULT_SYMBOLS) -> list:
+    """Daily bars for every symbol: the same 2500 start, a different ramp slope per symbol."""
+    out = []
+    for i, d in enumerate(weekdays_func(dt.date(2026, 1, 1), bars)):
+        for k, sym in enumerate(symbols):
+            out.append(bar(sym, d, 2500.0 + i * _STEPS[k % len(_STEPS)]))
+    out.sort(key=lambda b: (b.ts, b.instrument_id.symbol))
+    return out
 
 
 class BasketSma(Strategy):
-    """Equal-weight SMA crossover across a basket of symbols."""
+    """Equal-weight SMA crossover across a basket of symbols.
+
+    A symbol is in the basket while its fast SMA is above its slow SMA. Each member is held at
+    ``equity / len(symbols)``; on its own ``rebalance_every``-th usable bar it is trimmed or topped
+    up to that target. Equity is ``capital`` plus fill cash flows plus every position at the
+    latest close seen for its symbol (symbols later in a session still carry the prior close).
+    """
 
     name = "basket_sma"
     warmup_bars = 30
@@ -60,20 +81,29 @@ class BasketSma(Strategy):
         fast: int = 10,
         slow: int = 30,
         rebalance_every: int = 20,
-        symbols: tuple[str, ...] = ("RELIANCE", "TCS", "INFY", "HDFCBANK"),
+        symbols: tuple[str, ...] = _DEFAULT_SYMBOLS,
+        capital: float = 100_000.0,
     ) -> None:
         super().__init__()
         self.fast = fast
         self.slow = slow
         self.rebalance_every = rebalance_every
         self.symbols = symbols
+        self._cash = capital
         self._fast_sma: dict[str, Sma] = {}
         self._slow_sma: dict[str, Sma] = {}
-        self._bar_count = 0
-        self._positions_before: dict[str, float] = {}
+        self._bar_count: dict[str, int] = {}  # usable (post-warm-up) bars seen per symbol
+        self._iids: dict[str, Any] = {}
+        self._last_close: dict[str, float] = {}
+
+    def on_fill(self, fill) -> None:
+        sign = -1.0 if fill.side is OrderSide.BUY else 1.0
+        self._cash += sign * fill.quantity * fill.price
 
     def on_bar(self, bar) -> None:
         sym = bar.instrument_id.symbol
+        self._iids[sym] = bar.instrument_id
+        self._last_close[sym] = bar.close
 
         # Initialize indicators for this symbol
         if sym not in self._fast_sma:
@@ -86,33 +116,31 @@ class BasketSma(Strategy):
         if fast_val is None or slow_val is None:
             return
 
-        self._bar_count += 1
+        count = self._bar_count[sym] = self._bar_count.get(sym, 0) + 1
         position = self.position(bar.instrument_id)
 
         # Signal per instrument
         if fast_val > slow_val and position <= 0:
-            self.buy(bar.instrument_id, 1)
+            self._trade_to(bar.instrument_id, bar.close, position)
         elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
+        elif position > 0 and count % self.rebalance_every == 0:
+            self._trade_to(bar.instrument_id, bar.close, position)  # rebalance this member
 
-        # Rebalance every N bars
-        if self._bar_count % self.rebalance_every == 0:
-            self._rebalance()
+    def _equity(self) -> float:
+        held = sum(self.position(self._iids[s]) * px for s, px in self._last_close.items())
+        return self._cash + held
 
-    def _rebalance(self) -> None:
-        """Equal-weight the basket: track changes and adjust."""
-        positions = {}
-        for sym in self.symbols:
-            iid = self._instrument(sym)
-            if iid is not None:
-                positions[sym] = self.position(iid)
-        self._positions_before = positions
-
-    def _instrument(self, symbol: str):
-        for iid in self.ctx.positions():
-            if iid.symbol == symbol:
-                return iid
-        return None
+    def _trade_to(self, iid, price: float, position: float) -> None:
+        """Buy or sell the difference between ``position`` and the equal-weight target."""
+        target = int(self._equity() / len(self.symbols) / price)
+        delta = target - position
+        if delta > 0:
+            qty = min(int(delta), int(max(self._cash, 0.0) / price))
+            if qty > 0:
+                self.buy(iid, qty)
+        elif delta < 0:
+            self.sell(iid, -delta)
 
 
 def run(
@@ -121,13 +149,8 @@ def run(
     slow: int = 30,
     rebalance_every: int = 20,
 ) -> dict[str, Any]:
-    symbols = ("RELIANCE", "TCS", "INFY", "HDFCBANK")
-    start = dt.date(2026, 1, 1)
-    bars_list = []
-    for i, d in enumerate(weekdays_func(start, bars)):
-        for sym in symbols:
-            bars_list.append(bar(sym, d, 2500.0 + i * 0.5))
-    bars_list.sort(key=lambda b: (b.ts, b.instrument_id.symbol))
+    symbols = _DEFAULT_SYMBOLS
+    bars_list = basket_bars(bars, symbols)
 
     strat = BasketSma(fast=fast, slow=slow, rebalance_every=rebalance_every)
     return replay_report(
