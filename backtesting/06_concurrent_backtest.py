@@ -2,8 +2,10 @@
 
 Uses ``honba.strategies.testing.replay`` (bar-close fills, no settlement or costs)
 in a thread pool to evaluate a grid of (fast, slow)
-periods. Reports the Pareto frontier (return vs drawdown) and the best by
-Sharpe.
+periods on deterministic noisy sine-wave bars. Reports the Pareto frontier (return vs drawdown)
+and the best by Sharpe among pairs with enough closed trades; pairs with too few are listed as
+``insufficient_trades`` and never ranked. The output carries a ``multiple_testing`` block with the
+number of combinations tried.
 
 Run::
 
@@ -12,13 +14,14 @@ Run::
 Pitfalls::
 
     - Multiple testing: the default grid is 56 (fast, slow) pairs scored on one history, and
-      best_by_sharpe is the maximum of 56 noisy numbers, which is biased upward. Report the trial
-      count, deflate the Sharpe, and look for a plateau of good neighbours instead of a lone peak.
-    - No out-of-sample: the same 120 bars select the winner and report it. 04_walk_forward is the
+      best_by_sharpe is the maximum of up to 56 noisy numbers, which is biased upward. The output
+      prints the trial count; also deflate the Sharpe and look for a plateau of good neighbours
+      instead of a lone peak.
+    - No out-of-sample: the same 300 bars select the winner and report it. 04_walk_forward is the
       missing step; a sweep result is a hypothesis, not a finding.
-    - Degenerate default: on the synthetic ramp every combination has fewer than two fills, so every
-      Sharpe is 0.0 and the 'best' pair (5, 20) is only the sort tie-break. Check that a sweep
-      actually discriminates before reading a winner.
+    - Not enough trades is not zero risk: a pair with fewer than --min-trades closed trades has no
+      meaningful Sharpe or drawdown, so it is reported as insufficient_trades rather than ranked.
+      Even ranked pairs rest on a handful of trades; check the fills column before trusting a rank.
     - Defence shown: results are collected in grid order, not completion order, so thread scheduling
       cannot change which of several equal scores wins.
     - The per-pair curve is rebuilt from fills alone (no mark-to-market between trades, no costs,
