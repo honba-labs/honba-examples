@@ -41,10 +41,13 @@ from honba.strategies.indicators import Sma
 from honba.strategies.testing import replay
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
-from honba_examples.synthetic import bar as synth_bar
-from honba_examples.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import oscillating_bars
 
 __all__ = ["main", "run"]
+
+CAPITAL = 100_000.0
+GRID_FAST = (5, 10, 15)
+GRID_SLOW = (20, 30, 40)
 
 
 class SmaWalk(Strategy):
@@ -53,8 +56,9 @@ class SmaWalk(Strategy):
     name = "sma_walk"
     warmup_bars = 30
 
-    def __init__(self, fast: int = 10, slow: int = 30) -> None:
+    def __init__(self, fast: int = 10, slow: int = 30, capital: float = CAPITAL) -> None:
         super().__init__()
+        self.capital = capital
         self.fast = Sma(fast)
         self.slow = Sma(slow)
 
@@ -67,47 +71,68 @@ class SmaWalk(Strategy):
 
         position = self.position(bar.instrument_id)
         if fast_val > slow_val and position <= 0:
-            self.buy(bar.instrument_id, 1)
-        elif fast_val < slow_val and position >= 0 and position > 0:
+            qty = int(self.capital // bar.close)
+            if qty > 0:
+                self.buy(bar.instrument_id, qty)
+        elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
 
 
+def _evaluate(bars_list: list, fast: int, slow: int) -> tuple[float, int]:
+    """Net return on ``CAPITAL`` (fills plus the open position at the last close) and buy count."""
+    result = replay(SmaWalk(fast=fast, slow=slow), bars_list)
+    cash, held = CAPITAL, 0.0
+    for f in result.fills:
+        sign = 1.0 if f.side.value == "buy" else -1.0
+        cash -= sign * f.quantity * f.price
+        held += sign * f.quantity
+    equity = cash + held * bars_list[-1].close if bars_list else CAPITAL
+    return equity / CAPITAL - 1.0, sum(1 for f in result.fills if f.side.value == "buy")
+
+
 def _backtest(bars_list: list, fast: int, slow: int) -> float:
-    """Run one backtest and return final equity."""
-    strat = SmaWalk(fast=fast, slow=slow)
-    result = replay(strat, bars_list)
-    return result.fills[-1].price if result.fills else 0.0
+    """Run one backtest and return the net return (0.01 = +1%)."""
+    return _evaluate(bars_list, fast, slow)[0]
 
 
 def run(
-    bars: int = 120,
-    window: int = 40,
-    step: int = 20,
+    bars: int = 400,
+    window: int = 120,
+    step: int = 60,
 ) -> dict[str, Any]:
     start = dt.date(2026, 1, 1)
-    bars_list = [
-        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
-    ]
+    bars_list = oscillating_bars(
+        "RELIANCE", bars, start=start, amplitude=100.0, period=50, drift=1.0
+    )
+
+    warmup = max(GRID_SLOW)
+    warnings = []
+    if step <= warmup:
+        warnings.append(
+            f"test slices of {step} bars are not longer than the {warmup}-bar warm-up: "
+            "a pair with slow >= the slice length cannot form a signal out of sample, so such "
+            "windows score 0.0 for lack of data, not for lack of edge"
+        )
 
     results = []
-    for i in range(0, bars - window, step):
+    for i in range(0, bars - window - step + 1, step):
         train_bars = bars_list[i : i + window]
         test_bars = bars_list[i + window : i + window + step]
 
         # Grid search on train window (simplified: just evaluate a few pairs)
-        best_score = -1
+        best_score = float("-inf")
         best_pair = (10, 30)
-        for fast in (5, 10, 15):
-            for slow in (20, 30, 40):
+        best_trades = 0
+        for fast in GRID_FAST:
+            for slow in GRID_SLOW:
                 if fast >= slow:
                     continue
-                score = _backtest(train_bars, fast, slow)
+                score, trades = _evaluate(train_bars, fast, slow)
                 if score > best_score:
-                    best_score = score
-                    best_pair = (fast, slow)
+                    best_score, best_pair, best_trades = score, (fast, slow), trades
 
         # Test on out-of-sample
-        test_score = _backtest(test_bars, *best_pair)
+        test_score, test_trades = _evaluate(test_bars, *best_pair)
         results.append(
             {
                 "window": i // step,
@@ -117,17 +142,28 @@ def run(
                 "best_slow": best_pair[1],
                 "train_score": best_score,
                 "test_score": test_score,
+                "train_trades": best_trades,
+                "test_trades": test_trades,
             }
         )
 
-    return {"config": {"window": window, "step": step, "total_bars": bars}, "windows": results}
+    return {
+        "config": {
+            "window": window,
+            "step": step,
+            "total_bars": bars,
+            "warmup_bars": warmup,
+            "warnings": warnings,
+        },
+        "windows": results,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = make_parser(__doc__)
-    parser.add_argument("--bars", type=int, default=120)
-    parser.add_argument("--window", type=int, default=40)
-    parser.add_argument("--step", type=int, default=20)
+    parser.add_argument("--bars", type=int, default=400)
+    parser.add_argument("--window", type=int, default=120)
+    parser.add_argument("--step", type=int, default=60)
     add_out_arg(parser)
     args = parser.parse_args(argv)
 

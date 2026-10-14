@@ -34,6 +34,8 @@ def test_run_returns_windows(example):
             "best_slow",
             "train_score",
             "test_score",
+            "train_trades",
+            "test_trades",
         }
 
 
@@ -57,3 +59,34 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main([]) == 0
     assert "windows" in capsys.readouterr().out
+
+
+def _ramp(n):
+    from honba_examples.synthetic import trending_bars
+
+    return trending_bars("RELIANCE", n)
+
+
+def test_backtest_returns_net_return_not_a_price(example):
+    # slow=20: buy at the 20th close (2509.5) with all 100000 -> 39 shares; last close 2529.5
+    score = example._backtest(_ramp(60), 5, 20)
+    assert score == pytest.approx(39 * (2529.5 - 2509.5) / 100_000.0)
+    assert example._backtest(_ramp(10), 5, 20) == 0.0  # never warmed up: flat
+
+
+def test_default_test_windows_trade(example):
+    result = example.run()
+    assert result["config"]["warmup_bars"] == 40
+    assert result["config"]["warnings"] == []
+    assert len(result["windows"]) >= 3
+    for w in result["windows"]:
+        assert w["test_range"][1] - w["test_range"][0] > 40  # test slice outlasts the warm-up
+        assert w["test_trades"] >= 1
+    assert any(w["test_score"] != 0.0 for w in result["windows"])
+    assert all(abs(w["train_score"]) < 1.0 for w in result["windows"])  # a return, not a price
+
+
+def test_short_test_slices_are_flagged(example):
+    result = example.run(bars=120, window=40, step=20)
+    assert result["config"]["warnings"]
+    assert all(w["test_trades"] <= 1 for w in result["windows"])  # little or no room to trade
