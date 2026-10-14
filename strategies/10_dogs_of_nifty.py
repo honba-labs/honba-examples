@@ -99,12 +99,16 @@ def run(
     sip_amount: float = 10000.0,
     output_format: str = "table",
     initial_capital: float | None = None,
+    end_date: str | None = None,
+    benchmark: str | None = None,
 ) -> Any:
     pipeline = build_pipeline(
         asof=asof,
         top=top,
         min_yield_pct=min_yield_pct,
         sip_amount=sip_amount,
+        end_date=end_date,
+        benchmark=benchmark,
         initial_capital=initial_capital,
     )
     results = pipeline.run()
@@ -163,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         sip_amount=args.sip_amount,
         output_format=args.output_format,
         initial_capital=args.capital,
+        end_date=args.end_date,
+        benchmark=args.benchmark,
     )
     return 0
 
