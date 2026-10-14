@@ -25,16 +25,25 @@ Pitfalls::
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
-from honba.markets.india.universes import resolve_universe
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
+
+from honba_examples.universe_lists import UniverseUnavailable, banknifty_members
 
 UNIVERSE_NAME = "banknifty"
 EXCHANGE = "NSE"
 
 
 def main() -> None:
-    members: list[InstrumentId] = resolve_universe(UNIVERSE_NAME, exchange=EXCHANGE)
+    try:
+        members: list[InstrumentId] = banknifty_members(EXCHANGE)
+    except UniverseUnavailable as exc:
+        raise SystemExit(f"error: {exc}") from None
     render_kv([("Universe", UNIVERSE_NAME), ("Exchange", EXCHANGE), ("Members", len(members))])
     render_table(
         [

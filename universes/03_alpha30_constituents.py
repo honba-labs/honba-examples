@@ -32,46 +32,26 @@ Pitfalls::
 
 from __future__ import annotations
 
+import argparse
+import sys
+from pathlib import Path
+
 from honba.display import Column, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import UNIVERSES, resolve_universe
 
-# ---------------------------------------------------------------------------
-# Seed list (canonical Nifty200 Alpha 30 Union on NSE)
-# Symbols follow NSE primary listing convention used throughout Honba.
-# ---------------------------------------------------------------------------
-NIFTY200_ALPHA_30_SEED: tuple[str, ...] = (
-    "ABCAPITAL",
-    "ADANIENSOL",
-    "ADANIGREEN",
-    "ADANIPOWER",
-    "ASHOKLEY",
-    "AUBANK",
-    "AUROPHARMA",
-    "BHARATFORG",
-    "BHEL",
-    "BSE",
-    "CUMMINSIND",
-    "FEDERALBNK",
-    "GVT&D",
-    "HINDALCO",
-    "IDEA",
-    "INDIANB",
-    "LAURUSLABS",
-    "LTF",
-    "MAHABANK",
-    "MCX",
-    "MOTHERSON",
-    "NATIONALUM",
-    "NYKAA",
-    "PAYTM",
-    "POLYCAB",
-    "POWERINDIA",
-    "SAIL",
-    "SHRIRAMFIN",
-    "UNIONBANK",
-    "VEDL",
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
+
+from honba_examples.universe_lists import (
+    ALPHA30_SEED,
+    ALPHA30_VARIANTS,
+    DEFAULT_ALPHA30_VARIANT,
+    alpha30_instruments,
 )
+
+# The lists live in honba_examples.universe_lists so 03/05/07/08 share one source. The engine
+# list (what resolve_universe returns) is authoritative; the seed is a historical alternative.
+NIFTY200_ALPHA_30_SEED: tuple[str, ...] = ALPHA30_SEED
 
 UNIVERSE_NAME = "nifty200_alpha_30"
 
@@ -88,11 +68,17 @@ def register_alpha30_if_missing(exchange: str = "NSE") -> None:
         print(f"[register] added {norm} ({len(NIFTY200_ALPHA_30_SEED)} names)")
 
 
-def load_alpha30(exchange: str = "NSE") -> list[InstrumentId]:
+def load_alpha30(
+    exchange: str = "NSE", variant: str = DEFAULT_ALPHA30_VARIANT
+) -> list[InstrumentId]:
     """Preferred entry point for any strategy that needs the universe.
 
-    Tries the official engine API first; falls back to the seed list.
+    ``variant="engine"`` (default, authoritative) tries the official engine API first and falls
+    back to the seed list only if the engine does not know the name. ``variant="seed"`` returns
+    the historical seed list directly, with no registration side effect.
     """
+    if variant != "engine":
+        return alpha30_instruments(variant, exchange)
     try:
         members = resolve_universe(UNIVERSE_NAME, exchange=exchange)
         if members:
@@ -121,8 +107,22 @@ def print_members(members: list[InstrumentId]) -> None:
     )
 
 
-def main() -> None:
-    print_members(load_alpha30())
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Resolve Nifty200 Alpha 30 through the Honba universe API (engine list, "
+            "authoritative) or the historical seed list."
+        )
+    )
+    parser.add_argument(
+        "--list",
+        dest="variant",
+        choices=ALPHA30_VARIANTS,
+        default=DEFAULT_ALPHA30_VARIANT,
+        help="engine = resolve_universe list (default); seed = older alternative snapshot",
+    )
+    args = parser.parse_args(argv)
+    print_members(load_alpha30(variant=args.variant))
 
 
 if __name__ == "__main__":

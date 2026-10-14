@@ -75,6 +75,12 @@ from honba_examples.ewr import (
     trade_changes,
 )
 from honba_examples.settlement import resolve_settlement_days
+from honba_examples.universe_lists import (
+    ALPHA30_ENGINE,
+    ALPHA30_VARIANTS,
+    DEFAULT_ALPHA30_VARIANT,
+    alpha30_instruments,
+)
 
 # Re-export engine symbols for backwards compatibility with tests and callers
 __all__ = [
@@ -101,39 +107,8 @@ __all__ = [
     "trade_changes",
 ]
 
-# Canonical universe constituents for Alpha-30 Union on NSE
-BASKET: tuple[str, ...] = (
-    "ABCAPITAL",
-    "ADANIENSOL",
-    "ADANIGREEN",
-    "ADANIPOWER",
-    "ASHOKLEY",
-    "AUBANK",
-    "AUROPHARMA",
-    "BHARATFORG",
-    "BHEL",
-    "BSE",
-    "CUMMINSIND",
-    "FEDERALBNK",
-    "GVT&D",
-    "HINDALCO",
-    "IDEA",
-    "INDIANB",
-    "LAURUSLABS",
-    "LTF",
-    "MAHABANK",
-    "MCX",
-    "MOTHERSON",
-    "NATIONALUM",
-    "NYKAA",
-    "PAYTM",
-    "POLYCAB",
-    "POWERINDIA",
-    "SAIL",
-    "SHRIRAMFIN",
-    "UNIONBANK",
-    "VEDL",
-)
+# Default basket = the engine list (what 07 trades); --alpha30-list seed selects the older seed.
+BASKET: tuple[str, ...] = ALPHA30_ENGINE
 
 
 class Alpha30EWRExample(HonbaExample):
@@ -159,11 +134,19 @@ class Alpha30EWRExample(HonbaExample):
     sip: float = 0.0
     duration: str | None = None
     no_of_sip: int | None = None
+    alpha30_list: str = DEFAULT_ALPHA30_VARIANT
 
     def load_universe(self) -> list[InstrumentId]:
-        return [InstrumentId(sym, self.exchange) for sym in BASKET]
+        return alpha30_instruments(self.alpha30_list, self.exchange)
 
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--alpha30-list",
+            choices=ALPHA30_VARIANTS,
+            default=self.alpha30_list,
+            help="engine = the list resolve_universe returns and 07 trades (default); "
+            "seed = older alternative snapshot",
+        )
         parser.add_argument(
             "--fee", type=float, default=self.fee, help="Fraction of traded notional, per side"
         )
