@@ -36,8 +36,8 @@ Pitfalls::
     - Tunable knobs: --tolerance-pct, --rebalance-days, --fee and the cash sweep all change the
       result on a window of about nine months. Sweeping them and keeping the best is overfitting.
     - Leverage and shorting options track margin use, but a margin call is only counted (no forced
-      liquidation) and no interest or borrow cost is charged; the flat --fee is not the statutory
-      cost stack of 02_cost_modeling.
+      liquidation) and no interest or borrow cost is charged (the printed summary and
+      SimResult.notes say so); the flat --fee is not the statutory cost stack of 02_cost_modeling.
     - The schedule is anchored to --start in calendar days, so the result depends on the start
       date; vary it before drawing conclusions.
 """

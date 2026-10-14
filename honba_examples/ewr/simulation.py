@@ -59,6 +59,10 @@ def simulate(
     * ``maintenance_margin``: maintenance margin threshold for margin call check (default 0.25).
     * ``allow_short``: enable short-selling into negative positions (default False).
 
+    Margin is tracked, not enforced: ``margin_calls`` only counts sessions below the maintenance
+    requirement; positions are never liquidated and no interest is charged on borrowed cash (see
+    ``SimResult.notes``). Symbols with no bars on or after ``start`` are in ``missing_data``.
+
     SIP parameters:
     * ``sip_amount``: fixed rupee cash injected on each scheduled rebalance session after Day 0.
     * ``no_of_sip``: limit on the total count of SIP installments.
