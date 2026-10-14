@@ -1,7 +1,10 @@
 """honba_examples.sip: Generic Systematic Investment Plan (SIP) Backtesting Engine.
 
 Simulates recurring monthly systematic investment and initial capital deployment on forward price bars:
-- Deploys initial capital lump sum on `--asof` date across screened candidates.
+- Deploys the initial capital lump sum at the next session's open after the `--asof` date (the
+  screen saw that day's close) across screened candidates.
+- Reports symbols it could not price: `unpriced_symbols` (no bar after asof), `skipped_symbols`
+  (no data) and `delisted_symbols` (bars stop early); see `sip_data_notes`.
 - Supports customizable portfolio weighting (equal weighting or ratio to 52-week high).
 - Executes monthly systematic investment plan (SIP) installments for every subsequent month until till date.
 - Prunes DuckDB queries strictly to target symbol Parquet files for sub-50ms execution.

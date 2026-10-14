@@ -46,19 +46,19 @@ Usage Examples::
 
 Pitfalls::
 
-    - Boundary lookahead: the screeners read bars up to and including --asof (bar_date <= asof, so
-      that day's close), but simulate_portfolio_sip buys the lump sum at the open of the first bar
-      on or after --asof. On a trading day that is the open of a session whose close the screen
-      already used. A non-trading --asof (the default 2025-03-01 is a Saturday) avoids it by
-      accident.
+    - Fill timing: the screeners read bars up to and including --asof, and simulate_portfolio_sip
+      buys the lump sum at the open of the next session after --asof, so the decision day's close
+      is not traded. The fill is still the plain open price, with no gap, auction or liquidity
+      model.
     - Fundamentals dating: ROCE and debt/equity are chosen with fiscal_date <= asof minus
       --fiscal-lag-days (default 90), the period end plus a flat lag, not the date the results
       were published. The store holds no filing dates, so a late filer or a restatement can still
       let the screen use numbers the market did not have yet, which flatters quality screens.
     - Survivorship: the screener ranks every symbol under the catalog directory, whatever is on disk
-      today, and --universe is not passed to it. In the simulation a symbol with no bars after
-      --asof is valued flat at its last close (sip.py) and one with no data is skipped, so a name
-      that collapsed or delisted shows 0 percent or vanishes instead of showing a loss.
+      today, and --universe is not passed to it. A symbol with no bar after --asof is now listed
+      (summary.unpriced_symbols, marked delisted) and a symbol with no data in skipped_symbols, but
+      the unpriced name is held flat as idle cash, so a collapse or delisting shows 0 percent, not
+      a loss, and the sample is still biased to names that exist today.
     - Friction: the forward SIP buys fractional shares at the month's first open with no brokerage,
       STT, stamp duty, slippage or liquidity check, and never rebalances or sells. Net returns are
       overstated, most for small caps.
