@@ -23,6 +23,24 @@ Run::
     python basic/05_check_positions.py
     python basic/05_check_positions.py --out positions.json
     python basic/05_check_positions.py --format json
+
+Pitfalls::
+
+    - Positions versus holdings: positions are the day's open book; holdings are settled demat
+      shares. A delivery buy appears in holdings only after settlement, so the same shares are in
+      one list today and the other later, and selling shares not yet delivered is a short-delivery
+      risk the fake never raises. Holdings are reported as unsupported when the adapter does not
+      declare them.
+    - Product types: DELIVERY is used throughout. Intraday and margin products carry separate
+      positions and different square-off rules, and netting differs by broker. Do not read one
+      product's quantity as the total exposure.
+    - Flat positions are omitted, and realized_pnl is in integer minor units from fill prices. It
+      books the bid-ask spread but not brokerage, STT or other charges, and the average price is the
+      broker's convention. The position after the buy is looked up by instrument, since a real
+      account holds other things.
+    - Real orders: the round trip places and sells shares. Any adapter but fake needs
+      HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1, and funds and trades reflect the whole account, not only
+      this run.
 """
 
 from __future__ import annotations

@@ -2,9 +2,8 @@
 
 Each ``<dir>/NN_*.py`` module docstring must carry a ``Pitfalls::`` block of 3 to 6 bullets
 that are specific to what that script does (lookahead, survivorship, overfitting, costs, data
-quality, synthetic-data caveats, ...). ``PENDING_PITFALLS`` lists the scripts that have not
-been done yet so the suite stays green during the chunked rollout; remove a path from it
-in the same commit that adds the section. The set must end up empty.
+quality, synthetic-data caveats, ...). ``PENDING_PITFALLS`` (empty now) can stage a new script
+whose section is still to come; remove its path in the same commit that adds the section.
 """
 
 from __future__ import annotations
@@ -18,16 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 MIN_BULLETS = 3
 MAX_BULLETS = 6
 
-# Scripts whose docstring does not have a Pitfalls section yet (shrinks to empty).
-PENDING_PITFALLS: frozenset[str] = frozenset(
-    {
-        "basic/01_connect_dhan.py",
-        "basic/02_fetch_instruments.py",
-        "basic/03_subscribe_quotes.py",
-        "basic/04_place_order_paper.py",
-        "basic/05_check_positions.py",
-    }
-)
+# Every numbered script now documents its pitfalls; add a path here only to stage a new script.
+PENDING_PITFALLS: frozenset[str] = frozenset()
 
 
 def _scripts() -> list[str]:

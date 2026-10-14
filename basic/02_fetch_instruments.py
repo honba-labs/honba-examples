@@ -13,6 +13,21 @@ Run::
     python basic/02_fetch_instruments.py
     python basic/02_fetch_instruments.py --query RELIANCE --out instruments.json
     python basic/02_fetch_instruments.py --format json
+
+Pitfalls::
+
+    - Staleness: the master is whatever the adapter has cached or downloaded. The report has no as-
+      of timestamp, and contracts expire, symbols change and lot sizes are revised, so a list from
+      last week can describe instruments that no longer exist. Refresh daily and key on the exchange
+      token, not the symbol text.
+    - Lot and tick size: the report shows lot_size and tick_size but nothing here rounds to them. A
+      derivatives quantity must be a multiple of the lot, and a price must sit on a tick; an order
+      that ignores either is rejected, or worse, filled at an unintended size.
+    - Search is a substring match and the table is sorted by symbol only: the same symbol on NSE and
+      BSE, or RELIANCE and a similarly named series, appear together. Always filter on exchange and
+      kind before picking an instrument.
+    - Coverage: the fake serves a handful of instruments, so by_kind and count say nothing about a
+      real master, which has tens of thousands of rows across segments.
 """
 
 from __future__ import annotations

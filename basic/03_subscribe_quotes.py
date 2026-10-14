@@ -19,6 +19,22 @@ Run::
 
     python basic/03_subscribe_quotes.py
     python basic/03_subscribe_quotes.py --out quotes.json
+
+Pitfalls::
+
+    - Streaming is mostly absent here: only the fake moves when advance_prices asks. With a real
+      adapter the script subscribes, advances nothing, unsubscribes at once and so reports no ticks.
+      A real consumer must wait for pushes, handle the callback running on the transport's thread,
+      and survive disconnects.
+    - Subscription limits and reconnection: brokers cap instruments per connection and per account,
+      and a dropped socket silently ends the stream. The code does not resubscribe or detect a gap,
+      so a real feed needs heartbeats, backoff, and a re-subscribe that does not double-count.
+    - Quote versus snapshot: a streamed QuoteTick and a one-shot quote are both top of book. The mid
+      is not a price you can trade at, a wide or one-sided book moves it, and a snapshot taken after
+      the unsubscribe can be older than the last tick.
+    - Capability refusals are checked before any I/O and reported as data (depth here). Treat an
+      unsupported mode the same way in a live loop, rather than falling back to polling that breaks
+      a rate limit.
 """
 
 from __future__ import annotations

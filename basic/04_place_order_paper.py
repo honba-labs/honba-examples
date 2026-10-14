@@ -14,6 +14,23 @@ Run::
     python basic/04_place_order_paper.py
     python basic/04_place_order_paper.py --out orders.json
     python basic/04_place_order_paper.py --adapter dhan
+
+Pitfalls::
+
+    - Real orders: nothing about the order sequence is paper except the fake adapter. With
+      HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1 and a real broker it places a market buy, a limit buy and
+      an oversized buy for real money; without the opt-in any adapter but fake is refused.
+    - Idempotency defence: the repeat with the same client_order_id returns the same report and adds
+      no order or trade. Real brokers dedupe only within their own window or day, and a fixed id
+      such as "reliance-buy" collides on the next run. Make ids unique per intent, and after a
+      timeout look the order up before resending, since a timeout is neither a fill nor a reject.
+    - Lifecycle races: the market order fills in full at the ask and the limit rests and cancels
+      cleanly. Live, an order can fill while the cancel is in flight, fill partially, or sit
+      unacknowledged. The example re-reads order_status after the cancel for that reason; keep that
+      habit.
+    - Rejects are data: the oversized buy comes back as a report with a reason, not an exception, so
+      check status on every report. The product is delivery throughout; an intraday or margin
+      product has different rules and fees.
 """
 
 from __future__ import annotations

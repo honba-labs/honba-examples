@@ -21,6 +21,17 @@ real connectivity.
 | 04 | `04_place_order_paper.py` | — | Intent → report → fills; idempotent `client_order_id`, cancel, reject as a report |
 | 05 | `05_check_positions.py` | — | Positions, funds and trades after a round trip; flat positions are omitted |
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as
+credentials and expiring tokens, paper versus live sessions (the order scripts now refuse a real
+broker unless HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1), instrument-master staleness and lot and tick
+rounding, subscription limits and reconnection, order idempotency and cancel and fill races, and
+positions versus holdings and product types. Read it before trusting a number. For the general
+treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## Running them
 
 ```bash

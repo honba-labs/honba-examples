@@ -14,6 +14,21 @@ Run::
     python basic/01_connect_dhan.py
     python basic/01_connect_dhan.py --out connection.json
     python basic/01_connect_dhan.py --adapter dhan
+
+Pitfalls::
+
+    - Credentials: this script has no --config option, so --adapter dhan cannot be given a client id
+      or token on the command line and will only work if the adapter reads them from its own
+      environment. Pass secrets through the environment or a secret store, never a literal in a
+      script. The report does not echo the config, so a token will not leak into the --out file.
+    - Paper versus live: check session.mode in the report before sending any order. A connected
+      session says nothing about whether orders reach a real account, and the fake adapter always
+      reports a deterministic fake user.
+    - Expiry: expires_at is reported but not enforced. Broker access tokens expire and some brokers
+      allow one live session per login, so a long-running process must re-authenticate rather than
+      assume the connection stays valid.
+    - Capabilities are declared by the adapter and are not proof: a listed order type or product can
+      still be refused by the broker for a given account or segment, so treat a reject as normal.
 """
 
 from __future__ import annotations
