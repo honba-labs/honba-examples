@@ -1,9 +1,10 @@
-"""backtesting/05_monte_carlo: bootstrap equity curves to estimate risk.
+"""backtesting/05_monte_carlo: bootstrap closed trades to estimate risk.
 
-Resamples the fills from a base backtest with replacement, rebuilding the equity
-curve many times to build a distribution of final equity / max drawdown / Sharpe.
-This is the simplest Monte Carlo (i.i.d. resampling); production uses block
-bootstrap and parameter sweeps.
+Pairs the fills of a base backtest into closed round-trip trades, resamples whole trades (their
+returns) with replacement and compounds each draw into an equity path, many times, to build a
+distribution of final equity / max drawdown / Sharpe. This is the simplest trade-level Monte Carlo
+(i.i.d. over trades); production uses block bootstrap and parameter sweeps. It refuses to run on
+fewer than ``--min-trades`` closed trades.
 
 Run::
 
@@ -11,20 +12,19 @@ Run::
 
 Pitfalls::
 
-    - Resampling fills i.i.d. destroys order: random.choices can draw three buys in a row or a sell
-      before any buy, so the rebuilt curves are not paths the strategy could have produced. Block
-      bootstrap on returns, or re-running on perturbed start dates, respects serial dependence.
-    - A distribution of nothing: on the default synthetic ramp the base run has a single fill, so
-      all paths are that one fill and every percentile is flat (final equity 100000, drawdown 0,
-      Sharpe 0). Monte Carlo cannot add information the sample lacks; with few trades its bands are
-      overconfident.
-    - The curve is built from fills only (valued at fill prices, an open position closed at the last
-      fill's price, no costs), so there is no mark-to-market between trades and drawdown is measured
-      at fill points only.
+    - Trades are treated as i.i.d.: resampling whole round trips never makes an impossible
+      buy/sell sequence, but it still destroys serial dependence (loss clusters, regime changes), so
+      the drawdown tails are optimistic. Block bootstrap on trades or returns respects it.
+    - Few trades, wide uncertainty: the default run has 9 closed trades, just over the minimum of 8.
+      Monte Carlo cannot add information the sample lacks; with so few trades the bands describe the
+      sample, not the strategy. An open final position is dropped, not marked.
+    - Each path compounds fully invested, gross of costs, with one point per trade (on the base
+      trade dates), so drawdown is measured between trade exits, not mark-to-market daily, and the
+      Sharpe is annualised from those sparse points and is not comparable to a daily Sharpe.
     - Percentile indexing is int(p * n) on the sorted list, so with fewer than 20 paths the 'p5' is
       the minimum. Use 1000 or more paths for tails, and report spread across several --seed values.
-    - random.seed(seed) seeds the global generator: runs are reproducible, but one seed is one draw
-      and the call affects other code in the same process.
+    - The seed makes the draw reproducible (a private random.Random, the global generator is left
+      alone), but one seed is one draw.
 """
 
 from __future__ import annotations
