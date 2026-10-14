@@ -11,11 +11,14 @@ Point-in-time deep asset value screener based on Benjamin Graham's Net Current A
 Emits a pure symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for Unix pipe chaining.
 
 Usage:
-    # Screen deepest asset value / Net-Net candidates as of 2024-01-01
+    # Classic Graham net-nets (price <= 2/3 of NCAV per share, the default) as of 2024-01-01
     python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 
-    # Screen strict Net-Nets (P/NCAV <= 1.0)
+    # Looser: price <= 1.0 x NCAV per share
     python screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 1.0 --top 5
+
+    # Rank only: no price cap, cheapest P/NCAV first (NOT a net-net screen)
+    python screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 0 --top 5
 
     # Pipe symbols into the forward SIP backtester
     python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
@@ -26,10 +29,10 @@ Pitfalls::
     - Book value taken at face: NCAV is Current Assets minus Total Liabilities with receivables
       and inventory counted at 100 percent. Graham haircut them, and a company can show a
       positive NCAV on stale inventory or doubtful receivables that would not liquidate at book.
-    - Not a net-net unless you ask: --max-p-ncav defaults to off, so the default run ranks every
-      positive-NCAV stock by price to NCAV and returns the cheapest few. As of 2023-06-01 and
-      2025-03-01 those sat at roughly 4x to 13x NCAV, nowhere near a bargain. Pass
-      --max-p-ncav 0.67 for Graham's classic two-thirds rule.
+    - Often an empty result: --max-p-ncav defaults to 0.67 (Graham's two-thirds rule), which very
+      few listed stocks meet; an empty list is the honest answer. Before this default was set the
+      script ranked every positive-NCAV stock and returned names at roughly 4x to 13x NCAV.
+      --max-p-ncav 0 restores that rank-only mode, which is not a net-net screen.
     - Stale balance sheet: the latest annual statement with fiscal_date <= --asof is used with no
       filing date in the tables, so it is up to a year old plus the reporting lag, and
       --fiscal-lag-days (default 0) is only a flat-day proxy. Shares are diluted average shares
@@ -61,7 +64,7 @@ class NetNetScreenerExample(ScreenerCLIExample):
     """Benjamin Graham Net-Net (Net Current Asset Value / NCAV) deep value screener."""
 
     train_years: int = 3
-    max_p_ncav: float | None = None
+    max_p_ncav: float | None = 0.67
     min_ncav_margin_of_safety: float | None = None
     require_positive_cfo: bool = False
     require_positive_eps: bool = False
@@ -81,7 +84,7 @@ class NetNetScreenerExample(ScreenerCLIExample):
             "--max-p-ncav",
             type=float,
             default=self.max_p_ncav,
-            help="Maximum Price-to-NCAV ratio (e.g. 0.67 for 2/3 Net-Net, 1.0 for NCAV, default: disabled)",
+            help="Maximum Price-to-NCAV ratio (default: 0.67, Graham's 2/3 rule; 1.0 for plain NCAV; 0 = no cap, rank only)",
         )
         parser.add_argument(
             "--min-ncav-margin-of-safety",

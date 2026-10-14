@@ -85,3 +85,40 @@ def fund_db(tmp_path: Path) -> Path:
     )
     con.close()
     return path
+
+
+class FundWriter:
+    """Insert ratio / statement rows into the synthetic fundamentals DB."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def _exec(self, sql: str, params: list) -> None:
+        con = duckdb.connect(str(self.path))
+        try:
+            con.execute(sql, params)
+        finally:
+            con.close()
+
+    def ratio(self, symbol: str, fiscal_date: dt.date, period_type: str = "FY", **cols) -> None:
+        names = ["symbol", "period_type", "fiscal_date", *cols]
+        marks = ", ".join("?" for _ in names)
+        self._exec(
+            f"INSERT INTO financial_ratios ({', '.join(names)}) VALUES ({marks})",
+            [symbol, period_type, fiscal_date, *cols.values()],
+        )
+
+    def stmt(self, symbol: str, fiscal_date: dt.date, items: dict[str, float]) -> None:
+        for line_item, value in items.items():
+            self._exec(
+                "INSERT INTO financial_statements VALUES (?, 'FY', 'x', ?, ?, ?, 'INR')",
+                [symbol, fiscal_date, line_item, value],
+            )
+
+    def company(self, symbol: str, name: str | None = None) -> None:
+        self._exec("INSERT INTO companies VALUES (?, ?)", [symbol, name or symbol])
+
+
+@pytest.fixture
+def fund(fund_db: Path) -> FundWriter:
+    return FundWriter(fund_db)

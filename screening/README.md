@@ -190,7 +190,7 @@ Implements Benjamin Graham's most profitable historical strategy: **Net Current 
 ### Options:
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--max-p-ncav` | disabled (0) | Maximum Price-to-NCAV ratio (e.g. `0.67` for classic 2/3 Net-Net, `1.0` for NCAV) |
+| `--max-p-ncav` | 0.67 | Maximum Price-to-NCAV ratio: `0.67` is Graham's classic 2/3 Net-Net, `1.0` plain NCAV, `0` removes the cap (rank only, not a net-net screen) |
 | `--min-ncav-margin-of-safety` | disabled (0) | Minimum Margin of Safety % to NCAV |
 | `--require-positive-cfo` | off | Require positive operating cash flow (avoids cash burn) |
 | `--require-positive-eps` | off | Require positive EPS |
@@ -199,7 +199,7 @@ Implements Benjamin Graham's most profitable historical strategy: **Net Current 
 
 ### Example:
 ```bash
-# Screen deepest asset value / Net-Net candidates as of 2024-01-01
+# Classic 2/3 Net-Net candidates (price <= 0.67 x NCAV/share) as of 2024-01-01; may be empty
 python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 
 # Pipe Net-Net candidates into forward SIP backtest

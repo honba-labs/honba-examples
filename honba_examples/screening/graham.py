@@ -219,7 +219,7 @@ def screen_net_net(
     catalog_dir: Path,
     asof_date: dt.date,
     train_years: int = 3,
-    max_price_to_ncav: float | None = None,
+    max_price_to_ncav: float | None = 0.67,
     min_ncav_margin_of_safety: float | None = None,
     require_positive_ncav: bool = True,
     require_positive_cfo: bool = False,
@@ -236,6 +236,9 @@ def screen_net_net(
         NCAV per share = NCAV / Diluted Shares
         Classic 2/3 Net-Net: Price <= 0.67 * NCAV per share (MoS >= 33.3%)
         Full Net-Net Bargain: Price <= 1.0 * NCAV per share
+
+    ``max_price_to_ncav`` defaults to 0.67 (Graham's two-thirds rule). ``None`` or ``0`` turns the
+    cap off, which only *ranks* every positive-NCAV stock by price to NCAV (not a net-net screen).
 
     Provides downside liquidation asset buffer:
     - Current Assets (cash, receivables, inventory) exceed ALL liabilities (short + long-term debt).

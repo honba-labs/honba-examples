@@ -175,3 +175,8 @@ def test_mutual_fund_screener_execution(mf_script, capsys):
     assert len(candidates) >= 1
     codes = {c["scheme_code"] for c in candidates}
     assert "122639" in codes or "118989" in codes or "125354" in codes
+
+
+def test_net_net_cli_defaults_to_graham_two_thirds(net_net_script):
+    # default is Graham's 2/3 rule; 0 means rank-only
+    assert net_net_script.NetNetScreenerExample.max_p_ncav == 0.67
