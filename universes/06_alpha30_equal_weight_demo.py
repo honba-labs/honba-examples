@@ -14,6 +14,17 @@ offline and deterministically against the bundled universe map.
 Run::
 
     python universes/06_alpha30_equal_weight_demo.py
+
+Pitfalls::
+
+    - Same static list every rebalance: resolve_universe("nifty200_alpha_30") returns one fixed
+      tuple, so despite "re-fetched on every rebalance so joiners and leavers are applied", no one
+      joins or leaves in a backtest. Today's members were also picked for past alpha (see 03).
+    - Inherits 04's traps: stale last-seen prices at rebalance, fixed starting capital instead of
+      current equity, a wall-clock fallback for bar dates, and a day counter driven by any
+      instrument's bars.
+    - Not a backtest: __main__ prints how many names resolve and nothing more, so run 07 for a
+      Honba-native result. Do not read a performance story into the class from this file.
 """
 
 from __future__ import annotations

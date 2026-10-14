@@ -20,6 +20,23 @@ against the bundled universe map.
 Run::
 
     python universes/04_alpha30_generic_rebalancer.py
+
+Pitfalls::
+
+    - Joiners and leavers never occur in a run: _rebalance re-reads resolve_universe(name) with no
+      as_of, which returns the same static tuple every time, so the exit and enter actions only
+      fire if someone edits UNIVERSES mid-run. The docstring's promise that index changes are
+      applied needs a point-in-time resolver passed the bar date.
+    - Rebalance-date prices: sizing uses _last_prices, the last bar seen per instrument, which can
+      be stale for a name that did not trade or has not printed yet. The initial rebalance fires on
+      the first bar of a new day or once every name has printed, so it can size off partial data.
+    - Fixed capital: target_notional is capital x allocation / n from the constructor, not current
+      equity, so the book does not compound or shrink with losses, and the strategy never checks
+      cash itself. Fills, costs and settlement belong to the runner you plug this into.
+    - Wall clock fallback: _bar_day uses datetime.now when a bar has no usable timestamp and the
+      context clock is 0, which makes a replay non-reproducible. The "every 15 days" counter also
+      counts days on which any instrument printed, not exchange sessions.
+    - Nothing here is backtested: __main__ only resolves membership, so no performance follows.
 """
 
 from __future__ import annotations

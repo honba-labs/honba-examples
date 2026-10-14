@@ -21,6 +21,23 @@ Run::
 
     python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \\
         --out-dir /tmp/alpha30
+
+Pitfalls::
+
+    - Today's universe, short window: resolve() calls resolve_universe with no as_of, so every
+      past --test-start trades today's 30 names. The default window is recent, so the bias is
+      small there but grows with every earlier start. Members without bars are reported in
+      coverage and their equal-weight share stays in cash; --require-full-coverage makes that fatal.
+    - Defences the script demonstrates: signals are seen at a close and orders fill at the next
+      session's open (fill_model next_session_open), sells precede buys, buys wait for settled
+      proceeds, and the universe is cross-checked against the one the strategy trades.
+    - Defaults move: --test-end defaults to the latest bar at run time (recorded as test_end_source
+      in run.json), so two runs on different days cover different spans. Pin --test-end when
+      comparing runs, and compare run_hash, not the printed metrics.
+    - Short, single-start result: Sharpe and CAGR are annualised from a few months, and an
+      every-N-days rebalance depends on the start date, so test several starts before concluding.
+    - Costs are NSE delivery per leg at the open print; the example passes no slippage, impact or
+      volume cap, so thinly traded members are filled as if liquid.
 """
 
 from __future__ import annotations

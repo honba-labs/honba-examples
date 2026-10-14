@@ -11,6 +11,20 @@ Custom universe here: a hand-picked basket of Indian infrastructure names.
 Run::
 
     python universes/05_alpha30_custom_universe.py
+
+Pitfalls::
+
+    - A basket picked today with hindsight: ten large names that are all still listed (and
+      "infrastructure" is loose: the list includes a telecom operator). Backtesting
+      it over a past window is survivorship plus selection bias. Write down when and why you
+      would have chosen it, or register a UniverseHistory.
+    - Static registration only: the tuple goes into the process-wide UNIVERSES map, so
+      resolve_universe(as_of=...) for this name raises (no history), and registering twice under a
+      name that already holds other symbols silently keeps the old ones.
+    - No existence check: InstrumentId objects are built from strings; a typo or a renamed ticker
+      only shows up later as missing bars, and the exchange is a label, not a verified listing.
+    - register_custom_universe returns CUSTOM_SYMBOLS, not what the registry holds, so the two
+      can differ if the name was already registered.
 """
 
 from __future__ import annotations

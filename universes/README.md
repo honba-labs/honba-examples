@@ -8,6 +8,19 @@ from a local seed list), so nothing needs an adapter or the network and the outp
 is deterministic. Examples 07–08 read local Parquet bars and run the reference and
 hand-rolled equal-weight backtests.
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring
+(enforced by `tests/unit/test_pitfalls_sections.py`). The recurring universe traps: a named
+universe resolved without `as_of` is today's membership, so any past window is survivorship-biased
+(and Alpha 30 members were picked for past alpha); the shipped Alpha 30 history stamps today's
+names as members since 2005, so `as_of=` does not rescue it; the engine list and the seed list used
+by 08 differ; a membership re-read inside a backtest returns the same static tuple, so nothing
+joins or leaves; and fills at the signal bar's close (08) flatter results compared with the
+next-open fills of 07. `02_banknifty_constituents.py` currently fails because `banknifty` is not a
+registered universe. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## At a glance
 
 | #  | File                               | Strategy class                                   | What you learn                                                  |

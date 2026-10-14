@@ -56,14 +56,6 @@ PENDING_PITFALLS: frozenset[str] = frozenset(
         "storage/02_import_nse_bhavcopy.py",
         "storage/03_import_amfi_nav.py",
         "storage/04_export_tearsheet.py",
-        "universes/01_nifty50_constituents.py",
-        "universes/02_banknifty_constituents.py",
-        "universes/03_alpha30_constituents.py",
-        "universes/04_alpha30_generic_rebalancer.py",
-        "universes/05_alpha30_custom_universe.py",
-        "universes/06_alpha30_equal_weight_demo.py",
-        "universes/07_alpha30_backtest.py",
-        "universes/08_alpha30_union_ewr_backtest.py",
     }
 )
 

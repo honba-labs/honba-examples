@@ -11,6 +11,23 @@ Catalog counterpart: honba.markets.india.universes
 Run::
 
     python universes/03_alpha30_constituents.py
+
+Pitfalls::
+
+    - Today's members chosen by past returns: Alpha 30 ranks stocks by past alpha, so each name
+      is in the list because of returns that already happened. Backtesting today's list over
+      that earlier window selects winners with hindsight, on top of ordinary survivorship.
+    - The shipped history is not history: default_alpha30_history() in honba stamps every one of
+      today's 30 names as included from 2005-04-01, so resolve_universe(as_of=...) returns today's
+      list for any date after that. The point-in-time API exists but the data behind it is not
+      real reconstitution history; replace it before using as_of.
+    - Two lists that disagree: load_alpha30() returns the engine list when it is non-empty and the
+      seed here only as a fallback, and the two differ (the engine has EICHERMOT, FORTIS, GLENMARK
+      and MUTHOOTFIN where the seed has AUROPHARMA, MAHABANK, MOTHERSON and UNIONBANK). 08 uses a
+      hard-coded copy of the seed, 07 and 04 to 06 use the engine, so results are not like for like.
+    - register_alpha30_if_missing mutates the process-wide UNIVERSES map as a hidden
+      side effect (its exchange argument is unused), and load_alpha30 swallows ValueError, so a
+      misspelt name falls through to the seed without a warning.
 """
 
 from __future__ import annotations

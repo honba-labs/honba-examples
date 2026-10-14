@@ -23,6 +23,23 @@ Run::
     python universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
     python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 1000000 --sip 50000 --no-of-sip 12
     python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 500000 --sip 25000 --duration 180d
+
+Pitfalls::
+
+    - Observe and trade the same close: the pool is valued at a session's close and the
+      rebalance fills at that same close. That is the "observe and trade the close" bias, so
+      results look better than the next-open fills of 07. Use 07 for a Honba-native number.
+    - A hard-coded list: BASKET is a copy of today's seed list, which differs from the engine
+      list 07 trades (four names each side), so 07 and 08 are different baskets. Names with no
+      bars are dropped with a [Data] message and the others are rebalanced as if they were the
+      whole basket; today's members are also survivors of any earlier window.
+    - Tunable knobs: --tolerance-pct, --rebalance-days, --fee and the cash sweep all change the
+      result on a window of about nine months. Sweeping them and keeping the best is overfitting.
+    - Leverage and shorting options track margin use, but a margin call is only counted (no forced
+      liquidation) and no interest or borrow cost is charged; the flat --fee is not the statutory
+      cost stack of 02_cost_modeling.
+    - The schedule is anchored to --start in calendar days, so the result depends on the start
+      date; vary it before drawing conclusions.
 """
 
 from __future__ import annotations

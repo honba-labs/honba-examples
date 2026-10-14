@@ -8,6 +8,19 @@ network.
 Run::
 
     python universes/01_nifty50_constituents.py
+
+Pitfalls::
+
+    - Today's list only: resolve_universe("nifty50") without as_of returns a static tuple of
+      current members. Its own module docstring calls that survivorship-biased by construction,
+      because every name that was dropped or delisted is already missing. Never use this call to
+      stand in for a past date; use as_of= with a registered history, which raises when none exists.
+    - No effective date: the tuple carries no stamp of when it was captured, and index membership
+      changes at each reconstitution, so the printed table is only right on some unknown day.
+    - Membership is not data: 50 printed symbols do not mean the catalog has bars for all of them.
+      Check coverage before a backtest (07 reports members with no bars).
+    - exchange is just a label stamped on each symbol; nothing checks the symbol trades there, and
+      a ticker changed by a rename or merger has a different symbol in older bars.
 """
 
 from __future__ import annotations
