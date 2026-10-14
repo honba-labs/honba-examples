@@ -157,15 +157,17 @@ Implements the timeless value investing criteria of Benjamin Graham (*The Intell
 - `--mode defensive`: Strict Graham Defensive Investor screen ($\text{P/E} \times \text{P/B} \le 22.5$, Debt/Equity $\le 0.6$, positive dividend yield).
 - `--mode enterprising`: Active value investor screen allowing turnaround opportunities with large margin of safety.
 
+Explicit `--max-*` flags override the profile's value; the effective thresholds are printed to stderr on every run.
+
 ### Options:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--mode` | defensive | Graham profile: `defensive` or `enterprising` |
 | `--min-margin-of-safety` | 0.0 | Minimum Margin of Safety % relative to Graham Value |
-| `--max-graham-product` | 22.5 | Maximum product of P/E × P/B |
-| `--max-pe` | 20.0 | Maximum derived P/E ratio |
-| `--max-pb` | 2.0 | Maximum derived P/B ratio |
-| `--max-debt-equity` | 1.0 | Maximum debt-to-equity ratio |
+| `--max-graham-product` | mode (22.5) | Maximum product of P/E × P/B; `0` disables |
+| `--max-pe` | mode: 15 defensive / 20 enterprising | Maximum derived P/E ratio; `0` disables |
+| `--max-pb` | mode: 1.5 defensive / 2.0 enterprising | Maximum derived P/B ratio; `0` disables |
+| `--max-debt-equity` | mode: 0.6 defensive / 1.0 enterprising | Maximum debt-to-equity ratio; `0` disables |
 | `--min-current-ratio` | 1.2 | Minimum Current Assets ÷ Current Liabilities |
 | `--min-div-yield` | 0.0 | Minimum trailing dividend yield % |
 

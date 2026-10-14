@@ -12,6 +12,45 @@ from honba_examples.screening.paths import find_duckdb_path
 
 logger = logging.getLogger(__name__)
 
+#: Valuation / leverage caps per Graham profile. An explicit argument to
+#: :func:`screen_intelligent_investor` overrides the profile value; ``0`` turns a cap off.
+_MODE_THRESHOLDS: dict[str, dict[str, float]] = {
+    "defensive": {
+        "max_pe": 15.0,
+        "max_pb": 1.5,
+        "max_graham_product": 22.5,
+        "max_debt_equity": 0.6,
+    },
+    "enterprising": {
+        "max_pe": 20.0,
+        "max_pb": 2.0,
+        "max_graham_product": 22.5,
+        "max_debt_equity": 1.0,
+    },
+}
+
+
+def graham_thresholds(
+    mode: str = "defensive",
+    max_graham_product: float | None = None,
+    max_pe: float | None = None,
+    max_pb: float | None = None,
+    max_debt_equity: float | None = None,
+) -> dict[str, float | None]:
+    """Effective caps for ``mode``: ``None`` takes the mode default, ``<= 0`` disables the cap."""
+    defaults = _MODE_THRESHOLDS["defensive" if mode == "defensive" else "enterprising"]
+    given = {
+        "max_pe": max_pe,
+        "max_pb": max_pb,
+        "max_graham_product": max_graham_product,
+        "max_debt_equity": max_debt_equity,
+    }
+    out: dict[str, float | None] = {}
+    for key, value in given.items():
+        chosen = defaults[key] if value is None else value
+        out[key] = chosen if chosen > 0 else None
+    return out
+
 
 def screen_intelligent_investor(
     catalog_dir: Path,
@@ -19,10 +58,10 @@ def screen_intelligent_investor(
     train_years: int = 3,
     mode: str = "defensive",
     min_margin_of_safety: float = 0.0,
-    max_graham_product: float = 22.5,
-    max_pe: float | None = 20.0,
-    max_pb: float | None = 2.0,
-    max_debt_equity: float | None = 1.0,
+    max_graham_product: float | None = None,
+    max_pe: float | None = None,
+    max_pb: float | None = None,
+    max_debt_equity: float | None = None,
     min_current_ratio: float = 1.2,
     min_div_yield: float = 0.0,
     require_positive_fcf: bool = False,
@@ -41,8 +80,14 @@ def screen_intelligent_investor(
     5. Earnings & Dividend Foundation: Positive audited EPS and shareholder equity.
 
     Modes:
-    - ``defensive``: Stricter Graham criteria (P/E * P/B <= 22.5, D/E <= 0.6, positive dividend).
-    - ``enterprising``: Relaxed multiples allowing turnaround opportunities with large margin of safety.
+    - ``defensive``: Stricter Graham criteria (P/E <= 15, P/B <= 1.5, P/E * P/B <= 22.5,
+      D/E <= 0.6, positive dividend).
+    - ``enterprising``: Relaxed multiples (P/E <= 20, P/B <= 2, D/E <= 1.0) allowing turnaround
+      opportunities with large margin of safety.
+
+    ``max_pe`` / ``max_pb`` / ``max_graham_product`` / ``max_debt_equity`` default to ``None``,
+    meaning "use the mode's value" (see :func:`graham_thresholds`); an explicit number overrides
+    it and ``0`` disables that cap.
 
     Symbols whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     are skipped (delisted / suspended); ``None`` or ``0`` disables the check.
@@ -69,11 +114,12 @@ def screen_intelligent_investor(
         "s.current_assets IS NULL OR s.current_liabilities IS NULL OR " if allow_missing else ""
     )
 
-    # Adjust default thresholds for mode
-    effective_max_product = 22.5 if mode == "defensive" else max_graham_product
-    effective_max_debt_eq = 0.6 if mode == "defensive" else max_debt_equity
-    effective_max_pe = 15.0 if mode == "defensive" else max_pe
-    effective_max_pb = 1.5 if mode == "defensive" else max_pb
+    eff = graham_thresholds(mode, max_graham_product, max_pe, max_pb, max_debt_equity)
+    effective_max_product = eff["max_graham_product"]
+    effective_max_debt_eq = eff["max_debt_equity"]
+    effective_max_pe = eff["max_pe"]
+    effective_max_pb = eff["max_pb"]
+    logger.info("Graham %s effective thresholds: %s", mode, eff)
 
     filters = [
         "r.eps IS NOT NULL AND r.eps > 0",

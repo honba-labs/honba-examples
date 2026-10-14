@@ -25,10 +25,12 @@ Pitfalls::
       date, so buybacks and issues distort book value per share, P/B and the margin of safety.
       Financials and capital-intensive firms are not treated separately: debt/equity and current
       ratio mean little for banks.
-    - Mode overrides your flags: in --mode defensive the thresholds are fixed in code (P/E 15,
-      P/B 1.5, P/E x P/B 22.5, debt/equity 0.6) and --max-pe, --max-pb and --max-debt-equity are
-      ignored. A missing debt/equity, current assets or current liabilities fails its test unless
-      --allow-missing is passed.
+    - Mode sets the default thresholds: --mode defensive uses P/E 15, P/B 1.5, P/E x P/B 22.5 and
+      debt/equity 0.6, --mode enterprising uses P/E 20, P/B 2 and debt/equity 1.0. An explicit
+      --max-pe, --max-pb, --max-graham-product or --max-debt-equity overrides the mode value (0
+      turns that cap off) and the effective thresholds are printed to stderr. Defensive also
+      still requires a dividend yield of at least 0.5 percent whatever flags you pass. A missing
+      debt/equity, current assets or current liabilities fails its test unless --allow-missing.
     - Period end, not publication date: fundamentals use fiscal_date <= --asof (no filing-date
       column exists); --fiscal-lag-days defaults to 0. The ratios and statements tables each pick
       their own latest fiscal_date, so EPS and share count can come from different years.
@@ -47,7 +49,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
 from honba_examples.screener_cli import ScreenerCLIExample, rich_console
-from honba_examples.screening import screen_intelligent_investor
+from honba_examples.screening import graham_thresholds, screen_intelligent_investor
 
 __all__ = ["IntelligentInvestorScreenerExample", "main"]
 
@@ -58,10 +60,10 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
     train_years: int = 3
     mode: str = "defensive"
     min_margin_of_safety: float = 0.0
-    max_graham_product: float = 22.5
-    max_pe: float = 20.0
-    max_pb: float = 2.0
-    max_debt_equity: float = 1.0
+    max_graham_product: float | None = None
+    max_pe: float | None = None
+    max_pb: float | None = None
+    max_debt_equity: float | None = None
     min_current_ratio: float = 1.2
     min_div_yield: float = 0.0
     require_positive_fcf: bool = False
@@ -94,25 +96,25 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             "--max-graham-product",
             type=float,
             default=self.max_graham_product,
-            help="Maximum Graham product P/E * P/B (default: 22.5)",
+            help="Maximum Graham product P/E * P/B (default: mode value, 22.5; 0 disables)",
         )
         parser.add_argument(
             "--max-pe",
             type=float,
             default=self.max_pe,
-            help="Maximum derived P/E ratio (default: 20.0, use 0 to disable)",
+            help="Maximum derived P/E (default: mode value, 15 defensive / 20 enterprising; 0 disables)",
         )
         parser.add_argument(
             "--max-pb",
             type=float,
             default=self.max_pb,
-            help="Maximum derived P/B ratio (default: 2.0, use 0 to disable)",
+            help="Maximum derived P/B (default: mode value, 1.5 defensive / 2.0 enterprising; 0 disables)",
         )
         parser.add_argument(
             "--max-debt-equity",
             type=float,
             default=self.max_debt_equity,
-            help="Maximum debt-to-equity ratio (default: 1.0)",
+            help="Maximum debt-to-equity (default: mode value, 0.6 defensive / 1.0 enterprising; 0 disables)",
         )
         parser.add_argument(
             "--min-current-ratio",
@@ -160,7 +162,27 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
+    def effective_thresholds(self) -> dict[str, float | None]:
+        """Caps in force: explicit flags override the ``--mode`` defaults (0 disables a cap)."""
+        return graham_thresholds(
+            self.mode, self.max_graham_product, self.max_pe, self.max_pb, self.max_debt_equity
+        )
+
+    def _describe_thresholds(self) -> str:
+        eff = self.effective_thresholds()
+
+        def fmt(label: str, key: str) -> str:
+            value = eff[key]
+            return f"{label} <= {value:g}" if value is not None else f"{label} off"
+
+        return (
+            f"Graham '{self.mode}' thresholds: {fmt('P/E', 'max_pe')}, {fmt('P/B', 'max_pb')}, "
+            f"{fmt('P/E x P/B', 'max_graham_product')}, {fmt('D/E', 'max_debt_equity')}, "
+            f"current ratio >= {self.min_current_ratio:g}"
+        )
+
     def screen(self, catalog_dir: Path, asof: dt.date) -> list[dict[str, Any]]:
+        print(self._describe_thresholds(), file=sys.stderr)
         return screen_intelligent_investor(
             catalog_dir=catalog_dir,
             asof_date=asof,
@@ -168,11 +190,9 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
             mode=self.mode,
             min_margin_of_safety=self.min_margin_of_safety,
             max_graham_product=self.max_graham_product,
-            max_pe=self.max_pe if self.max_pe and self.max_pe > 0 else None,
-            max_pb=self.max_pb if self.max_pb and self.max_pb > 0 else None,
-            max_debt_equity=self.max_debt_equity
-            if self.max_debt_equity and self.max_debt_equity > 0
-            else None,
+            max_pe=self.max_pe,
+            max_pb=self.max_pb,
+            max_debt_equity=self.max_debt_equity,
             min_current_ratio=self.min_current_ratio,
             min_div_yield=self.min_div_yield,
             require_positive_fcf=self.require_positive_fcf,
@@ -195,9 +215,11 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
         from rich import box
         from rich.table import Table
 
+        product_cap = self.effective_thresholds()["max_graham_product"]
+        cap_s = f"{product_cap:.1f}" if product_cap is not None else "off"
         title = (
             f"Stage 1 (In-Sample): Benjamin Graham '{self.mode.title()}' Value Candidates "
-            f"as of {asof} (P/E×P/B ≤ {self.max_graham_product:.1f})"
+            f"as of {asof} (P/E×P/B ≤ {cap_s})"
         )
         table = Table(title=title, border_style="cyan", box=box.ROUNDED, header_style="bold cyan")
         table.add_column("Symbol", style="bold cyan", no_wrap=True)

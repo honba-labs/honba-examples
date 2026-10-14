@@ -180,3 +180,19 @@ def test_mutual_fund_screener_execution(mf_script, capsys):
 def test_net_net_cli_defaults_to_graham_two_thirds(net_net_script):
     # default is Graham's 2/3 rule; 0 means rank-only
     assert net_net_script.NetNetScreenerExample.max_p_ncav == 0.67
+
+
+def test_graham_cli_passes_only_explicit_thresholds(graham_script, monkeypatch, capsys):
+    seen = {}
+    monkeypatch.setattr(
+        graham_script, "screen_intelligent_investor", lambda **kw: seen.update(kw) or []
+    )
+    ex = graham_script.IntelligentInvestorScreenerExample()
+    ex.screen(Path("."), _ASOF)
+    assert seen["max_pe"] is None and seen["max_pb"] is None and seen["max_debt_equity"] is None
+    err = capsys.readouterr().err
+    assert "P/E <= 15" in err and "P/B <= 1.5" in err  # effective defensive thresholds printed
+    ex.max_pe, ex.max_pb = 25.0, 0.0
+    ex.screen(Path("."), _ASOF)
+    assert seen["max_pe"] == 25.0 and seen["max_pb"] == 0.0
+    assert "P/E <= 25" in capsys.readouterr().err

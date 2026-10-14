@@ -13,7 +13,11 @@ Provides zero-lookahead screening primitives powered by DuckDB SQL:
 
 from __future__ import annotations
 
-from honba_examples.screening.graham import screen_intelligent_investor, screen_net_net
+from honba_examples.screening.graham import (
+    graham_thresholds,
+    screen_intelligent_investor,
+    screen_net_net,
+)
 from honba_examples.screening.momentum import screen_multibaggers
 from honba_examples.screening.mutual_funds import screen_mutual_funds
 from honba_examples.screening.paths import (
@@ -29,6 +33,7 @@ __all__ = [
     "find_duckdb_path",
     "find_mutual_funds_db_path",
     "get_latest_market_date",
+    "graham_thresholds",
     "screen_intelligent_investor",
     "screen_multibaggers",
     "screen_mutual_funds",
