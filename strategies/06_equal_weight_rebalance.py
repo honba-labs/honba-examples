@@ -17,8 +17,11 @@ Composed in code (``build_strategy`` below, the whole strategy)::
         allocation=0.995,\
     )
 
-No subclass, no ``on_bar``: the universe is re-read at every rebalance (joiners and leavers
-are picked up), names that left are sold, the rest are trimmed or topped up in whole shares.
+No subclass, no ``on_bar``: the universe is re-read at every rebalance as of the bar date
+(``point_in_time=True``), names that left are sold, the rest are trimmed or topped up in whole
+shares. Caveat: the engine's built-in Alpha 30 history is the current list with every name
+included since 2005-04-01, not real index history, so in this repo nobody joins or leaves; real
+joiners and leavers need ``register_universe_history`` or a ``constituents/`` catalog file.
 Everything is deterministic and never reads the wall clock.
 
 The same strategy as plain params (what a ``config.toml`` ``[params]`` table holds)::
@@ -60,11 +63,10 @@ Run::
 
 Pitfalls::
 
-    - Today's membership: build_strategy uses NamedUniverse(UNIVERSE_KEY, EXCHANGE), whose default
-      point_in_time=False ignores as_of and returns the engine's current list. The text says joiners
-      and leavers are picked up each rebalance, but with this default nothing ever joins or leaves;
-      over a real past period it is survivorship bias. Use point_in_time=True with registered
-      history.
+    - Today's membership: the universe is point-in-time (as_of is honoured), but the engine's
+      registered nifty200_alpha30 history is today's 30 names flagged as members since 2005, not
+      real history. Over any real past period that is survivorship bias; register true
+      constituent intervals before trusting a long backtest.
     - Invented market: the 30 series are deterministic (base 100 + 37k, slope +/-0.002 per bar, a
       sine wobble, close = open x 1.003). Rebalance counts and weight deviation describe mechanics,
       not any market.
