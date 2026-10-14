@@ -271,7 +271,7 @@ No trading strategy; 01, 03 and 06 are runnable, the rest are design placeholder
 Run one (the two runnable steps):
 
 ```bash
-python ai_research/01_llm_research_analyst.py --query "mid cap with rsi below 30"
+python ai_research/01_llm_research_analyst.py --query "rsi below 30" --fake-response "rsi < 30"
 python ai_research/06_mcp_integration.py
 ```
 

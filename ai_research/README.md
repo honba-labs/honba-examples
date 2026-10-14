@@ -54,7 +54,7 @@ installed and an API key set.
 ## Running them
 
 ```bash
-python ai_research/01_llm_research_analyst.py --query "mid cap with rsi below 30"
+python ai_research/01_llm_research_analyst.py --query "rsi below 30" --fake-response "rsi < 30"
 python ai_research/06_mcp_integration.py
 pytest tests/unit -q -k "llm_research or mcp_integration"
 ```

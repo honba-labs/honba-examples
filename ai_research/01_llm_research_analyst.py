@@ -11,14 +11,16 @@ fake LLM; swapping in a real provider (`LlmPort` impl) is the only change for pr
 Run::
 
     python ai_research/01_llm_research_analyst.py --query "large cap stocks with volume > 1m"
+    python ai_research/01_llm_research_analyst.py --query "volume > 5m" --fake-response "volume > 5000000"
     python ai_research/01_llm_research_analyst.py --out analyst.json
 
 Pitfalls::
 
     - The fake LLM proves the plumbing, not a model: ScriptedFakeLlm returns scripted text
-      whatever the prompt says. The default echoes your query as the "filter", which fails
-      validation, and the repair call then gets "" which parses as an empty AND group (filter_text
-      "", no items), which applies no condition at all. A real model needs its own evaluation.
+      whatever the prompt says. For the default query it first echoes the query (which fails
+      validation) and then returns a fixed valid filter on the repair call, so the default run
+      shows one repair and a real filter. Any other query needs --fake-response, otherwise the
+      empty repair is rejected with EmptyFilterError. A real model needs its own evaluation.
     - Validation checks form, not meaning: parse_filters and the metric catalog reject unknown
       metrics and bad syntax (the defence against hallucinated fields), but a flipped comparison
       or a wrong threshold parses fine. Read filter_text back against your question.
