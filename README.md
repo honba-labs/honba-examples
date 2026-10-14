@@ -111,7 +111,7 @@ rebalance". The catalog entry is `portfolio/rebalancing/equal_weight`.
 | # | File | Strategy / purpose |
 |---|---|---|
 | 01 | `01_nifty50_constituents.py` | No strategy — `resolve_universe("nifty50")` |
-| 02 | `02_banknifty_constituents.py` | No strategy — thematic universe, same API |
+| 02 | `02_banknifty_constituents.py` | No strategy — thematic universe; exits with a message until a Bank Nifty history exists |
 | 03 | `03_alpha30_constituents.py` | No strategy — `load_alpha30()` seed/helper (`alpha30_constituents.py` alias) |
 | 04 | `04_alpha30_generic_rebalancer.py` | Inline `UniverseEqualWeightRebalance` (any universe) |
 | 05 | `05_alpha30_custom_universe.py` | Registers a custom universe; reuses `UniverseEqualWeightRebalance` |

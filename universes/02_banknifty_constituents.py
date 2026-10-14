@@ -2,8 +2,9 @@
 
 Universe resolution, no strategy: Bank Nifty goes through the identical
 ``resolve_universe()`` call — only the name changes, so the pattern works for any
-named universe registered with Honba. Runs offline and deterministically against
-the bundled universe map.
+named universe registered with Honba. Bank Nifty is not registered in the core and no
+member list ships in this workspace, so the script reports that and exits unless a
+catalog history exists (see Pitfalls).
 
 Run::
 
@@ -11,10 +12,10 @@ Run::
 
 Pitfalls::
 
-    - As bundled this exits with ValueError: UNIVERSES holds only nifty50 and nifty200_alpha30, so
-      resolve_universe("banknifty") raises "unknown universe". The example works only once a Bank
-      Nifty universe is registered, so the "offline and deterministic" claim above holds for the
-      universes that exist, not for this name.
+    - As bundled this exits with an error message: the core registers only nifty50 and
+      nifty200_alpha30 and the workspace has no Bank Nifty constituent file, so there is no
+      reliable member list to print. The script checks for a catalog history at
+      <data root>/constituents/banknifty.parquet and otherwise stops rather than guess members.
     - A registered sector list is still today's membership, survivorship-biased for any earlier
       date; for a past date it needs a registered history and as_of=, not the static tuple.
     - A sector index is a small, highly correlated set of names, so an equal-weight result over it

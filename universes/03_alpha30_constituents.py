@@ -2,7 +2,7 @@
 
 Universe resolution, no strategy. Resolve the current membership through the Honba
 universe API and print it; when the engine does not know the name yet, fall back to
-a documented seed list while the membership provider is wired up. ``load_alpha30()``
+an older seed list (also selectable with ``--list seed``). ``load_alpha30()``
 is the preferred helper for strategies that need the universe. Offline and
 deterministic.
 
@@ -21,10 +21,11 @@ Pitfalls::
       today's 30 names as included from 2005-04-01, so resolve_universe(as_of=...) returns today's
       list for any date after that. The point-in-time API exists but the data behind it is not
       real reconstitution history; replace it before using as_of.
-    - Two lists that disagree: load_alpha30() returns the engine list when it is non-empty and the
-      seed here only as a fallback, and the two differ (the engine has EICHERMOT, FORTIS, GLENMARK
-      and MUTHOOTFIN where the seed has AUROPHARMA, MAHABANK, MOTHERSON and UNIONBANK). 08 uses a
-      hard-coded copy of the seed, 07 and 04 to 06 use the engine, so results are not like for like.
+    - Two lists that disagree: the engine list (EICHERMOT, FORTIS, GLENMARK, MUTHOOTFIN) and the
+      older seed (AUROPHARMA, MAHABANK, MOTHERSON, UNIONBANK) are different baskets. Both live in
+      honba_examples/universe_lists.py; the engine list is authoritative and the default for 03,
+      07 and 08, and --list seed / --alpha30-list seed opt into the seed. Do not mix them when
+      comparing results.
     - register_alpha30_if_missing mutates the process-wide UNIVERSES map as a hidden
       side effect (its exchange argument is unused), and load_alpha30 swallows ValueError, so a
       misspelt name falls through to the seed without a warning.

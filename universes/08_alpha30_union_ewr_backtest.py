@@ -29,10 +29,10 @@ Pitfalls::
     - Observe and trade the same close: the pool is valued at a session's close and the
       rebalance fills at that same close. That is the "observe and trade the close" bias, so
       results look better than the next-open fills of 07. Use 07 for a Honba-native number.
-    - A hard-coded list: BASKET is a copy of today's seed list, which differs from the engine
-      list 07 trades (four names each side), so 07 and 08 are different baskets. Names with no
-      bars are dropped with a [Data] message and the others are rebalanced as if they were the
-      whole basket; today's members are also survivors of any earlier window.
+    - Which Alpha 30 list: by default the basket is the engine list (the one 07 trades), so 07 and
+      08 are comparable; --alpha30-list seed switches to the older seed list (four names differ).
+      Names with no bars are dropped with a [Data] message and the others are rebalanced as if
+      they were the whole basket; today's members are also survivors of any earlier window.
     - Tunable knobs: --tolerance-pct, --rebalance-days, --fee and the cash sweep all change the
       result on a window of about nine months. Sweeping them and keeping the best is overfitting.
     - Leverage and shorting options track margin use, but a margin call is only counted (no forced
