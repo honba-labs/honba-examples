@@ -14,7 +14,7 @@ minutes yields one frame per minute.
 The result is JSON-serialisable and deterministic: ``adapter``, ``advances`` (rounds of
 price moves), ``timeframe`` (the frame interval), ``subscription`` (``id``, ``mode``,
 ``instruments``), ``ticks`` (one pushed quote per round, raw nanosecond ``ts``) and
-``frames`` (one row per instrument-minute: ``date``, OHLC, ``tick_count``).
+``frames`` (one row per instrument-minute: ``symbol``, ``date``, OHLC, ``tick_count``).
 
 Run::
 
@@ -82,30 +82,27 @@ def _fold(ticks: list[Any], timeframe: str = _TIMEFRAME) -> list[dict[str, Any]]
     extends the high/low and moves the close to its mid price. The frame's ``date`` is the
     first nanosecond of the bucket, the stamp a bar of that timeframe would carry.
     """
-    frames: list[dict[str, Any]] = []
-    current: tuple[InstrumentId, int] | None = None
+    frames: dict[tuple[InstrumentId, int], dict[str, Any]] = {}
     for tick in ticks:
         price = tick.mid_price
         key = (tick.instrument_id, bucket_start(tick.ts, timeframe))
-        if key != current:
-            current = key
-            frames.append(
-                {
-                    "date": _iso(key[1]),
-                    "open": price,
-                    "high": price,
-                    "low": price,
-                    "close": price,
-                    "tick_count": 1,
-                }
-            )
+        frame = frames.get(key)
+        if frame is None:
+            frames[key] = {
+                "symbol": tick.instrument_id.symbol,
+                "date": _iso(key[1]),
+                "open": price,
+                "high": price,
+                "low": price,
+                "close": price,
+                "tick_count": 1,
+            }
             continue
-        frame = frames[-1]
         frame["high"] = max(frame["high"], price)
         frame["low"] = min(frame["low"], price)
         frame["close"] = price
         frame["tick_count"] += 1
-    return frames
+    return list(frames.values())
 
 
 def _advance(adapter: Any, advances: int) -> None:

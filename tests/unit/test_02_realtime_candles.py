@@ -42,7 +42,7 @@ def test_report_shape_keys_and_row_fields(report):
     for tick in report["ticks"]:
         assert {"symbol", "ts", "bid_price", "ask_price", "mid_price"} <= set(tick)
     for frame in report["frames"]:
-        assert set(frame) == {"date", "open", "high", "low", "close", "tick_count"}
+        assert set(frame) == {"symbol", "date", "open", "high", "low", "close", "tick_count"}
 
 
 def test_one_pushed_tick_per_advance_round(report):
@@ -66,6 +66,7 @@ def test_frames_are_the_minute_fold_of_the_reported_ticks(report):
         grouped.setdefault(tick["ts"] // _NS_PER_MINUTE, []).append(tick["mid_price"])
     expected = [
         {
+            "symbol": "RELIANCE",
             "date": dt.datetime.fromtimestamp(
                 minute * _NS_PER_MINUTE / 1e9, tz=dt.timezone.utc
             ).isoformat(),
@@ -172,3 +173,34 @@ def test_main_accepts_a_custom_advance_count(example, capsys):
 def test_main_happy_path_returns_zero(example, capsys):
     assert example.main([]) == 0
     assert json.loads(capsys.readouterr().out)["frames"]
+
+
+def test_fold_keeps_one_frame_per_instrument_minute_when_ticks_interleave(example):
+    reliance = example._INSTRUMENT
+    tcs = type(reliance)("TCS", reliance.exchange)
+    base = int(dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc).timestamp() * 1e9)
+
+    def tick(instrument_id, offset_ms: int, mid: float) -> QuoteTick:
+        return QuoteTick(
+            instrument_id=instrument_id,
+            ts=base + offset_ms * 1_000_000,
+            bid_price=mid - 1.0,
+            ask_price=mid + 1.0,
+            bid_size=1.0,
+            ask_size=1.0,
+        )
+
+    frames = example._fold(
+        [
+            tick(reliance, 0, 100.0),
+            tick(tcs, 1, 50.0),
+            tick(reliance, 2, 104.0),
+            tick(tcs, 3, 48.0),
+            tick(reliance, 4, 102.0),
+        ]
+    )
+    by_symbol = {frame["symbol"]: frame for frame in frames}
+    assert len(frames) == 2
+    assert (by_symbol["RELIANCE"]["open"], by_symbol["RELIANCE"]["high"]) == (100.0, 104.0)
+    assert (by_symbol["RELIANCE"]["close"], by_symbol["RELIANCE"]["tick_count"]) == (102.0, 3)
+    assert (by_symbol["TCS"]["low"], by_symbol["TCS"]["tick_count"]) == (48.0, 2)
