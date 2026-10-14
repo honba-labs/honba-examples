@@ -74,9 +74,9 @@ class SmaLatency(Strategy):
             self.sell(bar.instrument_id, position)
 
 
-def _run_model(bars_list: list[Bar], fill_delay: int) -> dict[str, Any]:
-    """Run replay with a specific fill_delay (0=bar_close, 1=next_open, 2=next_close etc)."""
-    strat = SmaLatency()
+def _run_model(bars_list: list[Bar], fill_delay: int, fast: int, slow: int) -> dict[str, Any]:
+    """Run replay with a specific fill_delay (0=bar_close, 1=next_open, 2=open two bars later)."""
+    strat = SmaLatency(fast=fast, slow=slow)
     result = replay(strat, bars_list, fill_delay=fill_delay)
     return {
         "fill_delay": fill_delay,
@@ -96,11 +96,12 @@ def run(
         synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
     ]
 
-    # Three models: 0 = bar close (vectorized), 1 = next open (Honba default), 2 = next close
+    # 0 = bar close (conformance model), 1 = next open (Honba's daily model), 2 = the open two bars
+    # later (a latency stress test; the engine has no next-close model)
     models = {
-        "bar_close": _run_model(bars_list, fill_delay=0),
-        "next_open": _run_model(bars_list, fill_delay=1),
-        "next_close": _run_model(bars_list, fill_delay=2),
+        "bar_close": _run_model(bars_list, 0, fast, slow),
+        "next_open": _run_model(bars_list, 1, fast, slow),
+        "open_after_2_bars": _run_model(bars_list, 2, fast, slow),
     }
 
     return {
