@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import random
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
@@ -74,14 +75,26 @@ def oscillating_bars(
     period: int = 40,
     drift: float = 0.0,
     exchange: str = "NSE",
+    noise: float = 0.0,
+    seed: int = 0,
 ) -> list[Bar]:
     """``count`` weekday bars whose close is a sine wave around ``base`` (plus ``drift`` per bar).
+
+    ``noise`` > 0 adds Gaussian noise of that standard deviation (price units) from a private
+    ``random.Random(seed)``: still deterministic, but every cycle differs.
 
     Deterministic and trade-friendly: unlike the ramp, price rises and falls, so RSI leaves 100
     and moving-average strategies enter *and* exit. Each bar opens at the previous close.
     """
+    rng = random.Random(seed)
     closes = [
-        round(base + i * drift + amplitude * math.sin(2 * math.pi * i / period), 2)
+        round(
+            base
+            + i * drift
+            + amplitude * math.sin(2 * math.pi * i / period)
+            + (rng.gauss(0.0, noise) if noise else 0.0),
+            2,
+        )
         for i in range(count)
     ]
     out: list[Bar] = []

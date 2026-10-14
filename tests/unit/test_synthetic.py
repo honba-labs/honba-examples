@@ -56,3 +56,14 @@ def test_get_bars_with_source_labels_where_the_bars_came_from(monkeypatch) -> No
     bars, source = syn.get_bars_with_source("RELIANCE", count=12)
     assert source == "lakehouse" and bars == real
     assert syn.get_bars("RELIANCE", count=12) == real
+
+
+def test_oscillating_bars_noise_is_seeded_and_deterministic() -> None:
+    from honba_examples.synthetic import oscillating_bars
+
+    clean = oscillating_bars("RELIANCE", 60)
+    noisy = oscillating_bars("RELIANCE", 60, noise=10.0, seed=3)
+    assert noisy == oscillating_bars("RELIANCE", 60, noise=10.0, seed=3)
+    assert noisy != clean
+    assert noisy != oscillating_bars("RELIANCE", 60, noise=10.0, seed=4)
+    assert oscillating_bars("RELIANCE", 60, noise=0.0, seed=99) == clean  # noise=0: seed unused
