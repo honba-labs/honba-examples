@@ -112,7 +112,7 @@ COPY . .
 RUN useradd -m -u 1000 honba && chown -R honba:honba /app
 USER honba
 
-CMD ["python", "-m", "honba.session.run", "--config", "config/production.toml"]
+CMD ["python", "-m", "honba.session.run", "--config", "config/{strategy_name}.toml"]
 """
 
 ENV_TEMPLATE = """# Honba Production Environment
@@ -172,7 +172,7 @@ def run(
 
     systemd = SYSTEMD_SERVICE.format(**config)
     docker_compose = DOCKER_COMPOSE.format(strategy_name=strategy_name)
-    dockerfile = DOCKERFILE
+    dockerfile = DOCKERFILE.format(strategy_name=strategy_name)
     env = ENV_TEMPLATE
 
     if output:

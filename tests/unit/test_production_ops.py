@@ -39,3 +39,10 @@ def test_valid_strategy_name_still_writes_the_files(tmp_path) -> None:
     out = mod.run(strategy_name="sma_crossover-2", output=tmp_path / "out")
     assert out["status"] == "written"
     assert (tmp_path / "out" / "honba-sma_crossover-2.service").is_file()
+
+
+def test_dockerfile_cmd_points_at_the_config_the_script_writes(tmp_path) -> None:
+    mod = _load("05_deployment")
+    mod.run(strategy_name="momo", output=tmp_path)
+    assert (tmp_path / "config" / "momo.toml").is_file()
+    assert '"config/momo.toml"' in (tmp_path / "Dockerfile").read_text()
