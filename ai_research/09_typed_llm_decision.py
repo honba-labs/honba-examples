@@ -6,7 +6,9 @@ Demonstrates:
 2. Veto decision (rejects intent upon adverse event detection).
 3. Size-down decision (scales down quantity upon elevated risk).
 4. Safety invariant enforcement: ``schema_rejects_increase`` forbids any size increase.
-5. Serialization to Journal v1 NDJSON audit records (``decision_in_journal``).
+5. Fail-closed parsing: an empty or malformed model reply rejects the order, not approves it.
+6. Reduce-only: a veto of a stop-loss exit is ignored and flagged.
+7. Serialization to Journal v1 NDJSON audit records (``decision_in_journal``).
 
 Pitfalls::
 
@@ -14,12 +16,15 @@ Pitfalls::
       confidences (0.88, 0.99), so nothing here shows a model's vetoes add value. In a backtest a
       real model may know what happened after the decision date; test vetoes on dates after its
       training cutoff or replay recorded live decisions.
-    - The invariant bounds quantity, not exposure: increases, side flips and symbol changes are
-      rejected, but there is no reduce-only check, so a veto or size-down on an exit or stop-loss
-      SELL leaves the position larger. Route risk-reducing orders around the model.
-    - Fail-open parsing: validate_llm_decision defaults a missing decision to "approve" and a
-      missing decided_quantity to the original, so an empty or malformed reply becomes an approval.
-      Require explicit fields and treat a parse failure as a veto or a fallback to the rule.
+    - The core invariant bounds quantity, not exposure: validate_llm_decision itself accepts a
+      veto or size-down on an exit. guard_llm_decision (honba_examples/decision_guard.py) adds the
+      reduce-only rule, but only for intents it can recognise: stop-type orders, or any intent you
+      pass reduce_only=True for. A plain market SELL that is really a stop-out is not detected
+      unless you flag it. Route risk-reducing orders around the model when in doubt.
+    - Fail-closed parsing: guard_llm_decision rejects the order when the decision or
+      decided_quantity is missing or malformed (the core would default to "approve" and the
+      original quantity). Rejecting an entry is safe; for a protective exit it keeps the exit and
+      flags the override, and a quantity increase raises ValueError.
     - confidence and rationale are model-written text that is stored for audit and never used to
       gate the order. Treat the rationale as untrusted (escape it, do not feed it back into a
       prompt unchecked), and do not read confidence as a calibrated probability.
