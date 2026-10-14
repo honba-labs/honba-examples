@@ -1,10 +1,10 @@
 """options/05_expiry_day_strategy: Intraday expiry-day gamma/theta strategy.
 
 Strategy: on expiry day gamma spikes near ATM while theta accelerates, so this
-example simulates a delta-neutral gamma-scalping position — straddle at the open,
-rebalance delta intraday, and capture theta decay. Legs are hand-rolled here — no
-`Strategy` subclass; the intraday path is a seeded GBM, so runs are offline and
-deterministic.
+example simulates a delta-neutral gamma-scalping position — a long straddle at the open,
+rebalanced intraday; it is long gamma and so pays theta (``theta_pnl`` is negative).
+Legs are hand-rolled here — no `Strategy` subclass; the intraday path is a seeded GBM,
+so runs are offline and deterministic.
 
 Run::
 
@@ -73,6 +73,7 @@ def run(
     rebalance_log = []
     position = {"call": 1.0, "put": 1.0}  # quantities
     cash_flow = 0.0  # cash from rebalancing
+    theta_pnl = 0.0  # time decay accrued by the position held at each step (negative when long)
 
     for i, spot in enumerate(path):
         tau = max(1e-6, (intraday_steps - i) / intraday_steps * tau_open)
@@ -101,6 +102,13 @@ def run(
                 }
             )
 
+        # theta is quoted per day and each step spans 1/steps of the one-day session
+        theta_pnl += (
+            (position["call"] * call_greeks.theta + position["put"] * put_greeks.theta)
+            * lot_size
+            / intraday_steps
+        )
+
     # Final P&L at expiry (assume spot ends at last path value)
     spot_expiry = path[-1]
     call_payoff = max(0.0, spot_expiry - strike)
@@ -109,16 +117,6 @@ def run(
     total_payoff = (position["call"] * call_payoff + position["put"] * put_payoff) * lot_size
     initial_cost = (call_price_open + put_price_open) * lot_size
     final_pnl = total_payoff - initial_cost + cash_flow
-
-    # Theta decay captured
-    total_theta = 0.0
-    for i, spot in enumerate(path):
-        tau = max(1e-6, (intraday_steps - i) / intraday_steps * tau_open)
-        call_greeks = bs_greeks(OptionKind.CALL, spot, strike, tau, iv, r)
-        put_greeks = bs_greeks(OptionKind.PUT, spot, strike, tau, iv, r)
-        total_theta += (
-            position["call"] * call_greeks.theta + position["put"] * put_greeks.theta
-        ) * lot_size
 
     return {
         "config": {
@@ -144,7 +142,7 @@ def run(
             "total_rebalance_cash": cash_flow,
             "spot_at_expiry": spot_expiry,
             "final_pnl": final_pnl,
-            "theta_captured": total_theta,
+            "theta_pnl": theta_pnl,
         },
     }
 
