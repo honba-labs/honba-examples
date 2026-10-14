@@ -2,27 +2,28 @@
 
 Uses ``honba.session.BacktestSession`` (the same runner that powers live) with
 a tiny ``DataProvider`` that returns synthetic bars. The strategy emits market
-orders; fills arrive at the next bar's open (Honba's ``next_open`` fill model
-for daily sessions, simulated by ``honba.backtest.simulated.NextOpenExecution``;
-``honba_examples.backtest.run_portfolio_backtest`` wraps it for multi-instrument runs
-with settlement and fees).
+orders; here ``replay(..., fill_delay=1)`` fills them at the next bar's open, the same timing as
+Honba's ``next_open`` model for daily sessions (``honba.backtest.simulated.NextOpenExecution``,
+which adds costs and settlement; ``honba_examples.backtest.run_portfolio_backtest`` wraps it for
+multi-instrument runs). The report names its data source (``lakehouse`` or ``synthetic``).
 
 Run::
 
     python backtesting/01_first_backtest.py
+    python backtesting/01_first_backtest.py --synthetic --capital 50000
     python backtesting/01_first_backtest.py --out first_backtest.json
 
 Pitfalls::
 
-    - Fill timing: despite the next-open wording above, run() calls replay(strat, bars_list) with
-      its default fill_delay=0, so each order fills at the close of the bar that triggered it. That
-      is trading the close, which you cannot do live; 03_latency_modeling compares fill_delay=1, and
-      only the engine's NextOpenExecution fills at a later open.
-    - Silent data switch: get_bars() returns the last --bars real bars from the local lakehouse when
-      it holds enough, and otherwise a straight-line synthetic ramp, and nothing in the output says
-      which. Results differ between machines, and ramp results say nothing about markets.
-    - No friction: replay charges no STT, brokerage or slippage, trades one share, and --capital is
-      only echoed into the report. A profitable run here is gross of everything 02_cost_modeling
+    - Fill timing is a simplification: replay's fill_delay=1 fills at the next bar's open with no
+      gap, volume or queue model, so a large order or an overnight gap fills worse live. Orders
+      from the last bar never fill.
+    - Data differs by machine: without --synthetic the last --bars real bars from the local
+      lakehouse are used when it holds enough, otherwise a straight-line ramp. The output now names
+      the source, but numbers still differ across machines and ramp results say nothing about
+      markets.
+    - No friction: replay charges no STT, brokerage or slippage, and --capital goes all in on whole
+      shares with no cash reserve. A profitable run here is gross of everything 02_cost_modeling
       shows.
     - Tiny sample: 60 bars with a 30-bar warm-up leave about 30 tradable bars and a couple of fills,
       all in one regime. Two trades cannot show an edge.
