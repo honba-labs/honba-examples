@@ -29,7 +29,6 @@ Pitfalls::
 from __future__ import annotations
 
 import concurrent.futures
-import datetime as dt
 import sys
 from pathlib import Path
 from typing import Any
@@ -42,8 +41,7 @@ from honba.strategies.testing import replay
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.metrics import curve_metrics
-from honba_examples.synthetic import bar as synth_bar
-from honba_examples.synthetic import weekdays as weekdays_func
+from honba_examples.synthetic import oscillating_bars
 
 __all__ = ["main", "run"]
 
@@ -69,16 +67,27 @@ class SmaSweep(Strategy):
         position = self.position(bar.instrument_id)
         if fast_val > slow_val and position <= 0:
             self.buy(bar.instrument_id, 1)
-        elif fast_val < slow_val and position >= 0 and position > 0:
+        elif fast_val < slow_val and position > 0:
             self.sell(bar.instrument_id, position)
 
 
-def _backtest(bars_list: list, fast: int, slow: int) -> dict[str, Any]:
+def _backtest(bars_list: list, fast: int, slow: int, min_trades: int = 3) -> dict[str, Any]:
     strat = SmaSweep(fast=fast, slow=slow)
     result = replay(strat, bars_list)
 
-    if len(result.fills) < 2:
-        return {"fast": fast, "slow": slow, "sharpe": 0.0, "return_pct": 0.0, "max_dd_pct": 0.0}
+    round_trips = sum(1 for f in result.fills if f.side.value == "sell")
+    if round_trips < min_trades:
+        # Too few trades for a Sharpe or drawdown to mean anything: report, do not rank
+        return {
+            "fast": fast,
+            "slow": slow,
+            "fills": len(result.fills),
+            "status": "insufficient_trades",
+            "final_equity": None,
+            "return_pct": None,
+            "max_dd_pct": None,
+            "sharpe": None,
+        }
 
     # Build equity curve from fills
     cash = 100_000.0
@@ -120,6 +129,7 @@ def _backtest(bars_list: list, fast: int, slow: int) -> dict[str, Any]:
         "fast": fast,
         "slow": slow,
         "fills": len(result.fills),
+        "status": "ok",
         "final_equity": metrics["final_value"],
         "return_pct": metrics["total_return_pct"],
         "max_dd_pct": metrics["max_drawdown_pct"],
@@ -128,15 +138,15 @@ def _backtest(bars_list: list, fast: int, slow: int) -> dict[str, Any]:
 
 
 def run(
-    bars: int = 120,
+    bars: int = 300,
     fast_range: tuple[int, int] = (5, 20),
     slow_range: tuple[int, int] = (20, 50),
     workers: int = 4,
+    min_trades: int = 3,
 ) -> dict[str, Any]:
-    start = dt.date(2026, 1, 1)
-    bars_list = [
-        synth_bar("RELIANCE", d, 2500.0 + i * 0.5) for i, d in enumerate(weekdays_func(start, bars))
-    ]
+    bars_list = oscillating_bars(
+        "RELIANCE", bars, amplitude=60.0, period=40, drift=3.0, noise=30.0, seed=7
+    )
 
     # Generate parameter grid
     params = [
@@ -147,25 +157,37 @@ def run(
     ]
 
     # Concurrent execution
-    results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         # Collect in grid order, not completion order: thread scheduling must not
         # decide the order of equal-scoring results.
-        futures = [executor.submit(_backtest, bars_list, f, s) for f, s in params]
+        futures = [executor.submit(_backtest, bars_list, f, s, min_trades) for f, s in params]
         results = [future.result() for future in futures]
 
-    # Find Pareto frontier (max return for given max DD, or max Sharpe)
-    results.sort(key=lambda r: (-r["sharpe"], r["fast"], r["slow"]))
-    best_sharpe = results[0] if results else None
+    # Only pairs with enough closed trades are ranked; the rest are listed as insufficient
+    ranked = [r for r in results if r["status"] == "ok"]
+    insufficient = [r for r in results if r["status"] != "ok"]
+
+    ranked.sort(key=lambda r: (-r["sharpe"], r["fast"], r["slow"]))
+    best_sharpe = ranked[0] if ranked else None
 
     # Pareto: max return for each drawdown bucket
-    results.sort(key=lambda r: (r["max_dd_pct"], r["fast"], r["slow"]))
+    ranked.sort(key=lambda r: (r["max_dd_pct"], r["fast"], r["slow"]))
     pareto = []
     best_ret = -float("inf")
-    for r in results:
+    for r in ranked:
         if r["return_pct"] > best_ret:
             pareto.append(r)
             best_ret = r["return_pct"]
+
+    note = (
+        f"{len(params)} (fast, slow) combinations were tried on one history; the best Sharpe is "
+        "the maximum of that many noisy numbers and is biased upward."
+    )
+    if insufficient:
+        note += (
+            f" {len(insufficient)} had fewer than {min_trades} closed trades (insufficient_trades)"
+            " and were not ranked."
+        )
 
     return {
         "config": {
@@ -173,22 +195,32 @@ def run(
             "fast_range": fast_range,
             "slow_range": slow_range,
             "workers": workers,
+            "min_trades": min_trades,
         },
         "total_combinations": len(params),
+        "multiple_testing": {
+            "combinations_tried": len(params),
+            "ranked": len(ranked),
+            "insufficient_trades": len(insufficient),
+            "note": note,
+        },
         "best_by_sharpe": best_sharpe,
         "pareto_frontier": pareto,
-        "all": results,
+        "all": ranked + insufficient,
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = make_parser(__doc__)
-    parser.add_argument("--bars", type=int, default=120)
+    parser.add_argument("--bars", type=int, default=300)
     parser.add_argument("--fast-min", type=int, default=5)
     parser.add_argument("--fast-max", type=int, default=20)
     parser.add_argument("--slow-min", type=int, default=20)
     parser.add_argument("--slow-max", type=int, default=50)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--min-trades", type=int, default=3, help="closed trades needed for a pair to be ranked"
+    )
     add_out_arg(parser)
     args = parser.parse_args(argv)
 
@@ -197,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         fast_range=(args.fast_min, args.fast_max),
         slow_range=(args.slow_min, args.slow_max),
         workers=args.workers,
+        min_trades=args.min_trades,
     )
 
     emit_json(result, args.out)
