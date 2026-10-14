@@ -24,6 +24,22 @@ Run::
 
     python candles/04_multi_timeframe.py
     python candles/04_multi_timeframe.py --out multi_timeframe.json
+
+Pitfalls::
+
+    - Lookahead across timeframes: a coarse bar keeps the first member's timestamp but its high, low
+      and close are known only when the bucket ends. Joining the 1h or 1d bar onto 1m bars by ts
+      hands the 1m rows information from later in the hour. Use a coarse bar only after its bucket
+      has closed, or shift the join by one coarse bar.
+    - The alignment check cannot catch that, or a wrong bucket rule: every view is derived from the
+      same 1m series with the same bucket_start, so aligned is true by construction. It catches
+      aggregator bugs (OHLC and per-bucket volume), not conventions such as UTC versus IST buckets.
+    - IST sessions: 1h buckets start at :30 past the IST hour, and the fake's history lies inside
+      one UTC day, so the 1d view has one bar and the cross-day case is only exercised with
+      synthetic bars in the tests. Check muhurat and special Saturday sessions, which are short or
+      fall outside normal hours.
+    - Gaps and holidays are absent, not empty, in every view, so bar counts differ by day and a
+      count based on expected sessions is needed to find missing data.
 """
 
 from __future__ import annotations

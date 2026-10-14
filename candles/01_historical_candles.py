@@ -16,6 +16,22 @@ Run::
     python candles/01_historical_candles.py --out bars.json
     python candles/01_historical_candles.py --timeframe 1m --instrument TCS
     python candles/01_historical_candles.py --start 2025-06-02T09:16:00+00:00 --end 2025-06-02T09:18:00+00:00
+
+Pitfalls::
+
+    - Half-open and time zones: the window is [start, end), so a bar stamped exactly at end is not
+      returned, and both bounds must carry an offset. The default window is written 09:15 UTC, which
+      is 14:45 IST; the NSE session opens 09:15 IST (03:45 UTC). Passing IST wall-clock times with a
+      +00:00 offset asks for the wrong hours and quietly returns nothing or the wrong bars.
+    - Test double: the fake answers every timeframe with the same five 1m bars, so the timeframe
+      argument is not exercised. A real adapter may refuse a window that is too long, cap the bars
+      per request, or serve only some intraday history. Check the count and span against what you
+      asked for.
+    - Gaps and the open bar: holidays, halts and missing minutes are simply absent. Nothing here
+      fills or reports them, and a window ending at the current time returns a still-forming last
+      bar that will change. Use only bars whose period has closed.
+    - Data quality: bars are shown as the adapter returns them. Adjustments for splits and bonuses,
+      volume units and the first and last session bars are not checked.
 """
 
 from __future__ import annotations

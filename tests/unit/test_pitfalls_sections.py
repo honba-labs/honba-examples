@@ -26,10 +26,6 @@ PENDING_PITFALLS: frozenset[str] = frozenset(
         "basic/03_subscribe_quotes.py",
         "basic/04_place_order_paper.py",
         "basic/05_check_positions.py",
-        "candles/01_historical_candles.py",
-        "candles/02_realtime_candles.py",
-        "candles/03_custom_aggregation.py",
-        "candles/04_multi_timeframe.py",
     }
 )
 

@@ -21,6 +21,22 @@ Run::
     python candles/02_realtime_candles.py
     python candles/02_realtime_candles.py --out frames.json
     python candles/02_realtime_candles.py --advances 5
+
+Pitfalls::
+
+    - Partial last frame: the frame for the current minute is still forming. A strategy that reads
+      the newest frame as a finished bar sees a close that will change; act only on frames whose
+      minute has passed, and decide that from the tick timestamps, not the local clock.
+    - Mid price is not a trade: frames fold the quote mid, so a wide, stale or one-sided book moves
+      OHLC without any trade, and tick_count is a number of quotes, not volume. The frames cannot be
+      compared with exchange bars built from trades.
+    - Order and clock: ticks fold in arrival order, so a late tick is merged into its own minute but
+      can become that frame's close, and a run whose ticks span a minute boundary is split by the
+      tick's event time. Each frame is keyed by instrument and minute (it used to start a new frame
+      whenever two instruments interleaved). UTC minutes line up with IST minutes.
+    - Offline stand-in: the fake only moves when asked, with a 1 ms clock, so a run produces one
+      frame. Real feeds drop, reorder and reconnect; subscriptions have limits and need re-
+      subscribing.
 """
 
 from __future__ import annotations

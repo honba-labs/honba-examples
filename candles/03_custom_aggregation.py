@@ -23,6 +23,22 @@ Run::
     python candles/03_custom_aggregation.py --timeframe 5m
     python candles/03_custom_aggregation.py --timeframe 15m --out aggregation.json
     python candles/03_custom_aggregation.py --timeframe 1w
+
+Pitfalls::
+
+    - Buckets are UTC and right-open: [start, start + timeframe). 15m and 5m line up with IST, but
+      30m and 1h do not, because IST is UTC+5:30: a 09:15 IST open falls in the 08:30 to 09:30 IST
+      hour bucket and the first 1h bar holds only 15 minutes. A daily bucket is a UTC day, and a
+      week starts on Monday, so a Saturday special session joins the previous Monday-based week.
+    - Partial buckets look complete: aggregate returns the last bucket however few bars it holds,
+      with no completeness flag beyond the constituents count. Compare constituents with the
+      expected number (for example 375 one-minute bars in a 09:15 to 15:30 session) before trusting
+      a coarse bar, and never use the bucket still in progress.
+    - Missing members change the bar: the open comes from the first bar present and ts is that
+      bar's, so a lost 09:15 bar makes a daily open the 09:16 price and moves the stamp. Holidays
+      and halts produce no empty bars, so a gap is not visible in the output.
+    - Fold rule only: high and low are extremes of the members' highs and lows, volume is summed,
+      and the result inherits whatever adjustment and tick quality the 1m source had.
 """
 
 from __future__ import annotations

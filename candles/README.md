@@ -15,6 +15,16 @@ folded and aligned.
 | 03 | `03_custom_aggregation.py` | — | The OHLC fold: open from the first bar, extremes, close from the last, volume summed |
 | 04 | `04_multi_timeframe.py`    | — | One fetch, many resolutions, and the alignment invariants between them |
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring (enforced
+by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script does, such as
+half-open windows and IST versus UTC stamps, the still-forming last bar, quote mids that are not
+trades, UTC buckets that split the IST hour, partial buckets that look complete, gaps that are
+absent rather than empty, and joining a coarse bar to finer bars before its bucket has closed. Read
+it before trusting a number. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## Where the aggregation lives
 
 Honba ships no resampler, so the rule is in `honba_examples/bars.py`, which is
