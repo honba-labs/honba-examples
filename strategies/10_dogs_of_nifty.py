@@ -7,14 +7,16 @@ Composition via :mod:`honba_examples.pipeline` (``>>``/``|``):
     → FixedSipSizer (per-portfolio SIP)
     → SipBacktestHarness (forward XIRR + terminal value)
 
-Mirror the CLI "Dogs of the NSE/ Dogs-of-Dow" chain::
+The same chain from the command line (a yield-plus-52-week-low screen, not the classic Dogs of the
+Dow)::
 
     python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \\
       | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 
-Or, in code::
+Or in one go, optionally with the regime guard (``--benchmark``) and a forward window end::
 
-    python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000
+    python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000 \\
+      --benchmark "NIFTY 50" --end-date 2025-09-01
 
 Pitfalls::
 
@@ -24,9 +26,9 @@ Pitfalls::
     - Yield trap and missing income: trailing dividend over the as-of close rises when the price
       falls, so the screen favours names whose payout may be about to be cut and cannot see that.
       The forward simulation values shares at price only, so dividends received are not counted.
-    - The regime guard is unwired from the CLI: --benchmark is parsed but main() never passes it to
-      run(), so MarketRegimeFilter is only reachable via build_pipeline(benchmark=...). Even then it
-      passes through with a warning when benchmark data is missing, so it can be silently off.
+    - The regime guard is optional and can be silently off: --benchmark adds MarketRegimeFilter, but
+      it passes everything through with a warning when benchmark data is missing, and it is not on
+      by default, so a default run has no regime protection at all.
     - As-of hygiene: the screen reads bars up to and including --asof but the harness buys at that
       session's open (the default Saturday avoids it), fundamentals are filtered by fiscal_date not
       publication date, and the symbol set is today's catalog. Missing ROCE or debt/equity passes
