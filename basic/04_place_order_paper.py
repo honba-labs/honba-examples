@@ -6,8 +6,8 @@ the ask, resubmitting it with the same ``client_order_id`` is idempotent, a non-
 limit buy rests and is then cancelled, and an oversized buy comes back as a *report*, not an
 exception. It closes on the order and trade books and the funds snapshot, so the whole
 account view is visible in one run. Adapter mechanics only - no trading strategy; the
-default adapter is deterministic and offline, so it runs anywhere, and ``--adapter dhan``
-points it at a real broker.
+default adapter is deterministic and offline, so it runs anywhere. Any other adapter would
+send real orders, so it is refused unless ``HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1`` is set.
 
 Run::
 
@@ -36,6 +36,10 @@ from honba.adapters.testing import FakeAdapter
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderIntent
 from honba.domain.trade import Trade
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
+
+from honba_examples.cli import require_paper_adapter
 
 # Ensure reference fake is registered for testing and offline development
 if "fake" not in available_adapters():
@@ -163,6 +167,7 @@ async def _run_async(adapter: str = "fake", **config: Any) -> dict[str, Any]:
 
 def run(adapter: str = "fake", **config: Any) -> dict[str, Any]:
     """Execute a paper order sequence and return the intents, reports, and books."""
+    require_paper_adapter(adapter)
     return asyncio.run(_run_async(adapter, **config))
 
 
@@ -182,7 +187,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
-    result = run(adapter=args.adapter)
+    try:
+        result = run(adapter=args.adapter)
+    except ValueError as err:
+        sys.exit(str(err))
 
     text = json.dumps(result, indent=2) + "\n"
     if args.out:

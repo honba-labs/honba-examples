@@ -4,16 +4,40 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-__all__ = ["add_out_arg", "emit_json", "make_parser", "run_example"]
+__all__ = [
+    "ALLOW_LIVE_ORDERS_ENV",
+    "add_out_arg",
+    "emit_json",
+    "make_parser",
+    "require_paper_adapter",
+    "run_example",
+]
+
+ALLOW_LIVE_ORDERS_ENV = "HONBA_EXAMPLES_ALLOW_LIVE_ORDERS"
+"""Set to ``1`` to let an order-placing example talk to a real broker adapter."""
 
 
 def make_parser(doc: str | None) -> argparse.ArgumentParser:
     """Parser whose description is the first paragraph of ``doc``."""
     return argparse.ArgumentParser(description=(doc or "").split("\n\n")[0])
+
+
+def require_paper_adapter(adapter: str) -> None:
+    """Refuse any adapter but ``fake`` for scripts that place orders, unless opted in.
+
+    A script named "paper" that accepts ``--adapter dhan`` would otherwise send real orders
+    for real money; ``HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1`` is the explicit opt-in.
+    """
+    if adapter != "fake" and os.environ.get(ALLOW_LIVE_ORDERS_ENV) != "1":
+        raise ValueError(
+            f"refusing to place orders on adapter {adapter!r}: this example submits real orders "
+            f"on a real broker; set {ALLOW_LIVE_ORDERS_ENV}=1 to allow it"
+        )
 
 
 def add_out_arg(parser: argparse.ArgumentParser) -> None:

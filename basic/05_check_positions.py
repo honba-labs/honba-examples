@@ -8,8 +8,9 @@ position is omitted from ``positions()``. I/O is gated by capabilities, so
 ``Capability.HOLDINGS`` is checked against ``adapter.capabilities().features`` first and
 reported as unsupported when the adapter does not declare it, instead of letting the call
 fail. The default adapter is ``fake``: deterministic and offline, so the example runs
-anywhere. Point it at a real broker with
-``--adapter dhan --config client_id=... --config access_token=...``.
+anywhere. The round trip places real orders on any other adapter, so a real broker
+(``--adapter dhan --config client_id=... --config access_token=...``) is refused unless
+``HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1`` is set.
 
 The result is JSON-serialisable and deterministic: ``adapter``, ``position_after_buy`` (the
 position the buy opened), ``positions`` (the non-flat book after the round trips, each row
@@ -42,7 +43,7 @@ from honba.domain.position import Position
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
 
-from honba_examples.cli import add_out_arg, emit_json, make_parser
+from honba_examples.cli import add_out_arg, emit_json, make_parser, require_paper_adapter
 from honba_examples.jsonable import jsonable
 
 #: The two instruments the fake adapter serves; a real run picks its own.
@@ -63,6 +64,11 @@ def _position_row(position: Position) -> dict[str, Any]:
     row = jsonable(position)
     row["realized_pnl_rupees"] = position.realized_pnl.to_major()
     return row
+
+
+def _position_of(positions: list[Position], instrument_id: InstrumentId) -> Position | None:
+    """The position in ``instrument_id``; a real account may already hold other instruments."""
+    return next((p for p in positions if p.instrument_id == instrument_id), None)
 
 
 async def _holdings(adapter: Any) -> dict[str, Any]:
@@ -89,7 +95,8 @@ async def _check(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
             buy_intent, product=Product.DELIVERY, client_order_id="reliance-buy"
         )
         opened = await adapter.positions()
-        position_after_buy = _position_row(opened[0]) if opened else None
+        bought = _position_of(opened, _RELIANCE)
+        position_after_buy = _position_row(bought) if bought else None
 
         await adapter.place_order(
             OrderIntent.market_sell(_RELIANCE, 4),
@@ -129,6 +136,7 @@ async def _check(adapter_name: str, config: dict[str, str]) -> dict[str, Any]:
 def run(adapter: str = "fake", config: dict[str, str] | None = None) -> dict[str, Any]:
     """Buy, sell part of it, and read the account books back: a JSON-serializable,
     deterministic result (shape documented in the module docstring)."""
+    require_paper_adapter(adapter)
     return asyncio.run(_check(adapter, config or {}))
 
 
@@ -157,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = run(args.adapter, _parse_config(args.config))
-    except AdapterNotFound as exc:
+    except (AdapterNotFound, ValueError) as exc:
         raise SystemExit(str(exc))
 
     is_table = (args.format == "table") or (
