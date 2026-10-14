@@ -1,11 +1,11 @@
 """strategies/02_with_indicators: composite indicators + position sizing + risk rules.
 
 Builds on 01 by adding:
-- RSI filter (only buy when RSI < 70, sell when RSI > 30)
+- RSI filter (only buy when RSI < 70; exits come from the SMA cross or the stop, not from RSI)
 - ATR-based position sizing (risk 1% of equity per trade)
 - ATR trailing stop on exit
 
-Runs on synthetic bars with ``honba.strategies.testing.replay``.
+Runs on deterministic sine-wave bars (``oscillating_bars``) with ``honba.strategies.testing.replay``.
 
 Run::
 
@@ -13,12 +13,12 @@ Run::
 
 Pitfalls::
 
-    - It never trades on the default data: on a monotone ramp RSI is 100, and the entry needs RSI <
-      70, so the run has zero intents and zero fills. A filter you never see firing proves nothing;
-      count signals with and without each filter before believing it helps.
-    - Sizing sees a fixed account: equity is hard-coded to 100000 (the comment says no live equity
-      tracking), so risk_pct is a percentage of a constant, not of an account that has grown or
-      shrunk. On the ramp the ATR is 0.5, which would size int(1000 / (0.5 x 2)) = 1000 shares.
+    - The default data is a sine wave on purpose: on a monotone ramp RSI is 100, the RSI < 70 entry
+      never fires and the run is silent. A filter you never see firing proves nothing; count
+      signals with and without each filter before believing it helps.
+    - Sizing sees a fixed account and no cap: equity is hard-coded to 100000, so risk_pct is a
+      percentage of a constant, and nothing limits size by cash. The default run buys about 59
+      shares near 2500, roughly 147000 INR of notional against 100000 of equity.
     - Stop at the close: the trailing stop is compared with closes, never intrabar, and a replay
       fill lands on that same close. A gap through the stop fills worse live, and the close that
       triggers the exit is not tradable.
