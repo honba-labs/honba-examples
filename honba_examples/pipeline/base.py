@@ -17,6 +17,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from typing import Any, cast
 
+from honba_examples.sip import sip_data_notes
+
 __all__ = [
     "PipeMixin",
     "Pipeline",
@@ -168,6 +170,8 @@ class PipelineResult(PipelineContext):
                     f"{float(xirr):+.1f}" if xirr is not None else "N/A",
                 )
             console.print(table)
+            for note in sip_data_notes(summary):
+                console.print(f"[yellow]⚠ {note}[/yellow]")
 
         if summary:
             xirr = summary.get("portfolio_xirr")
@@ -182,6 +186,8 @@ class PipelineResult(PipelineContext):
 
     @staticmethod
     def _print_plain_summary(summary: dict[str, Any], stocks: list[dict[str, Any]]) -> None:
+        for note in sip_data_notes(summary):
+            print(f"warning: {note}")
         for s in stocks:
             print(
                 f"{s.get('symbol', ''):<12} invested={float(s.get('total_invested', 0.0)):,.0f} "

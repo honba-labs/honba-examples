@@ -23,6 +23,7 @@ __all__ = [
     "allocation_weights",
     "calculate_xirr",
     "simulate_portfolio_sip",
+    "sip_data_notes",
 ]
 
 
@@ -63,6 +64,30 @@ class SipPortfolioStrategy(Strategy):
         if self._last_month != bar_date.month and self._monthly_amount > 0:
             self._last_month = bar_date.month
             self.buy(bar.instrument_id, 1)
+
+
+STALE_DAYS = 10  # a last bar this many calendar days before the other names' last session = stale
+
+
+def sip_data_notes(summary: dict[str, Any]) -> list[str]:
+    """Human-readable warnings for the symbols the simulation could not price (empty if none)."""
+    notes: list[str] = []
+    unpriced = summary.get("unpriced_symbols") or []
+    if unpriced:
+        notes.append(
+            f"No bars after the start date for {', '.join(unpriced)}: they could not be bought "
+            "(delisted or halted?) and are held flat as idle cash at their last close."
+        )
+    stale = [s for s in (summary.get("delisted_symbols") or []) if s not in unpriced]
+    if stale:
+        notes.append(
+            f"Bars stop well before the window ends for {', '.join(stale)}: valued at their last "
+            "close (delisted or halted?), which may overstate the recovery value."
+        )
+    skipped = summary.get("skipped_symbols") or []
+    if skipped:
+        notes.append(f"No data at all for {', '.join(skipped)}: skipped.")
+    return notes
 
 
 def allocation_weights(allocation: str, candidates: list[dict[str, Any]]) -> dict[str, float]:
@@ -138,7 +163,16 @@ def simulate_portfolio_sip(
     sip_mode: str = "portfolio",
     weights: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Simulate initial capital deployment on start_date and monthly SIP until end_date via DuckDB SQL."""
+    """Simulate initial capital deployment and monthly SIP until ``end_date`` via DuckDB SQL.
+
+    ``start_date`` is the screening date (``--asof``): the screen read that day's close, so the
+    lump sum buys at the **next session's open**, and no bar on or before ``start_date`` is traded.
+    Symbols with no bar after ``start_date`` cannot be bought; they are listed in
+    ``summary["unpriced_symbols"]`` (rows ``status="unpriced"``) and held flat as idle cash at their
+    last close. Symbols with no data at all are in ``summary["skipped_symbols"]``. Symbols whose
+    bars stop well before the last session of the others are flagged ``delisted`` (``status="stale"``)
+    and valued at their last close; all flagged names are in ``summary["delisted_symbols"]``.
+    """
     import duckdb
 
     # Backward compatibility mappings
@@ -170,6 +204,9 @@ def simulate_portfolio_sip(
                 "total_profit": 0.0,
                 "portfolio_multiple": 1.0,
                 "portfolio_xirr": None,
+                "unpriced_symbols": [],
+                "skipped_symbols": [],
+                "delisted_symbols": [],
             },
             "stocks": [],
         }
@@ -189,7 +226,7 @@ def simulate_portfolio_sip(
 
     # 1. Fetch monthly first trading session executions
     buys_query = f"""
-    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'\n    )\n    SELECT symbol, bar_date, open as sip_price\n    FROM (\n        SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol, date_trunc('month', bar_date) ORDER BY bar_date ASC) as rn\n        FROM forward_bars\n    ) WHERE rn = 1\n    ORDER BY symbol, bar_date;\n    """
+    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date > '{start_str}' AND bar_date <= '{end_str}'\n    )\n    SELECT symbol, bar_date, open as sip_price\n    FROM (\n        SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol, date_trunc('month', bar_date) ORDER BY bar_date ASC) as rn\n        FROM forward_bars\n    ) WHERE rn = 1\n    ORDER BY symbol, bar_date;\n    """
     buy_rows = con.execute(buys_query).fetchall()
 
     # Group buys by symbol
@@ -221,7 +258,7 @@ def simulate_portfolio_sip(
 
     # 2. Fetch terminal, peak, and initial prices for forward confirmation metrics
     term_query = f"""
-    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close, high\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date >= '{start_str}' AND bar_date <= '{end_str}'\n    ),\n    terms AS (\n        SELECT symbol, close as terminal_price, bar_date as end_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date DESC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    inits AS (\n        SELECT symbol, open as initial_price, bar_date as first_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date ASC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    peaks AS (\n        SELECT symbol, MAX(high) as peak_price\n        FROM forward_bars\n        GROUP BY symbol\n    )\n    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date, p.peak_price\n    FROM terms t\n    JOIN inits i ON t.symbol = i.symbol\n    JOIN peaks p ON t.symbol = p.symbol;\n    """
+    WITH forward_bars AS (\n        SELECT \n            regexp_extract(filename, 'NSE/([^/]+)/', 1) as symbol,\n            epoch_ms(ts // 1000000)::DATE as bar_date,\n            open, close, high\n        FROM read_parquet({target_files}, filename=true)\n        WHERE bar_date > '{start_str}' AND bar_date <= '{end_str}'\n    ),\n    terms AS (\n        SELECT symbol, close as terminal_price, bar_date as end_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date DESC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    inits AS (\n        SELECT symbol, open as initial_price, bar_date as first_date\n        FROM (\n            SELECT *, ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY bar_date ASC) as rn\n            FROM forward_bars\n        ) WHERE rn = 1\n    ),\n    peaks AS (\n        SELECT symbol, MAX(high) as peak_price\n        FROM forward_bars\n        GROUP BY symbol\n    )\n    SELECT t.symbol, t.terminal_price, t.end_date, i.initial_price, i.first_date, p.peak_price\n    FROM terms t\n    JOIN inits i ON t.symbol = i.symbol\n    JOIN peaks p ON t.symbol = p.symbol;\n    """
     term_map = {
         r[0]: (float(r[1]), r[2], float(r[3]), r[4], float(r[5]))
         for r in con.execute(term_query).fetchall()
@@ -229,6 +266,7 @@ def simulate_portfolio_sip(
 
     # For symbols missing from forward_bars (e.g. asof on a weekend/latest data date)
     missing_syms = [s for s in symbols if s not in term_map]
+    unpriced: set[str] = set()
     if missing_syms:
         missing_files = []
         for s in missing_syms:
@@ -243,6 +281,10 @@ def simulate_portfolio_sip(
                 px = float(row[1])
                 b_date = row[2]
                 term_map[sym] = (px, b_date, px, b_date, px)
+                unpriced.add(sym)
+    skipped = [s for s in symbols if s not in term_map]
+    priced_ends = [v[1] for k, v in term_map.items() if k not in unpriced]
+    reference_end = max(priced_ends) if priced_ends else None
 
     results: list[dict[str, Any]] = []
     portfolio_cfs: dict[dt.date, float] = {}
@@ -311,7 +353,17 @@ def simulate_portfolio_sip(
         peak_mult = peak_price / init_price if init_price > 0 else 1.0
 
         # Confirmation badge based on forward peak or terminal multiple
-        if peak_mult >= 3.0 or lump_mult >= 3.0:
+        is_unpriced = sym in unpriced
+        is_stale = (
+            not is_unpriced
+            and reference_end is not None
+            and (reference_end - last_date).days > STALE_DAYS
+        )
+        if is_unpriced:
+            confirmation = "⚠ No bars after asof (delisted?)"
+        elif is_stale:
+            confirmation = f"⚠ Delisted/halted (last bar {last_date.isoformat()})"
+        elif peak_mult >= 3.0 or lump_mult >= 3.0:
             confirmation = "★ 3x+ Multibagger"
         elif peak_mult >= 2.0 or lump_mult >= 2.0:
             confirmation = "★ 2x Multibagger"
@@ -349,6 +401,8 @@ def simulate_portfolio_sip(
                 "peak_multiple": peak_mult,
                 "xirr_pct": xirr_val,
                 "confirmation": confirmation,
+                "status": "unpriced" if is_unpriced else ("stale" if is_stale else "ok"),
+                "delisted": is_unpriced or is_stale,
                 "first_date": first_date.isoformat(),
                 "last_date": last_date.isoformat(),
             }
@@ -387,7 +441,9 @@ def simulate_portfolio_sip(
                     "lump_multiple": 1.0,
                     "peak_multiple": 1.0,
                     "xirr_pct": 0.0,
-                    "confirmation": "Modest Gain",
+                    "confirmation": "No data (nothing was bought)",
+                    "status": "no_data",
+                    "delisted": False,
                     "first_date": start_str,
                     "last_date": end_str,
                 }
@@ -426,6 +482,9 @@ def simulate_portfolio_sip(
         "total_profit": tot_profit,
         "portfolio_multiple": port_multiple,
         "portfolio_xirr": port_xirr,
+        "unpriced_symbols": sorted(unpriced),
+        "skipped_symbols": skipped,
+        "delisted_symbols": sorted(r["symbol"] for r in results if r["delisted"]),
     }
 
     return {

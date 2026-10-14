@@ -15,6 +15,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from honba_examples.sip import sip_data_notes
+
 __all__ = [
     "render_backtest_table",
     "render_horizon_notice",
@@ -285,6 +287,8 @@ def render_backtest_table(
         table.add_row(*row_data)
 
     console.print(table)
+    for note in sip_data_notes(summary):
+        console.print(f"[yellow]⚠ {note}[/yellow]")
 
     p_xirr_str = (
         f"{summary['portfolio_xirr']:+.1f}% p.a."
