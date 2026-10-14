@@ -12,6 +12,25 @@ Run::
 
     python ai_research/01_llm_research_analyst.py --query "large cap stocks with volume > 1m"
     python ai_research/01_llm_research_analyst.py --out analyst.json
+
+Pitfalls::
+
+    - The fake LLM proves the plumbing, not a model: ScriptedFakeLlm returns scripted text
+      whatever the prompt says. The default echoes your query as the "filter", which fails
+      validation, and the repair call then gets "" which parses as an empty AND group (filter_text
+      "", no items), which applies no condition at all. A real model needs its own evaluation.
+    - Validation checks form, not meaning: parse_filters and the metric catalog reject unknown
+      metrics and bad syntax (the defence against hallucinated fields), but a flipped comparison
+      or a wrong threshold parses fine. Read filter_text back against your question.
+    - Untrusted text both ways: the query is pasted into the prompt, and the model output is only
+      ever parsed by the filter grammar, never executed. Keep it that way; do not widen the
+      parser to accept free text from a model.
+    - Non-determinism: temperature is 0.0 and seed is None, which does not guarantee identical
+      output across runs, versions or providers. The result records raw_responses, the
+      knowledge content_hash and the full llm_call_history so a run can be audited and replayed.
+    - Translation only: the filter is never run here, so no as-of date is applied. A real model
+      may recall what happened after a historic date, so keep it to translating the query and
+      never ask it which stocks to pick.
 """
 
 from __future__ import annotations

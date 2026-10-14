@@ -15,6 +15,21 @@ Run::
 
     python ai_research/06_mcp_integration.py
     python ai_research/06_mcp_integration.py --out mcp_tools.json
+
+Pitfalls::
+
+    - Prose drift: the text above and the README say six tools, but the schema in the honba
+      checkout lists 11 today. Trust tool_count in the output, and note the schema is read from
+      the sibling honba checkout (schema_path), so a different checkout lists different tools.
+    - readOnlyHint is a hint, not a permission: every tool is annotated read-only, including
+      backtest, sweep and compile_strategy, which run heavy computations. This script
+      only reports the annotation; whether a gateway enforces the scope (research, read:market)
+      is not shown here, so check it before exposing a tool to an agent.
+    - Nothing is called: a static schema says nothing about the safety of tool outputs. Text a
+      tool returns (screen results, bars, journals, strategy names) and the tool descriptions
+      themselves are read by the model, so both are prompt-injection channels. Review descriptions.
+    - Agents multiply trials: an agent looping over backtest and sweep tools is a parameter search
+      in disguise. Count every call as a trial and keep a holdout the tools cannot see.
 """
 
 from __future__ import annotations

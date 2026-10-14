@@ -7,6 +7,24 @@ Demonstrates:
 3. Size-down decision (scales down quantity upon elevated risk).
 4. Safety invariant enforcement: ``schema_rejects_increase`` forbids any size increase.
 5. Serialization to Journal v1 NDJSON audit records (``decision_in_journal``).
+
+Pitfalls::
+
+    - No model is called: the decisions are built by hand with invented rationales and
+      confidences (0.88, 0.99), so nothing here shows a model's vetoes add value. In a backtest a
+      real model may know what happened after the decision date; test vetoes on dates after its
+      training cutoff or replay recorded live decisions.
+    - The invariant bounds quantity, not exposure: increases, side flips and symbol changes are
+      rejected, but there is no reduce-only check, so a veto or size-down on an exit or stop-loss
+      SELL leaves the position larger. Route risk-reducing orders around the model.
+    - Fail-open parsing: validate_llm_decision defaults a missing decision to "approve" and a
+      missing decided_quantity to the original, so an empty or malformed reply becomes an approval.
+      Require explicit fields and treat a parse failure as a veto or a fallback to the rule.
+    - confidence and rationale are model-written text that is stored for audit and never used to
+      gate the order. Treat the rationale as untrusted (escape it, do not feed it back into a
+      prompt unchecked), and do not read confidence as a calibrated probability.
+    - Non-determinism: the Journal v1 record is what makes a run replayable. Replay from the
+      journal rather than querying the model again, and keep one record per decision.
 """
 
 from __future__ import annotations

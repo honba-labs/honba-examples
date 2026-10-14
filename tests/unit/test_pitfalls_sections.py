@@ -21,14 +21,6 @@ MAX_BULLETS = 6
 # Scripts whose docstring does not have a Pitfalls section yet (shrinks to empty).
 PENDING_PITFALLS: frozenset[str] = frozenset(
     {
-        "ai_research/01_llm_research_analyst.py",
-        "ai_research/02_autoresearch_loop.py",
-        "ai_research/03_nl_screener.py",
-        "ai_research/04_nl_to_strategy.py",
-        "ai_research/05_rl_training.py",
-        "ai_research/06_mcp_integration.py",
-        "ai_research/07_natural_language_critique.py",
-        "ai_research/09_typed_llm_decision.py",
         "basic/01_connect_dhan.py",
         "basic/02_fetch_instruments.py",
         "basic/03_subscribe_quotes.py",

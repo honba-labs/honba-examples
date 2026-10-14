@@ -21,6 +21,35 @@ Run::
 
     # Latest live screen
     python ai_research/03_nl_screener.py --query "volume > 500k and rsi < 40"
+
+Pitfalls::
+
+    - Survivorship and hindsight in the output: the universe is resolve_universe("nifty50") with
+      no as_of, today's members screened at a past date, and market_cap is the as-of close times
+      one fixed, approximate share-count table with no per-date history (50 crore if a symbol is
+      missing).
+      Historical results are sorted by forward return and cut to --limit, with 2x/5x/10x badges
+      from the future price, so the top rows are the winners. Read matched_count and basket_stats.
+    - Silent predicate failures: generate_python_predicate drops any clause its regex does not
+      match and returns "always true" when nothing parses, and a metric missing from the row
+      defaults to 0, so "rsi < 40" or a hallucinated field (only close, volume, sma20, sma50, rsi
+      and the market cap keys exist) is true for every stock or false for every stock. Compare
+      filter_text and python_predicate in the output with your question.
+    - Execution safety: the filter text is never exec'd. Each clause is re-emitted as a tiny
+      match(row) function from an identifier, operator and number, then run with empty builtins.
+      safe_eval_predicate itself does no validation (its AST walk is a no-op), so do not pass it
+      code that did not come from generate_python_predicate.
+    - Backend and non-determinism: --backend auto probes localhost:11434 and silently switches
+      between Ollama and the regex translator, so one query can give different filters on
+      different machines. The Ollama call sends the query as the only message (no system prompt
+      or grammar), ignores seed and uses an unpinned model tag; the fake backend returns the same
+      filter for every query. The backend is recorded in the output; keep it with the result.
+    - Query parsing hazards: a bare year from 2015 to 2025 anywhere in the text, even a number
+      such as "volume > 2020", is read as an as-of date of that year's 11 October, and "N years
+      ago" counts from today, so the same sentence means a different date tomorrow. The query is
+      untrusted text; only the clause regexes stand between it and the predicate.
+    - Terminal price is each symbol's last bar, so a symbol whose data ends early is scored on a
+      stale close, and a screen of about 50 names gives small, unstable baskets.
 """
 
 from __future__ import annotations
