@@ -20,6 +20,25 @@ Usage:
     # Pipe symbols into the forward SIP backtester
     python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
         | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+
+Pitfalls::
+
+    - Book value taken at face: NCAV is Current Assets minus Total Liabilities with receivables
+      and inventory counted at 100 percent. Graham haircut them, and a company can show a
+      positive NCAV on stale inventory or doubtful receivables that would not liquidate at book.
+    - Not a net-net unless you ask: --max-p-ncav defaults to off, so the default run ranks every
+      positive-NCAV stock by price to NCAV and returns the cheapest few. As of 2023-06-01 and
+      2025-03-01 those sat at roughly 4x to 13x NCAV, nowhere near a bargain. Pass
+      --max-p-ncav 0.67 for Graham's classic two-thirds rule.
+    - Stale balance sheet: the latest annual statement with fiscal_date <= --asof is used with no
+      filing date in the tables, so it is up to a year old plus the reporting lag, and
+      --fiscal-lag-days (default 0) is only a flat-day proxy. Shares are diluted average shares
+      for the year, not the share count today.
+    - Liquidity and survivorship: nothing here tests turnover or volume, and net-nets are
+      typically illiquid small caps where the open or close print may not be tradeable in size.
+      Companies that failed or delisted are missing from the catalog, flattering any past date.
+    - Minimum history is only 100 bars, so the 52-week low and high can span a shorter window.
+      The chained backtest buys at the --asof open after the screen read that day's close.
 """
 
 from __future__ import annotations

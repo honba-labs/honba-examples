@@ -8,6 +8,23 @@ Usage:
     # High yielders at 52-week low, then pipe the symbols into the forward SIP backtest
     python screening/03_dividend_yield_screener.py --asof 2023-01-01 --min-div-yield 3.0 --max-pct-from-52w-low 10.0 --format symbols \\
         | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+
+Pitfalls::
+
+    - Yield is last year's cash paid over today's price: dividend per share comes from the latest
+      FY cash-flow line (Cash Dividends Paid, else Common Stock Dividend Paid) divided by diluted
+      average shares and the as-of close. A one-off special dividend inflates it, and a price
+      collapse inflates it too, so a high yield at a 52-week low is often a coming cut, not a gift.
+    - Period end, not publication date: fundamentals use fiscal_date <= --asof with no filing date
+      in the tables; --fiscal-lag-days (default 0) is a flat-day proxy. NULL ROCE and NULL
+      debt/equity pass, while a missing dividend line counts as 0 and fails the yield test.
+    - The "Touch" badge carries no information: hit_52w_low_recently is computed over only the
+      last 30 days of bars, so almost any symbol is flagged. Rely on pct_from_low instead.
+    - Survivorship: payers that cut, fell and delisted are not in the catalog, so a screen dated
+      years back sees only the high yielders that lived. Yield screens are most flattered by this.
+    - Small samples and lookahead: with the defaults the screen returned 1 name as of 2023-06-01
+      and 6 as of 2025-03-01, too few to say anything, and the list moves with --min-div-yield or
+      --asof. The chained backtest buys at the --asof open though the screen read that day's close.
 """
 
 from __future__ import annotations

@@ -7,6 +7,26 @@ Usage:
     # Screen deep value at 52-week low with P/E < 20, Debt/Eq < 1.0, pipe into the forward SIP backtest
     python screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols \\
         | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+
+Pitfalls::
+
+    - Period end, not publication date: ratios and statements are filtered with fiscal_date <=
+      --asof, and the fundamentals tables carry no filing date. --fiscal-lag-days (default 0)
+      shifts that cutoff by a flat number of days, a crude proxy for the reporting lag, not the
+      real announcement date. Compare a run with and without a lag before trusting a date.
+    - Missing data passes some tests and fails others: NULL debt/equity and NULL ROCE pass, but
+      max P/E and max P/B need a non-NULL value, and P/E exists only when EPS > 0, so loss-makers
+      silently drop out while a missing leverage figure does not. EPS (ratios table) and diluted
+      average shares (statements table) are each taken from their own latest fiscal_date.
+    - The "Touch" badge carries no information: hit_52w_low_recently is computed over only the
+      last 30 days of bars, so almost any symbol is flagged. In a wide run every one of 112
+      candidates was a Touch, one of them 139 percent above its 52-week low. Use pct_from_low.
+    - Falling knives and survivors: ranking by smallest distance above the 52-week low favours
+      names that kept falling, and companies that later delisted are absent from the catalog,
+      so a past-dated screen only ever sees the survivors of its own picks.
+    - Thresholds and one-session lookahead: P/E 20, P/B 2 and the rest are round numbers that
+      still invite tuning per --asof; sweeping dates and keeping the best is data snooping. The
+      screen reads --asof's close and the chained backtest buys at that day's open.
 """
 
 from __future__ import annotations

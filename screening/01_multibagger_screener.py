@@ -7,6 +7,27 @@ Usage:
     # Screen top 5 multibaggers as of 2023-01-01 and pipe the symbols into the forward SIP backtest
     python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
         | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+
+Pitfalls::
+
+    - Winners named with hindsight: a "multibagger" is defined by what happens after --asof, so each
+      threshold here (1-year return 15 to 175 percent, within 15 percent of the 52-week high,
+      debt/equity 1.2, the mb_score weights) was chosen knowing what past winners looked like
+      (see docs/multibagger_screening_research.md). Fix the rules first and test them on dates they
+      were not fitted on; a list of known winners reverse-engineered into rules proves nothing.
+    - Fundamentals are keyed on period end, not publication: ROCE and debt/equity come from the
+      latest FY row with fiscal_date <= --asof. The fundamentals tables have no filing or
+      announcement date column and this screener has no --fiscal-lag-days option, so a March
+      year-end is usable from 31 March although results appear weeks later.
+    - Missing fundamentals pass: NULL debt/equity clears the leverage filter, ROCE is never a
+      filter (it only feeds the score, and a missing ROCE scores the same 5.0 points as ROCE 10),
+      and with no fundamentals.duckdb the fundamentals test is skipped for every symbol.
+    - Survivorship and stale prices: only symbols that have bars in the catalog are scanned, and
+      each symbol's last bar at or before --asof is used with no check that it is recent, so a
+      symbol that stopped trading months earlier can still qualify on its last close.
+    - Unstable top N and one-session lookahead: mb_score is a capped, hand-weighted sum and --top
+      defaults to 10, so small changes to --asof or a threshold reshuffle the list. The screen
+      reads --asof's close; piped into backtesting/10 the buy is at that day's open.
 """
 
 from __future__ import annotations

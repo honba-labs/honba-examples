@@ -15,6 +15,24 @@ Usage:
     # Pipe symbols into the forward SIP backtester
     python screening/04_intelligent_investor_screener.py --asof 2024-01-01 --format symbols \\
         | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+
+Pitfalls::
+
+    - A loose adaptation of Graham, not his tests: EPS and book value per share come from the
+      single latest FY row, where Graham averaged earnings over several years and required
+      long earnings and dividend records. One good or one bad year moves the Graham Number a lot.
+    - Per-share figures use diluted average shares for the year, not shares at the balance-sheet
+      date, so buybacks and issues distort book value per share, P/B and the margin of safety.
+      Financials and capital-intensive firms are not treated separately: debt/equity and current
+      ratio mean little for banks.
+    - Mode overrides your flags: in --mode defensive the thresholds are fixed in code (P/E 15,
+      P/B 1.5, P/E x P/B 22.5, debt/equity 0.6) and --max-pe, --max-pb and --max-debt-equity are
+      ignored. A missing debt/equity, current assets or current liabilities passes its test.
+    - Period end, not publication date: fundamentals use fiscal_date <= --asof (no filing-date
+      column exists); --fiscal-lag-days defaults to 0. The ratios and statements tables each pick
+      their own latest fiscal_date, so EPS and share count can come from different years.
+    - Survivorship and lookahead: delisted value traps are absent from the catalog, and chaining
+      to the SIP backtest buys at the --asof open after reading that day's close.
 """
 
 from __future__ import annotations

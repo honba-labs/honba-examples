@@ -12,6 +12,7 @@ screening/
 ├── 04_intelligent_investor_screener.py # Benjamin Graham value & Margin of Safety
 ├── 05_net_net_screener.py              # Benjamin Graham Net-Net (NCAV) deep asset value
 ├── 06_run_chain.py                     # Run a screen > filter > size > execute chain from TOML
+├── 07_mutual_fund_screener.py          # Mutual funds with equity holdings lookthrough
 ├── chains/quality_value.toml           # Worked example chain
 └── README.md                           # This file
 ```
@@ -39,6 +40,36 @@ Value/dividend/Graham screeners share the fundamental options:
 | `--min-div-yield F` | Minimum trailing dividend yield % (0 = disabled) |
 | `--require-positive-fcf` / `--no-require-positive-fcf` | Require positive free cash flow |
 | `--fiscal-lag-days N` | Reporting-lag buffer (days) so only fundamentals published by `--asof` are used |
+
+### 7. Mutual Fund Screener (`07_mutual_fund_screener.py`)
+
+Screens mutual funds point-in-time with underlying equity portfolio lookthrough:
+- **Category & Plan filtering**: Canonical SEBI categories (e.g. `Equity:Flexi Cap`, `Equity:Small Cap`), defaulting to `Direct` growth plans.
+- **Cost & Size gates**: AUM limits (`--min-aum`, `--max-aum`) and TER caps (`--max-ter`).
+- **Equity Lookthrough**: Weighted portfolio ROCE and P/E cross-referenced with `fundamentals.duckdb`.
+- **Reverse Lookup**: Screen funds with high conviction in an individual stock (`--holding-symbol RELIANCE`).
+- **Overlap Exclusion**: Filter out funds that share $>30\%$ overlap with an existing scheme (`--overlap-scheme 122639 --max-overlap-pct 30.0`).
+
+```bash
+# Screen Flexi Cap funds with portfolio ROCE >= 15%
+python screening/07_mutual_fund_screener.py --category "Equity:Flexi Cap" --min-portfolio-roce 15.0
+
+# Reverse lookup: funds holding RELIANCE
+python screening/07_mutual_fund_screener.py --holding-symbol RELIANCE --format symbols
+```
+
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring
+(enforced by `tests/unit/test_pitfalls_sections.py`). The recurring traps for screens: fundamentals
+are filtered by fiscal period end and the tables hold no filing or announcement date, so "zero
+lookahead" below means period end only (`--fiscal-lag-days` is a flat-day proxy, default 0);
+symbols missing a ratio often pass its filter; only symbols present in the catalog are scanned, so
+delisted names never appear and a stale last bar is not rejected; thresholds fitted by looking at
+past winners (a "multibagger" is defined by its future return) are hindsight; top-N lists from a
+handful of names are unstable; and the screen reads the `--asof` close while the chained backtest
+buys at that day's open. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
 
 ## Point-in-Time Valuation (Zero Lookahead)
 

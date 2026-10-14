@@ -14,6 +14,24 @@ Usage:
 
     # List the available steps, their params and reportable columns
     python screening/06_run_chain.py --describe
+
+Pitfalls::
+
+    - Each step keeps its own point-in-time rules: screen steps use fiscal_date <= asof (period
+      end, no filing-date column) and no step manifest exposes a fiscal lag. report columns use
+      the same rule at the as-of date. A chain that validates is still only a well-formed chain,
+      not a lookahead-free one.
+    - Order truncates: in quality_value.toml screen.value keeps its top 10 first and
+      filter.fundamental_quality then prunes that list, so you do not get the best 10 that pass
+      the quality test and the survivors can be very few. The filter logs kept/total at INFO level.
+    - Missing values pass: FundamentalQualityFilter keeps a candidate whose ROCE, debt/equity or
+      operating margin is missing, so a quality filter can pass names it never measured.
+    - Hand-set parameters and small samples: P/E 25, P/B 3, ROCE 12 and the other values in the
+      TOML were chosen by hand; editing the chain until the backtest looks good is data snooping.
+      A SIP backtest of a few survivors is anecdote, not evidence.
+    - Lookahead and holes at the join: the screen reads the as-of close and execute.sip_backtest
+      buys at that day's open; symbols with no bars after the as-of date are valued flat at their
+      last close and symbols with no data are skipped.
 """
 
 from __future__ import annotations
