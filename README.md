@@ -189,6 +189,27 @@ python backtesting/10_chained_screener_and_sip.py --strategy value --asof 2023-0
 python backtesting/10_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
 ```
 
+### `screening/` — point-in-time screeners and chains
+
+Screeners read the 1D Parquet catalog and `fundamentals.duckdb` as of `--asof` and print a
+symbol or JSON stream. Details in [`screening/README.md`](screening/README.md).
+
+| # | File | Adds |
+|---|---|---|
+| 01 | `01_multibagger_screener.py` | Stage 2 momentum breakout candidates |
+| 02 | `02_value_52w_low_screener.py` | Deep value near the 52-week low |
+| 03 | `03_dividend_yield_screener.py` | High dividend yielders near the 52-week low |
+| 04 | `04_intelligent_investor_screener.py` | Graham value and margin of safety |
+| 05 | `05_net_net_screener.py` | Graham net-net (NCAV) deep asset value |
+| 06 | `06_run_chain.py` | Run a screen, filter, size, execute chain from TOML; steps declare what they filter on and which extra columns they `report` |
+
+```bash
+python screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 5 --format symbols
+python screening/06_run_chain.py --chain screening/chains/quality_value.toml --validate-only
+python screening/06_run_chain.py --chain screening/chains/quality_value.toml --format csv
+python screening/06_run_chain.py --describe
+```
+
 ### `mutual_funds/` — NAV and SIP
 
 No `Strategy` subclasses; direct NAV/SIP math over `honba_examples.amfi`.

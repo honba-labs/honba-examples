@@ -1,0 +1,27 @@
+# Quality value: deep value near the 52-week low -> quality filter -> liquidity ->
+# equal weights -> forward SIP backtest.
+#
+#   python screening/06_run_chain.py --chain screening/chains/quality_value.toml
+#
+# Each step LOOKS AT what its params filter on. `report` columns are only shown: the quality
+# filter does not test market cap or dividend yield, it appends them (derived at the as-of date).
+
+[[steps]]
+uses = "screen.value"
+with = { asof = "2025-03-01", max_pe = 25.0, max_pb = 3.0, min_roce = 10.0, top = 10 }
+
+[[steps]]
+uses = "filter.fundamental_quality"
+with = { min_roce = 12.0, max_debt_to_equity = 1.0 }
+report = ["market_cap", "dividend_yield_pct", "roe_pct"]
+
+[[steps]]
+uses = "filter.liquidity"
+with = { min_avg_turnover = 1.0e7, lookback_days = 30 }
+
+[[steps]]
+uses = "size.equal_weight"
+
+[[steps]]
+uses = "execute.sip_backtest"
+with = { monthly_sip = 10000.0, end_date = "2025-12-31" }

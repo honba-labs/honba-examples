@@ -11,6 +11,8 @@ screening/
 ├── 03_dividend_yield_screener.py       # High dividend yielders at 52-week low
 ├── 04_intelligent_investor_screener.py # Benjamin Graham value & Margin of Safety
 ├── 05_net_net_screener.py              # Benjamin Graham Net-Net (NCAV) deep asset value
+├── 06_run_chain.py                     # Run a screen > filter > size > execute chain from TOML
+├── chains/quality_value.toml           # Worked example chain
 └── README.md                           # This file
 ```
 
@@ -173,6 +175,58 @@ python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
   | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
 ```
+
+---
+
+## Chains from a file (`06_run_chain.py`)
+
+`06_run_chain.py` runs the pipeline steps (`honba_examples.pipeline`) from a TOML file. Each
+`[[steps]]` entry names a step by manifest id and may set `with` (param overrides) and `report`
+(extra columns to show). A step LOOKS AT what its params filter on; `report` columns are only
+appended, never filtered on.
+
+```toml
+[[steps]]
+uses = "screen.value"
+with = { asof = "2025-03-01", top = 10 }
+
+[[steps]]
+uses = "filter.fundamental_quality"
+with = { min_roce = 12.0, max_debt_to_equity = 1.0 }
+report = ["market_cap", "dividend_yield_pct", "roe_pct"]   # shown, not tested
+
+[[steps]]
+uses = "size.equal_weight"
+```
+
+| Option | Description |
+|--------|-------------|
+| `--chain FILE` | Chain TOML (see `chains/quality_value.toml`) |
+| `--validate-only` | Check the chain and exit; no data is read |
+| `--describe` | Print every step's manifest (params, bounds, `requires`, `emits.reportable`) as JSON |
+| `--format FORMAT` | Candidates as `table`, `json` (candidates, weights, summary), `csv`, `symbols`, `plain` |
+| `--data-dir PATH` | Override catalog directory |
+| `--out FILE` | Also write the full JSON result here |
+
+Step ids: `screen.multibagger`, `screen.value`, `screen.dividend_yield`,
+`filter.fundamental_quality`, `filter.market_regime`, `filter.liquidity`, `size.fixed_sip`,
+`size.equal_weight`, `size.inverse_volatility`, `execute.sip_backtest`. The Graham and net-net
+screeners (04, 05) are not pipeline steps yet.
+
+Before running, the chain is checked by honba-strategies' `tools/validate_chain.py` (found via
+`$HONBA_STRATEGIES_DIR` or the sibling `honba-strategies` checkout): shapes and columns must
+chain, kinds must run in order, `with` values must respect each param's type and bounds, and
+`report` columns must be among the step's `emits.reportable`.
+
+`report` is supported by the screeners and `filter.fundamental_quality`. Reportable columns are
+`market_cap`, `dividend_yield_pct`, `pe_ratio`, `pb_ratio`, `roce_pct`, `roe_pct`,
+`debt_to_equity`, `operating_margin_pct`, `net_margin_pct`, `free_cash_flow` and `eps`, derived
+from the latest FY fundamentals on or before the as-of date (prices come from each candidate's
+`close`). `market_cap` is as-of close times diluted average shares, not the live snapshot in
+`companies.market_cap`. A symbol with no data gets `null`. A column outside this list is an
+error that names the reportable ones; a column the step already emits (such as `pe_ratio` on
+`screen.value`) is not reportable again. Param `0` means "test disabled" for `max_pe` and
+`max_pb` on `screen.value`.
 
 ---
 

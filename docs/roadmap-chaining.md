@@ -170,3 +170,39 @@ results.print_summary()
 | **Phase 2** | **Add Value & Dividend 52w-Low Screeners** | Implement `02_value_52w_low_screener.py` and `03_dividend_yield_screener.py` using DuckDB fundamentals and 1D Parquet catalog with zero lookahead. |
 | **Phase 3** | **Core Pipeline Abstraction (`honba_examples.pipeline`)** | Implement `Step`, `Pipeline`, and operator overloads (`>>`) for Python in-code composition. |
 | **Phase 4** | **Restructure & Document Example Recipes** | Organize into `screening/`, `strategies/`, and `backtesting/` directories with full integration test coverage. |
+| **Phase 5** | **Manifests and chains** | `describe()` step manifests, `report=[...]` columns and the TOML chain runner (`pipeline/chain.py`, `screening/06_run_chain.py`); see below. |
+
+---
+
+## 7. Phase 5: manifests and chains
+
+Goal: a GUI algo designer (later) can list steps, render their params, check that a chain is
+compatible and show a user-chosen set of columns, all from data, without importing Python.
+
+**Implemented**
+
+- Every step except the signal stubs has `describe()`: a dict in the shape of honba-strategies'
+  `step.toml` (`schema/step.schema.json`): id, kind, params with types/defaults/bounds,
+  `requires` (what it looks at), `consumes`, and `emits` with `adds`, `report` and `reportable`.
+  Tests validate each against the catalog schema and check params against constructor defaults.
+- `report=[...]` on the three screeners and `FundamentalQualityFilter` appends columns the step
+  does not filter on (`market_cap`, `dividend_yield_pct`, `pe_ratio`, `pb_ratio`, `roce_pct`,
+  `roe_pct`, `debt_to_equity`, `operating_margin_pct`, `net_margin_pct`, `free_cash_flow`,
+  `eps`). They are derived point-in-time from `fundamentals.duckdb`; an unknown column raises
+  an error listing the reportable ones, and a symbol with no data gets `None`.
+- `pipeline/chain.py`: `load_chain` (TOML `[[steps]] uses / with / report`), `REGISTRY`,
+  `validate` (unknown ids plus honba-strategies' `validate_chain`), `build_pipeline`, `run_chain`.
+- `screening/06_run_chain.py` (`--chain`, `--validate-only`, `--describe`, `--format`, `--out`)
+  and `screening/chains/quality_value.toml`.
+
+**Not implemented (future)**
+
+- Manifests and registry entries for the Graham and net-net screeners (they are scripts, not
+  steps) and for the timing signals (stubs).
+- Reporting on the regime, liquidity and sizing steps; reporting technical columns such as an
+  EMA200 or a 52-week high on a step that does not compute them.
+- Reporting a column the fundamentals store cannot supply (for example EV/EBITDA or a revenue
+  growth rate); these raise an error rather than guessing.
+- Free-form candidate weights (`FixedSipSizer(weights=...)`) and `catalog_dir` are not exposed
+  as manifest params.
+- The GUI itself, and publishing these manifests as `step.toml` files in honba-strategies.
