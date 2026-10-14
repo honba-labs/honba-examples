@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import datetime as dt
 import json
+import math
 import re
 import urllib.error
 import urllib.request
@@ -20,17 +21,66 @@ from honba.ai.llm.provider import LlmPort, ScriptedFakeLlm
 from honba.screener.sources import extract_metrics_from_bars
 
 __all__ = [
+    "KNOWN_METRICS",
     "MCAP_UNIT_MULTIPLIER",
     "NIFTY50_SHARES_CR",
     "VOLUME_UNIT_MULTIPLIER",
     "OllamaLlm",
+    "PredicateError",
+    "UnknownMetricError",
+    "UnparsedClausesError",
     "basket_statistics",
     "build_point_in_time_row",
     "forward_performance",
+    "market_cap_notes",
     "resolve_asof",
     "resolve_llm_provider",
     "safe_eval_predicate",
 ]
+
+# Metrics present on every point-in-time row (see ``build_point_in_time_row``). The predicate
+# generator and evaluator accept nothing else: an unknown name is an error, never a default.
+KNOWN_METRICS: frozenset[str] = frozenset(
+    {
+        "close",
+        "volume",
+        "sma20",
+        "sma50",
+        "rsi",
+        "market_cap",
+        "market_cap_basic",
+        "market_cap_cr",
+        "entry_close",
+    }
+)
+
+
+class PredicateError(ValueError):
+    """A filter could not be turned into (or run as) a safe predicate."""
+
+
+class UnknownMetricError(PredicateError):
+    """A metric name that is not in ``KNOWN_METRICS`` (often an LLM hallucination)."""
+
+
+class UnparsedClausesError(PredicateError):
+    """Clauses of the filter text the predicate generator could not parse."""
+
+    def __init__(self, clauses: list[str]) -> None:
+        self.clauses = clauses
+        super().__init__(f"could not parse filter clause(s): {clauses}")
+
+
+def market_cap_notes() -> list[str]:
+    """Caveats to print next to any market-cap based result."""
+    return [
+        (
+            "market_cap is approximate: as-of close x a fixed share-count table "
+            "(NIFTY50_SHARES_CR, 50 crore shares for a symbol missing from it); there is no "
+            "per-date share history, so past market caps are not point-in-time."
+        )
+    ]
+
 
 # Approximate shares outstanding (in Crore shares) for Nifty 50 constituents
 NIFTY50_SHARES_CR: dict[str, float] = {
@@ -178,18 +228,103 @@ def resolve_llm_provider(backend: str, offline: Callable[[], LlmPort]) -> LlmPor
         return offline()
 
 
-def safe_eval_predicate(predicate_code: str, row: dict[str, Any]) -> bool:
-    """Execute the generated predicate in a restricted scope (Design.md Section 13.2)."""
-    tree = ast.parse(predicate_code)
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom, ast.Attribute)) and not (
-            isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "get"
-        ):
-            pass
+_ALLOWED_EXPR_NODES: tuple[type[ast.AST], ...] = (
+    ast.BoolOp,
+    ast.And,
+    ast.Or,
+    ast.Compare,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.Eq,
+    ast.NotEq,
+    ast.UnaryOp,
+    ast.Not,
+    ast.USub,
+    ast.UAdd,
+    ast.BinOp,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.Name,
+    ast.Load,
+    ast.Constant,
+)
 
-    local_vars: dict[str, Any] = {}
-    exec(compile(tree, "<screener_ast>", "exec"), {"__builtins__": {}}, local_vars)  # noqa: S102
-    return bool(local_vars["match"](row))
+
+def _predicate_expression(tree: ast.Module) -> ast.expr:
+    """The single returned expression of ``def match(row): return <expr>``, else PredicateError."""
+    if len(tree.body) != 1 or not isinstance(tree.body[0], ast.FunctionDef):
+        raise PredicateError("predicate must be exactly one 'def match(row)' function")
+    fn = tree.body[0]
+    a = fn.args
+    if (
+        fn.name != "match"
+        or fn.decorator_list
+        or fn.returns is not None
+        or [x.arg for x in a.args] != ["row"]
+        or a.posonlyargs
+        or a.kwonlyargs
+        or a.vararg
+        or a.kwarg
+        or a.defaults
+        or a.args[0].annotation is not None
+    ):
+        raise PredicateError("predicate must be exactly 'def match(row): return <expression>'")
+    if len(fn.body) != 1 or not isinstance(fn.body[0], ast.Return) or fn.body[0].value is None:
+        raise PredicateError("predicate body must be a single return statement")
+    return fn.body[0].value
+
+
+def safe_eval_predicate(
+    predicate_code: str, row: dict[str, Any], allowed: frozenset[str] = KNOWN_METRICS
+) -> bool:
+    """Evaluate ``def match(row): return <expr>`` against ``row`` after a whitelist AST walk.
+
+    Only boolean/comparison/arithmetic (``+ - * / %``) expressions over numeric constants and
+    metric names in ``allowed`` pass; calls, attributes, subscripts, lambdas, comprehensions,
+    conditionals, strings and every other node are rejected before anything is compiled. The
+    expression is evaluated with no builtins. A metric that is missing, None or NaN in ``row``
+    makes the predicate False (fail closed), never a default value.
+
+    Raises:
+        PredicateError: the code is not an allowed predicate (``UnknownMetricError`` for a name
+            outside ``allowed``).
+    """
+    try:
+        tree = ast.parse(predicate_code)
+    except SyntaxError as exc:
+        raise PredicateError(f"predicate is not valid Python: {exc.msg}") from exc
+    expr = _predicate_expression(tree)
+
+    names: set[str] = set()
+    for node in ast.walk(expr):
+        if not isinstance(node, _ALLOWED_EXPR_NODES):
+            raise PredicateError(f"disallowed expression element: {type(node).__name__}")
+        if isinstance(node, ast.Constant) and (
+            isinstance(node.value, complex) or not isinstance(node.value, (int, float, bool))
+        ):
+            raise PredicateError(f"disallowed constant: {node.value!r}")
+        if isinstance(node, ast.Name):
+            if node.id not in allowed:
+                raise UnknownMetricError(f"unknown metric {node.id}; known: {sorted(allowed)}")
+            names.add(node.id)
+
+    values: dict[str, Any] = {}
+    for name in names:
+        v = row.get(name)
+        if v is None or isinstance(v, bool) or not isinstance(v, (int, float)) or math.isnan(v):
+            return False
+        values[name] = v
+
+    code = compile(ast.Expression(expr), "<screener_predicate>", "eval")
+    try:
+        return bool(eval(code, {"__builtins__": {}}, values))
+    except ZeroDivisionError:
+        return False
 
 
 def resolve_asof(
@@ -210,17 +345,20 @@ def resolve_asof(
     elif lookback_years is not None:
         asof_date = today.replace(year=today.year - lookback_years)
     else:
-        # Detect phrases like "5 years ago", "3 years ago"
+        # Only date phrasing counts: "N years ago", an ISO date, "in 2020" or "as of 2020".
+        # A bare number such as "volume > 2020" is not a date.
         ago_match = re.search(r"(\d+)\s*years?\s*ago", query.lower())
+        iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", query)
+        yr_match = re.search(r"\b(?:in|as\s+of)\s+(201[5-9]|202[0-5])\b", query.lower())
         if ago_match:
-            y = int(ago_match.group(1))
-            asof_date = today.replace(year=today.year - y)
+            asof_date = today.replace(year=today.year - int(ago_match.group(1)))
             backtest = True
-        else:
-            yr_match = re.search(r"\b(201[5-9]|202[0-5])\b", query)
-            if yr_match:
-                asof_date = dt.date(int(yr_match.group(1)), 10, 11)
-                backtest = True
+        elif iso_match:
+            asof_date = dt.date.fromisoformat(iso_match.group(1))
+            backtest = True
+        elif yr_match:
+            asof_date = dt.date(int(yr_match.group(1)), 10, 11)
+            backtest = True
     return (today if asof_date is None else asof_date), backtest
 
 
@@ -268,7 +406,7 @@ def basket_statistics(
     basket_cagr = ((avg_mult ** (1.0 / avg_years)) - 1.0) * 100
     win_rate = sum(1 for r in matched_rows if r["return_pct"] > 0) / len(matched_rows) * 100
     baggers = sum(1 for r in matched_rows if r["multiplier"] >= 2.0)
-    top_pick = matched_rows[0]
+    top_pick = max(matched_rows, key=lambda r: r["return_pct"])
 
     return {
         "asof_date": str(asof_date),

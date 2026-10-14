@@ -132,3 +132,6 @@ def render_nl_result(res: dict[str, Any], query: str) -> None:
         title = f"Screener Matches for: '{query}'"
 
     render_table(res["rows"], cols, title=title)
+
+    for note in res.get("notes", []):
+        print(f"Note: {note}")

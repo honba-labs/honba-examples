@@ -75,22 +75,31 @@ from honba_examples.cli import make_parser
 from honba_examples.screening.cli_args import add_nl_screener_args
 from honba_examples.screening.nl_render import render_nl_result
 from honba_examples.screening.nl_support import (
+    KNOWN_METRICS,
     MCAP_UNIT_MULTIPLIER,
     NIFTY50_SHARES_CR,
     VOLUME_UNIT_MULTIPLIER,
     OllamaLlm,
+    PredicateError,
+    UnknownMetricError,
+    UnparsedClausesError,
     basket_statistics,
     build_point_in_time_row,
     forward_performance,
+    market_cap_notes,
     resolve_asof,
     safe_eval_predicate,
 )
 from honba_examples.screening.nl_support import resolve_llm_provider as _resolve_llm_provider
 
 __all__ = [
+    "KNOWN_METRICS",
     "NIFTY50_SHARES_CR",
     "OllamaLlm",
+    "PredicateError",
     "RuleBasedLlamaTranslator",
+    "UnknownMetricError",
+    "UnparsedClausesError",
     "generate_python_predicate",
     "main",
     "resolve_llm_provider",
@@ -210,36 +219,65 @@ def resolve_llm_provider(backend: str) -> LlmPort:
 # as a tiny `match(row)` function and run with empty builtins (see safe_eval_predicate).
 
 
-def generate_python_predicate(query: str, filter_text: str) -> str:
-    """Generate a clean, restricted Python screening function for Tier 2 evaluation."""
-    conditions = []
-    for cond in filter_text.split(" AND "):
-        cond = cond.strip()
-        if not cond:
-            continue
-        m = re.match(r"(\w+)\s*([><]=?|==|!=)\s*(.+)", cond)
-        if m:
-            left, op, right = m.groups()
-            right = right.strip()
-            # If right operand is another metric alias
-            if re.match(r"^[a-zA-Z_]\w*$", right) and not any(
-                right.lower().endswith(u) for u in ("cr", "crore", "lk", "lakh", "k", "m", "b")
-            ):
-                conditions.append(f"row.get('{left}', 0) {op} row.get('{right}', 0)")
-            else:
-                # Numeric quantity with optional suffix/unit (e.g. 25000Cr, 500k, 2%)
-                try:
-                    q = parse_quantity(right, market="india")
-                    conditions.append(f"row.get('{left}', 0) {op} {q.value}")
-                except (ValueError, TypeError, KeyError):
-                    cleaned_num = re.sub(r"(?<=\d),(?=\d)", "", right)
-                    try:
-                        conditions.append(f"row.get('{left}', 0) {op} {float(cleaned_num)}")
-                    except ValueError:
-                        conditions.append(f"row.get('{left}', 0) {op} {right!r}")
+_CLAUSE_RE = re.compile(r"^(\w+)\s*(>=|<=|==|!=|>|<)\s*(.+)$")
+_IDENT_RE = re.compile(r"^[A-Za-z_]\w*$")
 
-    if not conditions:
-        return "def match(row):\n    return True"
+
+def generate_python_predicate(query: str, filter_text: str) -> str:
+    """Generate a restricted ``def match(row): return <expr>`` for Tier 2 evaluation.
+
+    Strict: every clause must parse and every metric must be in ``KNOWN_METRICS``.
+
+    Raises:
+        UnknownMetricError: a metric name the point-in-time row does not provide.
+        UnparsedClausesError: clauses that are not ``<metric> <op> <number or metric>``.
+        PredicateError: the filter text has no clauses at all (it would match everything).
+    """
+    raw_clauses = [
+        c.strip() for c in re.split(r"\s+AND\s+", filter_text.strip(), flags=re.IGNORECASE)
+    ]
+    clauses = [c for c in raw_clauses if c]
+    if not clauses:
+        raise PredicateError(
+            f"no clauses in filter {filter_text!r} for query {query!r}; refusing an "
+            "always-true predicate"
+        )
+
+    conditions: list[str] = []
+    unparsed: list[str] = []
+    unknown: list[str] = []
+    for cond in clauses:
+        m = _CLAUSE_RE.match(cond)
+        if not m:
+            unparsed.append(cond)
+            continue
+        left, op, right = m.group(1).lower(), m.group(2), m.group(3).strip()
+        if left not in KNOWN_METRICS:
+            unknown.append(left)
+            continue
+        if _IDENT_RE.match(right):
+            if right.lower() not in KNOWN_METRICS:
+                unknown.append(right)
+                continue
+            conditions.append(f"{left} {op} {right.lower()}")
+            continue
+        number: float | None = None
+        try:
+            number = float(parse_quantity(right, market="india").value)
+        except (ValueError, TypeError, KeyError):
+            try:
+                number = float(re.sub(r"(?<=\d),(?=\d)", "", right))
+            except ValueError:
+                unparsed.append(cond)
+        if number is not None:
+            conditions.append(f"{left} {op} {number!r}")
+
+    if unknown:
+        raise UnknownMetricError(
+            f"unknown metric {', '.join(dict.fromkeys(unknown))}; known: {sorted(KNOWN_METRICS)}"
+        )
+    if unparsed:
+        raise UnparsedClausesError(unparsed)
 
     body = " and \\\n           ".join(conditions)
     return f"def match(row):\n    return {body}"
@@ -309,13 +347,32 @@ def run_nl_screener(
 
             matched_rows.append(row)
 
-    # Sort
+    # Sort by something known at the as-of date, never by the forward return: --limit would
+    # otherwise keep only the winners. Forward returns are reported separately below.
     if is_historical:
-        matched_rows.sort(key=lambda r: r.get("return_pct", 0), reverse=True)
+        matched_rows.sort(key=lambda r: (-r.get("market_cap", 0), r["symbol"]))
     else:
-        matched_rows.sort(key=lambda r: r.get("volume", 0), reverse=True)
+        matched_rows.sort(key=lambda r: (-r.get("volume", 0), r["symbol"]))
 
     basket_stats = basket_statistics(matched_rows, asof_date, term_date) if is_historical else {}
+    notes = market_cap_notes()
+    forward_returns: list[dict[str, Any]] = []
+    if is_historical:
+        notes.append(
+            "universe is today's Nifty 50 (survivorship-biased); rows are ordered by as-of market "
+            "cap, and forward_returns (all matches, best first) is hindsight, not a signal."
+        )
+        forward_returns = sorted(
+            (
+                {
+                    "symbol": r["symbol"],
+                    "return_pct": r["return_pct"],
+                    "multiplier": r["multiplier"],
+                }
+                for r in matched_rows
+            ),
+            key=lambda x: -x["return_pct"],
+        )
 
     return {
         "query": query,
@@ -327,6 +384,8 @@ def run_nl_screener(
         "matched_count": len(matched_rows),
         "total_scanned": total_valid_instruments,
         "basket_stats": basket_stats,
+        "forward_returns": forward_returns,
+        "notes": notes,
         "rows": matched_rows[:limit],
     }
 
@@ -336,14 +395,18 @@ def main(argv: list[str] | None = None) -> int:
     add_nl_screener_args(parser)
     args = parser.parse_args(argv)
 
-    res = run_nl_screener(
-        args.query,
-        backend=args.backend,
-        asof=args.asof,
-        lookback_years=args.lookback_years,
-        backtest=args.backtest,
-        limit=args.limit,
-    )
+    try:
+        res = run_nl_screener(
+            args.query,
+            backend=args.backend,
+            asof=args.asof,
+            lookback_years=args.lookback_years,
+            backtest=args.backtest,
+            limit=args.limit,
+        )
+    except PredicateError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     is_table = (args.format == "table") or (args.format == "auto" and sys.stdout.isatty())
     if is_table:
