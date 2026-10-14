@@ -30,6 +30,20 @@ def find_catalog_path(explicit_path: Path | None = None) -> Path:
     )
 
 
+def find_mutual_funds_db_path() -> Path | None:
+    """Optionally locate mutual_funds.duckdb for mutual fund screening."""
+    candidates = [
+        Path.cwd() / "honba-data" / "data" / "mutual_funds.duckdb",
+        Path.cwd() / "data" / "mutual_funds.duckdb",
+        Path(__file__).resolve().parents[3] / "honba-data" / "data" / "mutual_funds.duckdb",
+        Path(__file__).resolve().parents[3] / "data" / "mutual_funds.duckdb",
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c.resolve()
+    return None
+
+
 def find_duckdb_path() -> Path | None:
     """Optionally locate fundamentals.duckdb for fundamental ratio overlay."""
     candidates = [

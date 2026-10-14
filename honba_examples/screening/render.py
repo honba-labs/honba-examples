@@ -15,7 +15,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-__all__ = ["render_backtest_table", "render_horizon_notice", "render_screener_table"]
+__all__ = [
+    "render_backtest_table",
+    "render_horizon_notice",
+    "render_mutual_fund_table",
+    "render_screener_table",
+]
 
 
 def render_screener_table(
@@ -366,3 +371,56 @@ def render_horizon_notice(
             box=box.ROUNDED,
         )
     )
+
+
+def render_mutual_fund_table(
+    candidates: list[dict[str, Any]],
+    asof_date: dt.date,
+    category: str = "all",
+    console: Console | None = None,
+) -> None:
+    """Render Rich terminal table for screened mutual funds with equity lookthrough."""
+    if console is None:
+        console = Console()
+
+    title = f"Mutual Fund Candidates ({category}) with Equity Lookthrough as of {asof_date}"
+    table = Table(
+        title=title,
+        border_style="cyan",
+        box=box.ROUNDED,
+        header_style="bold cyan",
+    )
+    table.add_column("Code", style="bold cyan")
+    table.add_column("Scheme Name", style="white")
+    table.add_column("Category", style="dim")
+    table.add_column("AUM (Cr)", justify="right", style="green")
+    table.add_column("TER %", justify="right", style="yellow")
+    table.add_column("Port ROCE", justify="right", style="bold green")
+    table.add_column("Port P/E", justify="right", style="magenta")
+    table.add_column("Cap Mix (L/M/S)", justify="center", style="cyan")
+    table.add_column("Top Holdings (Lookthrough)", style="yellow")
+    table.add_column("Score", justify="right", style="bold cyan")
+
+    for c in candidates:
+        roce_str = f"{c['portfolio_roce']:.1f}%" if c.get("portfolio_roce") is not None else "N/A"
+        pe_str = f"{c['portfolio_pe']:.1f}x" if c.get("portfolio_pe") is not None else "N/A"
+        l = c.get("large_cap_pct", 0)
+        m = c.get("mid_cap_pct", 0)
+        s = c.get("small_cap_pct", 0)
+        cap_mix = f"{l:.0f}/{m:.0f}/{s:.0f}%"
+        top_h = ", ".join(c.get("top_holdings", [])) or "None"
+
+        table.add_row(
+            c["scheme_code"],
+            c["scheme_name"][:35],
+            c["category"].replace("Equity:", ""),
+            f"₹{c['aum_cr']:,.0f}",
+            f"{c['ter_pct']:.2f}%",
+            roce_str,
+            pe_str,
+            cap_mix,
+            top_h,
+            f"{c['score']:.1f}",
+        )
+
+    console.print(table)

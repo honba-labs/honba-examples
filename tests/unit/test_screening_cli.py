@@ -51,6 +51,11 @@ def net_net_script():
     return _load("screening_05_net_net", "screening/05_net_net_screener.py")
 
 
+@pytest.fixture(scope="module")
+def mf_script():
+    return _load("screening_06_mutual_fund", "screening/07_mutual_fund_screener.py")
+
+
 _CANDIDATES = [
     {"symbol": "AAA", "close": 100.0, "roce_pct": 18.0},
     {"symbol": "BBB", "close": 200.0, "roce_pct": None},
@@ -59,13 +64,14 @@ _ASOF = dt.date(2023, 1, 1)
 
 
 def test_all_screeners_inherit_base(
-    multibagger_script, value_script, dividend_script, graham_script, net_net_script
+    multibagger_script, value_script, dividend_script, graham_script, net_net_script, mf_script
 ):
     assert issubclass(multibagger_script.MultibaggerScreenerExample, ScreenerCLIExample)
     assert issubclass(value_script.Value52wLowScreenerExample, ScreenerCLIExample)
     assert issubclass(dividend_script.DividendYieldScreenerExample, ScreenerCLIExample)
     assert issubclass(graham_script.IntelligentInvestorScreenerExample, ScreenerCLIExample)
     assert issubclass(net_net_script.NetNetScreenerExample, ScreenerCLIExample)
+    assert issubclass(mf_script.MutualFundScreenerExample, ScreenerCLIExample)
 
 
 @pytest.mark.parametrize("stream_format", ["symbols", "plain", "json"])
@@ -76,6 +82,7 @@ def test_symbol_stream_is_pure(
     dividend_script,
     graham_script,
     net_net_script,
+    mf_script,
     capsys,
 ):
     examples = [
@@ -84,6 +91,7 @@ def test_symbol_stream_is_pure(
         dividend_script.DividendYieldScreenerExample(),
         graham_script.IntelligentInvestorScreenerExample(),
         net_net_script.NetNetScreenerExample(),
+        mf_script.MutualFundScreenerExample(),
     ]
     for example in examples:
         example.stream_format = stream_format
@@ -154,3 +162,15 @@ def test_screener_stream_feeds_backtester_parser():
     assert parse(json_doc) == ["AAA", "BBB"]
     # Empty
     assert parse("") == []
+
+
+def test_mutual_fund_screener_execution(mf_script, capsys):
+    example = mf_script.MutualFundScreenerExample()
+    example.stream_format = "symbols"
+    example.category = "Equity:Flexi Cap"
+    catalog_dir = example.resolve_catalog_dir()
+    asof = example.resolve_asof(catalog_dir)
+    candidates = example.screen(catalog_dir, asof)
+    assert len(candidates) >= 1
+    codes = {c["scheme_code"] for c in candidates}
+    assert "122639" in codes or "118989" in codes or "125354" in codes
