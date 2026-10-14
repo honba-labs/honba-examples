@@ -1,11 +1,21 @@
 """backtesting/11_portfolio_rebalancer: forward equal-weight periodic rebalance backtester.
 
 Composable backtest engine for the screening → backtest runtime plane (roadmap §4,
-``backtesting/11_portfolio_rebalancer``).  Thin harness over
-:mod:`honba_examples.pipeline`: it ingests a symbol stream from ``stdin``
-(``--format symbols/json``), ``--symbols`` or its own screener, then periodically
-rebalances to **equal weight** with the NSE delivery cost / T+1 settlement model
-through :class:`honba_examples.pipeline.execution.SipBacktestHarness`.
+``backtesting/11_portfolio_rebalancer``).  It ingests a symbol stream from ``stdin``
+(``--format symbols/json``), ``--symbols`` or its own screener (``--strategy``; ``all`` is the
+union of the multibagger, value and dividend screens, ``--top`` names each), then simulates a
+periodic **equal-weight rebalance** with :func:`honba_examples.ewr.simulate`: day 0 is the first
+session after ``--asof``, every ``--rebalance-days`` calendar days the basket is trimmed or topped
+up in whole shares, a flat ``--fee`` is charged per side, and sell proceeds fund the buys ``T+N``
+sessions later (N from the core market pack as of the start date). Fills are at session closes.
+``--sip-amount`` is added at each rebalance session, not monthly.
+
+``--allocation equal`` (default) is the rebalancer. ``52w-ratio`` and ``score`` are a one-shot
+weighted lump sum held to the end by ``SipBacktestHarness`` (nothing is rebalanced; the output
+says so), and need screener fields, so supplied ``--symbols`` fall back to equal.
+
+The cost model is the single flat ``--fee``, not the NSE delivery cost pack of
+``02_cost_modeling``.
 
 For a SIP (rupee-cost averaging) variant use ``09_forward_sip_backtest`` /
 ``10_chained_screener_and_sip``; this harness is the complementary rebalance leg
@@ -32,22 +42,21 @@ For the in-code DSL see ``strategies/11_contrarian_value.py`` (and friends) whic
 
 Pitfalls::
 
-    - Docstring versus code: the summary promises periodic rebalancing with the NSE delivery cost
-      and T+1 settlement model, but SipBacktestHarness wraps simulate_portfolio_sip, which only buys
-      and holds (monthly SIP at each month's first open). There is no rebalance, no cost pack, no
-      settlement, and fractional shares. Equal weight is only the split of each contribution;
-      weights drift with prices.
+    - Flat costs only: the simulator charges one --fee on traded notional per side. There is no
+      STT, stamp duty, DP charge or slippage, and fills are at the session close, so the many small
+      trims of a short --rebalance-days look cheaper here than after real costs. T+N settlement is
+      modelled; brokerage tiers are not.
     - Symbol source: the --symbols example (RELIANCE,TCS,INFY) is a list picked today with
       hindsight. Only a list produced by a screen run as of the same --asof is a fair forward test.
-    - Same-day boundary: the harness buys at the open of the first session on or after --asof, while
-      the screeners use that day's close, so a trading-day --asof leaks one session (see
-      10_chained_screener_and_sip).
-    - Name traps: --strategy all maps to ValueScreener (it does not run every screener), and
-      --allocation is a no-op here because EqualWeightSizer always puts 1/N weights on the context
-      and the harness prefers context weights. A flag that changes nothing is easy to mistake for a
-      comparison you ran.
+    - Same-day boundary: day 0 is the first session after --asof, so the screen's own close is not
+      traded, but the fill is that session's close (observe and trade the close). Names with no bars
+      in the window are dropped and listed in the notes, not rebalanced.
+    - Allocation and strategy traps: only --allocation equal is rebalanced; 52w-ratio and score hold
+      a one-shot weighted lump sum, and --strategy all is a union of up to 3 x --top names, all
+      equal-weighted. Check the printed mode and notes before comparing runs.
     - One window, one regime: a single --asof to the latest session with a handful of names is one
-      sample. Vary --asof and compare against an index before concluding anything.
+      sample. Vary --asof and compare against an index before concluding anything. Bars are used as
+      stored, so check for unadjusted splits or bonuses before trusting a large move.
 """
 
 from __future__ import annotations
