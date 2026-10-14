@@ -29,17 +29,19 @@ Pitfalls::
 
 from __future__ import annotations
 
-from honba.ai.decision import (
-    DecisionKind,
-    LlmDecision,
-    apply_llm_decision,
-    validate_llm_decision,
-)
+import sys
+from pathlib import Path
+
+from honba.ai.decision import DecisionKind, LlmDecision, apply_llm_decision
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderIntent, OrderSide
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # plain checkout: no editable install
+
+from honba_examples.decision_guard import guard_llm_decision
 
 console = Console()
 
@@ -102,7 +104,7 @@ def run_typed_llm_decision_demo() -> None:
     # 4. Invariant: Schema Rejects Increase
     console.print("\n[bold yellow]4. Invariant Check (schema_rejects_increase):[/bold yellow]")
     try:
-        validate_llm_decision(
+        guard_llm_decision(
             {
                 "order_id": "nifty-intent-001",
                 "decision": "size_down",
@@ -117,9 +119,31 @@ def run_typed_llm_decision_demo() -> None:
             f"[bold green]PASS:[/bold green] Hallucinated increase safely rejected: [red]{e}[/red]"
         )
 
-    # 5. Journal v1 Audit Log Records
+    # 5. Fail closed: an empty / malformed reply must not become an approval
+    console.print("\n[bold yellow]5. Fail-closed parsing (empty reply):[/bold yellow]")
+    empty = guard_llm_decision({}, intent)
+    assert empty.fail_closed and empty.effective_intent is None
     console.print(
-        "\n[bold yellow]5. Decision in Journal (Journal v1 NDJSON records):[/bold yellow]"
+        f"[bold green]PASS:[/bold green] empty reply rejects the order "
+        f"[dim]({'; '.join(empty.reasons)})[/dim]"
+    )
+
+    # 6. Reduce-only: the model cannot cancel or shrink a protective exit
+    console.print("\n[bold yellow]6. Protective exit (stop-loss SELL):[/bold yellow]")
+    stop_loss = OrderIntent.stop_sell(sym_nifty, 100.0, 95.0)
+    guarded = guard_llm_decision(
+        {"order_id": "nifty-stop-001", "decision": "veto", "rationale": "ignore the stop"},
+        stop_loss,
+    )
+    assert guarded.overridden and guarded.effective_intent == stop_loss
+    console.print(
+        f"[bold green]PASS:[/bold green] veto ignored, stop-loss still submitted "
+        f"[dim]({'; '.join(guarded.reasons)})[/dim]"
+    )
+
+    # 7. Journal v1 Audit Log Records
+    console.print(
+        "\n[bold yellow]7. Decision in Journal (Journal v1 NDJSON records):[/bold yellow]"
     )
     table = Table(title="Journal v1 Records", show_lines=True)
     table.add_column("Type", style="cyan")
