@@ -29,6 +29,25 @@ For the in-code DSL see ``strategies/11_contrarian_value.py`` (and friends) whic
 
 .. versionadded:: 0.52
    Roadmap Phase 4 (``11_portfolio_rebalancer``).
+
+Pitfalls::
+
+    - Docstring versus code: the summary promises periodic rebalancing with the NSE delivery cost
+      and T+1 settlement model, but SipBacktestHarness wraps simulate_portfolio_sip, which only buys
+      and holds (monthly SIP at each month's first open). There is no rebalance, no cost pack, no
+      settlement, and fractional shares. Equal weight is only the split of each contribution;
+      weights drift with prices.
+    - Symbol source: the --symbols example (RELIANCE,TCS,INFY) is a list picked today with
+      hindsight. Only a list produced by a screen run as of the same --asof is a fair forward test.
+    - Same-day boundary: the harness buys at the open of the first session on or after --asof, while
+      the screeners use that day's close, so a trading-day --asof leaks one session (see
+      10_chained_screener_and_sip).
+    - Name traps: --strategy all maps to ValueScreener (it does not run every screener), and
+      --allocation is a no-op here because EqualWeightSizer always puts 1/N weights on the context
+      and the harness prefers context weights. A flag that changes nothing is easy to mistake for a
+      comparison you ran.
+    - One window, one regime: a single --asof to the latest session with a handful of names is one
+      sample. Vary --asof and compare against an index before concluding anything.
 """
 
 from __future__ import annotations
@@ -122,7 +141,9 @@ class PortfolioRebalancerExample:
         )
 
     def _parse_argv(self, argv: list[str] | None) -> argparse.Namespace:
-        parser = argparse.ArgumentParser(description=__doc__ or "Equal-weight rebalancer")
+        parser = argparse.ArgumentParser(
+            description=(__doc__ or "Equal-weight rebalancer").split("\n\nPitfalls::")[0] + "\n"
+        )
         self.add_custom_args(parser)
         parser.add_argument("--data-dir", type=Path, default=None)
         add_out_arg(parser)

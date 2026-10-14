@@ -8,6 +8,22 @@ Sharpe.
 Run::
 
     python backtesting/06_concurrent_backtest.py --workers 4
+
+Pitfalls::
+
+    - Multiple testing: the default grid is 56 (fast, slow) pairs scored on one history, and
+      best_by_sharpe is the maximum of 56 noisy numbers, which is biased upward. Report the trial
+      count, deflate the Sharpe, and look for a plateau of good neighbours instead of a lone peak.
+    - No out-of-sample: the same 120 bars select the winner and report it. 04_walk_forward is the
+      missing step; a sweep result is a hypothesis, not a finding.
+    - Degenerate default: on the synthetic ramp every combination has fewer than two fills, so every
+      Sharpe is 0.0 and the 'best' pair (5, 20) is only the sort tie-break. Check that a sweep
+      actually discriminates before reading a winner.
+    - Defence shown: results are collected in grid order, not completion order, so thread scheduling
+      cannot change which of several equal scores wins.
+    - The per-pair curve is rebuilt from fills alone (no mark-to-market between trades, no costs,
+      bar-close fills), so Sharpe and drawdown rest on a handful of points; short periods trade more
+      and would look better here than they would after costs.
 """
 
 from __future__ import annotations

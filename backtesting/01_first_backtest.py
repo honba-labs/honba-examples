@@ -11,6 +11,23 @@ Run::
 
     python backtesting/01_first_backtest.py
     python backtesting/01_first_backtest.py --out first_backtest.json
+
+Pitfalls::
+
+    - Fill timing: despite the next-open wording above, run() calls replay(strat, bars_list) with
+      its default fill_delay=0, so each order fills at the close of the bar that triggered it. That
+      is trading the close, which you cannot do live; 03_latency_modeling compares fill_delay=1, and
+      only the engine's NextOpenExecution fills at a later open.
+    - Silent data switch: get_bars() returns the last --bars real bars from the local lakehouse when
+      it holds enough, and otherwise a straight-line synthetic ramp, and nothing in the output says
+      which. Results differ between machines, and ramp results say nothing about markets.
+    - No friction: replay charges no STT, brokerage or slippage, trades one share, and --capital is
+      only echoed into the report. A profitable run here is gross of everything 02_cost_modeling
+      shows.
+    - Tiny sample: 60 bars with a 30-bar warm-up leave about 30 tradable bars and a couple of fills,
+      all in one regime. Two trades cannot show an edge.
+    - Defence shown: on_bar returns while either Sma is still None, so no signal is ever built from
+      a partial window.
 """
 
 from __future__ import annotations

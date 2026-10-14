@@ -8,6 +8,24 @@ and compares fill prices and equity curves.
 Run::
 
     python backtesting/03_latency_modeling.py
+
+Pitfalls::
+
+    - Label versus engine: replay's fill_delay counts bars. 0 fills at the signal bar's close, and 1
+      or 2 fill at the open of the bar 1 or 2 later. The 'next_close' entry here is fill_delay=2,
+      the open two bars on, not the next session's close described above. Only bar_close and
+      next_open match Honba's fill models.
+    - Ignored parameters: run() echoes --fast and --slow into config, but _run_model builds
+      SmaLatency() with its 10/30 defaults, so changing them changes nothing. The same trap in your
+      own code is a parameter you believe you varied but did not.
+    - Lookahead is the gap: bar_close fills at a close that is only known after the session ends.
+      The price difference between the bar_close and next_open rows is the move you would otherwise
+      book as profit.
+    - Understated gaps: the synthetic bars have open equal to close and rise 0.5 per bar, so a
+      one-bar delay moves the fill by 0.5. Real overnight gaps and opening-auction slippage are far
+      larger and are not simulated.
+    - Compare fill prices, not P&L: each model produces one or two fills on a monotone series, which
+      is too few to say anything about performance.
 """
 
 from __future__ import annotations

@@ -7,6 +7,24 @@ see ``honba_examples.backtest.run_portfolio_backtest`` for next-open fills with 
 Run::
 
     python backtesting/04_walk_forward.py
+
+Pitfalls::
+
+    - The score is not performance: _backtest returns result.fills[-1].price, the price of the last
+      fill, not equity or a return (its docstring says final equity). The 'best' pair is just the
+      one whose last fill came latest on a rising series, so the selection step is arbitrary.
+    - Test slices never trade: each 20-bar test slice goes to a fresh strategy with warmup_bars=30
+      (and slow up to 40), so no signal can form and test_score is 0.0 in every default window. An
+      out-of-sample slice shorter than the warm-up validates nothing; size it above the warm-up or
+      carry state across.
+    - Defence shown: parameters are chosen on bars_list[i : i + window] only and scored on the
+      following step bars, with no overlap, then the window rolls forward by step. Keep that
+      separation; honba.algo_analytics.walk_forward adds the pass/fail gates.
+    - Every grid point is a trial: 3 fast x 3 slow values are searched per window. The larger the
+      grid and the shorter the window, the more likely the in-sample winner is noise, so log how
+      many variants were tried and prefer a flat plateau to a single peak.
+    - replay fills at the signal bar's close and charges no costs, and the data is a synthetic ramp,
+      so even a clean walk-forward here is a demonstration of structure, not of performance.
 """
 
 from __future__ import annotations

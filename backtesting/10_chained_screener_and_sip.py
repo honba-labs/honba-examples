@@ -43,6 +43,30 @@ Usage Examples::
 
     # 4. Prospective screening as of today (live forward monitoring):
     python backtesting/10_chained_screener_and_sip.py --strategy graham --screen-only --top 5
+
+Pitfalls::
+
+    - Boundary lookahead: the screeners read bars up to and including --asof (bar_date <= asof, so
+      that day's close), but simulate_portfolio_sip buys the lump sum at the open of the first bar
+      on or after --asof. On a trading day that is the open of a session whose close the screen
+      already used. A non-trading --asof (the default 2025-03-01 is a Saturday) avoids it by
+      accident.
+    - Fundamentals dating: ROCE and debt/equity are chosen with fiscal_date <= asof, the period end,
+      not the date the results were published. Unless the store holds filing dates, the screen can
+      use numbers the market did not have yet, which flatters quality screens.
+    - Survivorship: the screener ranks every symbol under the catalog directory, whatever is on disk
+      today, and --universe is not passed to it. In the simulation a symbol with no bars after
+      --asof is valued flat at its last close (sip.py) and one with no data is skipped, so a name
+      that collapsed or delisted shows 0 percent or vanishes instead of showing a loss.
+    - Friction: the forward SIP buys fractional shares at the month's first open with no brokerage,
+      STT, stamp duty, slippage or liquidity check, and never rebalances or sells. Net returns are
+      overstated, most for small caps.
+    - One draw: a single --asof, three to five names and one market regime. The 2x/3x 'Multibagger'
+      label uses the forward peak high, a number from the future that suits illustration, not a
+      signal. Repeat over many --asof dates and compare with a plain index SIP.
+    - Defence shown: the screen reads only data up to --asof, --screen-only prints candidates with
+      no forward peek, and an --asof at the end of the data yields no forward window (the horizon
+      notice) instead of a fake result.
 """
 
 from __future__ import annotations

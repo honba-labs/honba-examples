@@ -11,6 +11,24 @@ Run::
     python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency weekly --sip-amount 1000
     python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --download
     python backtesting/08_sip_buy_and_hold.py --out sip_report.json
+
+Pitfalls::
+
+    - Mixed fill prices: the initial lump sum buys at the first session's open, each SIP instalment
+      at that session's close. Dates are fixed in advance so there is no signal lookahead, but the
+      two prices are inconsistent and the close fill assumes you can trade at the close.
+    - Costs: fee_rate is a flat 0.05 percent of notional per buy, not the statutory legs shown in
+      02_cost_modeling. Units are whole shares (int division), so small SIP amounts against a high
+      price leave idle cash, visible as cash_remaining.
+    - Start-date and end-point luck: the default window is 2025-01-01 to today, and XIRR over a
+      short span is annualised from a few cash flows, so it swings with the first and last day and
+      with --sip-day. Test several start months and report the range.
+    - Selection and survivorship: one instrument (ALPHAETF by default) that exists today. Choose it
+      by a rule fixed before looking, and remember funds and stocks that closed never appear in a
+      hand-picked list.
+    - Data quality: bars are read as stored; two bars on one date collapse to the last, and a
+      missing session pushes that instalment to the next available day (td >= target). Check
+      adjustments and gaps before trusting XIRR or drawdown.
 """
 
 from __future__ import annotations

@@ -13,6 +13,17 @@ underlying example; this shim rewrites argv[0] so ``--help`` shows the right scr
 .. deprecated::
    Import ``ChainedScreenerSipExample`` directly from
    ``backtesting.10_chained_screener_and_sip`` instead.
+
+Pitfalls::
+
+    - Inherits everything in 10_chained_screener_and_sip: this is an alias that executes that
+      module, so read its Pitfalls first (same-day open versus close, fundamentals dated by fiscal
+      period, survivorship, no costs).
+    - Where the symbols came from decides validity: with --symbols or a stdin pipe the harness
+      cannot know how the list was chosen. A list picked by looking at today's winners makes the
+      'forward' test in-sample.
+    - Two dates must match: the screener's --asof and this backtest's --asof are separate flags. If
+      they differ you back-test a different decision date than the one you screened.
 """
 
 from __future__ import annotations

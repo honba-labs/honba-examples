@@ -8,6 +8,23 @@ bootstrap and parameter sweeps.
 Run::
 
     python backtesting/05_monte_carlo.py --paths 1000
+
+Pitfalls::
+
+    - Resampling fills i.i.d. destroys order: random.choices can draw three buys in a row or a sell
+      before any buy, so the rebuilt curves are not paths the strategy could have produced. Block
+      bootstrap on returns, or re-running on perturbed start dates, respects serial dependence.
+    - A distribution of nothing: on the default synthetic ramp the base run has a single fill, so
+      all paths are that one fill and every percentile is flat (final equity 100000, drawdown 0,
+      Sharpe 0). Monte Carlo cannot add information the sample lacks; with few trades its bands are
+      overconfident.
+    - The curve is built from fills only (valued at fill prices, an open position closed at the last
+      fill's price, no costs), so there is no mark-to-market between trades and drawdown is measured
+      at fill points only.
+    - Percentile indexing is int(p * n) on the sorted list, so with fewer than 20 paths the 'p5' is
+      the minimum. Use 1000 or more paths for tails, and report spread across several --seed values.
+    - random.seed(seed) seeds the global generator: runs are reproducible, but one seed is one draw
+      and the call affects other code in the same process.
 """
 
 from __future__ import annotations

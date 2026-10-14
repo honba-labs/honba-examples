@@ -16,6 +16,23 @@ Run::
 
     # Both, asserting parity
     python backtesting/07_run_via_client.py --data-dir data/catalog --both
+
+Pitfalls::
+
+    - Hindsight universe: the run is fixed to RELIANCE.NSE, one large stock still listed today, over
+      2024-01-01 to 2024-06-01. That is one name chosen with hindsight in about five months of daily
+      bars and one regime; it demonstrates the run service, not the strategy.
+    - Parity is plumbing, not realism: assert_parity shows in-process and HTTP produce identical
+      fills, which proves determinism. It does not show the fill model is realistic. Read
+      assumptions.timing and assumptions.not_modelled in the result before trusting any metric.
+    - Closed trades only: the comment in assert_parity says metrics come from closed round trips
+      with no mark-to-market, so a position still open at the end (perhaps deep underwater) is not
+      counted. Read the journal as well as the summary.
+    - Data quality is the catalog's: bars come from --data-dir as stored. Confirm they are split and
+      dividend adjusted and have no gaps, because the same strategy gives different fills on
+      unadjusted data.
+    - The seed (42) only pins stochastic components; it is not a robustness check. Vary the window
+      and the instrument before concluding anything.
 """
 
 from __future__ import annotations
@@ -110,7 +127,7 @@ def assert_parity(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\nPitfalls::")[0] + "\n")
     parser.add_argument(
         "--data-dir",
         type=Path,

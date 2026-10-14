@@ -7,6 +7,23 @@ cost function is used in live trading through the adapter layer.
 Run::
 
     python backtesting/02_cost_modeling.py
+
+Pitfalls::
+
+    - Schedule, not history: the cost functions take (side, quantity, price) and no date, so the
+      numbers are the rates bundled with the installed Honba, not those in force on a past trade
+      date. Charges change; a multi-year backtest needs the rate that applied at each fill.
+    - Delivery only: these are the equity delivery legs. Intraday, F&O and ETF trades have different
+      STT and stamp rules, so reusing them for a faster strategy misstates cost.
+    - Check the STT leg: in the default output STT is 0.0 on the buy and charged only on the sell.
+      Compare that against the current NSE/SEBI circular before relying on it, because a missing leg
+      under-counts every round trip.
+    - Both legs, every round trip: the buy and sell totals are printed separately because a position
+      pays both, and the small-order floor (brokerage, stamp) weighs more on small tickets. A
+      strategy that trades often needs a larger gross edge, so run costs inside the backtest, not
+      afterwards.
+    - Statutory charges are only part of friction: spread, slippage, market impact and whether the
+      quantity is even available at the price are not modelled here.
 """
 
 from __future__ import annotations
