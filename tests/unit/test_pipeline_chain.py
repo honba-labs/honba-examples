@@ -16,6 +16,7 @@ from honba_examples.pipeline import (
 from honba_examples.pipeline.chain import (
     REGISTRY,
     ChainError,
+    ChainNotRunnableError,
     build_pipeline,
     describe_all,
     load_chain,
@@ -143,3 +144,47 @@ def test_missing_catalog_is_a_clear_error(
     monkeypatch.setenv("HONBA_STRATEGIES_DIR", str(tmp_path))
     with pytest.raises(CatalogError, match="HONBA_STRATEGIES_DIR"):
         validate(load_chain(chain_file))
+
+
+PORTFOLIO_CHAIN = [
+    {"uses": "screen.value"},
+    {"uses": "filter.liquidity"},
+    {"uses": "size.equal_weight"},
+    {"uses": "execute.equal_weight"},  # a honba-strategies catalog step
+]
+
+
+def test_catalog_portfolio_step_validates_after_a_sizer() -> None:
+    assert validate(PORTFOLIO_CHAIN) == []
+
+
+def test_catalog_portfolio_step_validates_straight_from_a_universe() -> None:
+    assert validate([{"uses": "execute.alpha30_momentum"}]) == []
+    assert (
+        validate([{"uses": "execute.alpha30_momentum", "with": {"select": "top:3:momentum:60"}}])
+        == []
+    )
+
+
+def test_catalog_step_params_are_checked() -> None:
+    errors = validate([{"uses": "execute.alpha30_momentum", "with": {"nope": 1}}])
+    assert any("unknown param 'nope'" in e for e in errors)
+
+
+def test_signal_then_sizer_is_rejected_with_a_helpful_message() -> None:
+    errors = validate([{"uses": "signal.sma_crossover"}, {"uses": "size.equal_weight"}])
+    assert len(errors) == 1
+    assert "emits 'orders'" in errors[0] and "screen" in errors[0] and "filter" in errors[0]
+
+
+def test_unknown_id_message_mentions_catalog_ids() -> None:
+    (unknown,) = validate([{"uses": "execute.nope"}])
+    assert "unknown step id 'execute.nope'" in unknown
+    assert "execute.equal_weight" in unknown and "execute.sip_backtest" in unknown
+
+
+def test_catalog_step_is_validated_but_not_runnable() -> None:
+    with pytest.raises(ChainNotRunnableError, match="validated but not runnable"):
+        build_pipeline(PORTFOLIO_CHAIN)
+    with pytest.raises(ChainError, match="execute.alpha30_momentum"):
+        build_pipeline([{"uses": "execute.alpha30_momentum"}])

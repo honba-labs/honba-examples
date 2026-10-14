@@ -23,7 +23,7 @@ def manifest(
     title: str,
     description: str,
     params: dict[str, dict[str, Any]],
-    consumes: str,
+    consumes: str | list[str],
     emits: str,
     *,
     requires: dict[str, Any] | None = None,
@@ -32,11 +32,17 @@ def manifest(
     reportable: list[str] | None = None,
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Assemble a manifest; ``consumes``/``emits`` are shapes, ``id`` is ``<kind>.<name>``."""
+    """Assemble a manifest; ``consumes``/``emits`` are shapes, ``id`` is ``<kind>.<name>``.
+
+    ``consumes`` is one shape or a list of accepted shapes (an ``execute`` step may take
+    ``weights`` from a sizer or a bare ``universe``).
+    """
     out_emits: dict[str, Any] = {"shape": emits, "adds": list(adds or [])}
     out_emits["report"] = []
     out_emits["reportable"] = list(reportable or [])
-    in_consumes: dict[str, Any] = {"shape": consumes}
+    in_consumes: dict[str, Any] = {
+        "shape": list(consumes) if isinstance(consumes, list) else consumes
+    }
     in_consumes["columns"] = list(columns if columns is not None else ["symbol"])
     return {
         "schema": 1,

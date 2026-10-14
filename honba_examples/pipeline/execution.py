@@ -80,7 +80,7 @@ class SipBacktestHarness(Step):
                     choices=["portfolio", "per-stock"],
                 ),
             },
-            "weights",
+            ["weights"],
             "none",
             requires={"bars": ["close", "ts"], "pit": True},
             tags=["sip", "backtest"],

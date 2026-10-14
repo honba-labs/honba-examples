@@ -85,3 +85,38 @@ def test_shapes_chain_from_screen_to_execute() -> None:
     shapes = [cls.describe() for cls in (ValueScreener, FundamentalQualityFilter, EqualWeightSizer)]
     assert [m["consumes"]["shape"] for m in shapes] == ["universe", "candidates", "candidates"]
     assert [m["emits"]["shape"] for m in shapes] == ["candidates", "candidates", "weights"]
+
+
+def test_stage_semantics() -> None:
+    """screen: universe|none -> candidates; filter: candidates -> candidates; size: candidates ->
+    weights; execute accepts weights or a universe."""
+    for cls in STEPS:
+        m = cls.describe()
+        shapes = m["consumes"]["shape"]
+        shapes = shapes if isinstance(shapes, list) else [shapes]
+        emits = m["emits"]["shape"]
+        if m["kind"] == "screen":
+            assert set(shapes) <= {"universe", "none"} and emits == "candidates", m["id"]
+        elif m["kind"] == "filter":
+            assert (shapes, emits) == (["candidates"], "candidates"), m["id"]
+        elif m["kind"] == "size":
+            assert (shapes, emits) == (["candidates"], "weights"), m["id"]
+        else:
+            assert m["kind"] == "execute" and set(shapes) & {"weights", "universe"}, m["id"]
+
+
+def test_sip_backtest_consumes_weights() -> None:
+    m = SipBacktestHarness.describe()
+    assert (m["id"], m["kind"]) == ("execute.sip_backtest", "execute")
+    assert m["consumes"]["shape"] == ["weights"] and m["emits"]["shape"] == "none"
+
+
+def test_manifest_helper_accepts_a_list_of_shapes() -> None:
+    from honba_examples.pipeline.manifest import manifest
+
+    m = manifest("execute.x", "X", "x", {}, ["weights", "universe"], "orders")
+    assert m["consumes"]["shape"] == ["weights", "universe"]
+    assert _schema_tools().schema_errors(m) == []
+    assert (
+        manifest("execute.x", "X", "x", {}, "weights", "orders")["consumes"]["shape"] == "weights"
+    )

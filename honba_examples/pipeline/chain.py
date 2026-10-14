@@ -13,7 +13,10 @@ A chain file lists steps by manifest ``id``; each may carry ``with`` (param over
     report = ["market_cap", "dividend_yield_pct"]
 
 ``REGISTRY`` maps ids to the pipeline :class:`~honba_examples.pipeline.base.Step` classes (their
-manifests come from ``describe()``). :func:`validate` checks a chain with honba-strategies'
+manifests come from ``describe()``). Steps of the honba-strategies catalog (``signal.*`` and the
+self-contained ``execute.*`` portfolio strategies) are known to :func:`validate` by their
+``step.toml`` but have no class here, so :func:`run_chain` refuses them with a clear error.
+:func:`validate` checks a chain with honba-strategies'
 ``tools/validate_chain.py`` (shapes, columns, kind order, param types and bounds, ``report``
 against ``emits.reportable``) after checking ids; :func:`run_chain` validates, builds the
 :class:`~honba_examples.pipeline.base.Pipeline` and runs it.
@@ -28,6 +31,7 @@ from typing import Any
 
 import tomllib
 
+from honba_examples.catalog import strategies_catalog_dir
 from honba_examples.pipeline.base import Pipeline, PipelineResult, Step
 from honba_examples.pipeline.execution import SipBacktestHarness
 from honba_examples.pipeline.filters import (
@@ -45,7 +49,9 @@ from honba_examples.pipeline.sizing import EqualWeightSizer, FixedSipSizer, Inve
 __all__ = [
     "REGISTRY",
     "ChainError",
+    "ChainNotRunnableError",
     "build_pipeline",
+    "catalog_manifests",
     "describe_all",
     "load_chain",
     "run_chain",
@@ -78,6 +84,10 @@ class ChainError(ValueError):
     def __init__(self, errors: list[str]) -> None:
         self.errors = errors
         super().__init__("invalid chain:\n  " + "\n  ".join(errors))
+
+
+class ChainNotRunnableError(ChainError):
+    """A valid chain that uses honba-strategies catalog steps this pipeline cannot execute."""
 
 
 def describe_all() -> dict[str, dict[str, Any]]:
@@ -134,16 +144,37 @@ def load_chain(source: str | Path | dict[str, Any] | list[dict[str, Any]]) -> li
     return steps
 
 
+def catalog_manifests() -> dict[str, dict[str, Any]]:
+    """The ``step.toml`` manifests of every honba-strategies catalog strategy, by step id."""
+    import json
+
+    root = strategies_catalog_dir()
+    out: dict[str, dict[str, Any]] = {}
+    for entry in json.loads((root / "registry.json").read_text())["strategies"]:
+        path = root / entry["path"] / "step.toml"
+        if path.is_file():
+            manifest = tomllib.loads(path.read_text())
+            out[manifest["id"]] = manifest
+    return out
+
+
 def _manifests(chain: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     """Manifests (with ``with``/``report`` attached) for the validator, plus unknown-id errors."""
     out: list[dict[str, Any]] = []
     errors: list[str] = []
+    catalog: dict[str, dict[str, Any]] | None = None
     for step in chain:
         cls = REGISTRY.get(step["uses"])
-        if cls is None:
-            errors.append(f"unknown step id {step['uses']!r}; known ids are {sorted(REGISTRY)}")
-            continue
-        out.append({**cls.describe(), "with": step["with"], "report": step["report"]})
+        if cls is not None:
+            base = cls.describe()
+        else:
+            catalog = catalog_manifests() if catalog is None else catalog
+            if step["uses"] not in catalog:
+                known = sorted(set(REGISTRY) | set(catalog))
+                errors.append(f"unknown step id {step['uses']!r}; known ids are {known}")
+                continue
+            base = catalog[step["uses"]]
+        out.append({**base, "with": step["with"], "report": step["report"]})
     return out, errors
 
 
@@ -186,7 +217,17 @@ def build_pipeline(chain: list[dict[str, Any]], *, catalog_dir: Path | None = No
     errors = validate(chain)
     if errors:
         raise ChainError(errors)
-    return Pipeline([_build_step(step, catalog_dir) for step in load_chain(chain)])
+    steps = load_chain(chain)
+    foreign = [step["uses"] for step in steps if step["uses"] not in REGISTRY]
+    if foreign:
+        message = (
+            f"{', '.join(foreign)}: validated but not runnable in this pipeline yet; "
+            f"these are honba-strategies catalog steps and the pipeline only runs its own "
+            f"steps ({', '.join(sorted(REGISTRY))}). Run catalog strategies with the honba "
+            f"backtester instead."
+        )
+        raise ChainNotRunnableError([message])
+    return Pipeline([_build_step(step, catalog_dir) for step in steps])
 
 
 def run_chain(

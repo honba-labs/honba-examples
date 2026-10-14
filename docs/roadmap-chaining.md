@@ -179,6 +179,28 @@ results.print_summary()
 Goal: a GUI algo designer (later) can list steps, render their params, check that a chain is
 compatible and show a user-chosen set of columns, all from data, without importing Python.
 
+**Stage semantics (canonical, shared with honba-strategies' `schema/README.md`)**
+
+```
+universe --screen--> candidates --filter--> candidates --size--> weights --execute--> orders / result
+```
+
+- `screen` consumes a `universe` (or `none`) and emits `candidates`; `filter` maps `candidates` to
+  `candidates`; `size` maps `candidates` to `weights` (it does not trade); `signal` is per-symbol
+  timing, `universe -> orders`, for single-instrument bar strategies.
+- `execute` consumes `weights` **or** `universe` and emits orders or a result. Given `weights` it
+  executes them (`execute.sip_backtest`); given a `universe` it is a self-contained portfolio
+  strategy that selects, weights and schedules itself (the six `portfolio/` and `universe/alpha/`
+  catalog strategies are `execute.*`, not sizers).
+- `consumes.shape` is a string or a list of accepted shapes. Kind order is
+  screen, filter, signal, size, risk, execute. `signal` and `size` are both optional, but a chain is
+  either screen/filter/size/execute (portfolio) or a lone signal/execute: a signal already emits
+  orders, so `signal -> size` is rejected.
+- Catalog ids (`signal.*`, `execute.*` from honba-strategies) validate in a chain, so a GUI can
+  check `screen -> filter -> size -> execute.equal_weight`. The pipeline only runs its own steps;
+  `run_chain` raises `ChainNotRunnableError` ("validated but not runnable in this pipeline yet") for
+  catalog ids. Running them would need a backtest-engine bridge, which is future work.
+
 **Implemented**
 
 - Every step except the signal stubs has `describe()`: a dict in the shape of honba-strategies'

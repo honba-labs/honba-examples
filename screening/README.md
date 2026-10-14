@@ -211,7 +211,10 @@ uses = "size.equal_weight"
 Step ids: `screen.multibagger`, `screen.value`, `screen.dividend_yield`,
 `filter.fundamental_quality`, `filter.market_regime`, `filter.liquidity`, `size.fixed_sip`,
 `size.equal_weight`, `size.inverse_volatility`, `execute.sip_backtest`. The Graham and net-net
-screeners (04, 05) are not pipeline steps yet.
+screeners (04, 05) are not pipeline steps yet. Chains may also name honba-strategies catalog ids
+such as `execute.equal_weight` (an `execute` step accepts `weights` or a bare `universe`); they
+validate, but `06_run_chain.py` refuses to run them ("validated but not runnable in this pipeline
+yet").
 
 Before running, the chain is checked by honba-strategies' `tools/validate_chain.py` (found via
 `$HONBA_STRATEGIES_DIR` or the sibling `honba-strategies` checkout): shapes and columns must
