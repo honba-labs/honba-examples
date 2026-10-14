@@ -8,6 +8,23 @@ Signals generated per instrument; on each rebalance day:
 Run::
 
     python strategies/05_multi_instrument.py
+
+Pitfalls::
+
+    - Nothing is rebalanced: _rebalance only records _positions_before and sends no orders, so the
+      default run is four one-share buys, one per symbol. The docstring's sell leavers, buy joiners
+      and equalise weights is not implemented, and a rebalancer that never trades cannot be judged.
+    - Counter semantics: _bar_count increments for every warmed-up bar of every symbol, so
+      rebalance_every=20 means 20 bars across the four-symbol basket (about five sessions), not 20
+      sessions.
+    - Identical series: all four symbols get the same 2500 + 0.5 x i path, so there is no dispersion
+      or correlation structure. Diversification, and the correlated drawdowns that cut it, cannot
+      show up.
+    - Basket picked today: RELIANCE, TCS, INFY and HDFCBANK are present-day large caps chosen with
+      hindsight. With real data the basket must be the constituents as of each date, otherwise
+      survivorship bias flatters the result.
+    - One share each is not equal weight in rupees (prices differ), fills are at the signal bar's
+      close (fill_delay=0), and there are no costs.
 """
 
 from __future__ import annotations

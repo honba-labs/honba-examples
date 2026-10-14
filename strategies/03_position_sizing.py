@@ -10,6 +10,21 @@ Uses ``honba.strategies.sizing`` helpers and synthetic bars.
 Run::
 
     python strategies/03_position_sizing.py
+
+Pitfalls::
+
+    - The strategy never places an order: the loop for fill in self.drain_intents(): pass at the end
+      of on_bar consumes the intents just emitted, so replay finds none. Every sizing mode prints
+      intents [] and fills []. A silent no-op looks like success, so assert a minimum trade count.
+    - Kelly is a stub: sizing='kelly' falls back to fixed_qty. The real formula needs a win rate and
+      payoff ratio estimated from past trades; from a few trades those estimates are noisy and full
+      Kelly overbets, so practitioners use a fraction of it.
+    - Judge sizers on risk, not final P&L: the same signals with a bigger size always make or lose
+      more. Compare drawdown and risk-adjusted return, and remember sizing was computed from the
+      signal bar's close and filled at it (fill_delay=0), so a gap changes the risk you really took.
+    - Volatility sizing on synthetic data explodes: the ramp has ATR 0.5, so int(equity x risk_pct /
+      (2 x ATR)) is 1000 shares, about 2.5 million INR against a hard-coded 100000 equity. Real
+      sizing needs a cap by capital and by liquidity.
 """
 
 from __future__ import annotations

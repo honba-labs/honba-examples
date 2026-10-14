@@ -9,6 +9,24 @@ Risk controls enforced inside the strategy (not the engine):
 Run::
 
     python strategies/04_risk_management.py
+
+Pitfalls::
+
+    - The equity estimate is wrong: _estimate_equity returns 100000 plus the market value of
+      positions and never subtracts the cash spent buying them, so equity is inflated by the cost
+      basis. Drawdown, daily-loss and position-weight checks run on a number that does not track the
+      account.
+    - A cap that also blocks exits: the position_pct >= max_position_pct check returns before the
+      sell branch, so once a winner grows past the cap the strategy ignores its own exit signal. A
+      guard against adding should not stop selling.
+    - One bar is one day: _current_day changes with every bar timestamp, so the daily loss limit is
+      a single close-to-close move on daily data. Intraday gaps and the price you actually exit at
+      are not seen; the flatten order fills at the same close that triggered it.
+    - Guards that never fire: the synthetic ramp never draws down, so by default there is one buy of
+      seven shares and no guard triggers. Test risk rules on falling and gappy series, otherwise
+      they are untested code.
+    - Starting equity and peak are constants (100000), not the account. Limits expressed as
+      percentages of a made-up base give a false sense of safety.
 """
 
 from __future__ import annotations

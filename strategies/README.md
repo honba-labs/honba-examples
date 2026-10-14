@@ -23,6 +23,16 @@ into a real backtest or live runner unchanged.
 
 
 
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring
+(enforced by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script
+does, such as fill timing (signal bar versus fill bar), parameter overfitting, sizing and risk
+rules that are stubs or unwired, as-of dates and survivorship in the pipeline recipes, and why
+synthetic data says nothing about performance. Read it before trusting a number. For the
+general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
 ## The common pattern
 
 ```python

@@ -28,6 +28,23 @@ Run::
 
     python strategies/07_declarative_long_short.py
     python strategies/07_declarative_long_short.py --stop-pct 0.02 --target-pct 0.05
+
+Pitfalls::
+
+    - Entries fill at the signal close: _simulate fills market orders at b.close, the bar whose
+      close produced the cross, and the stop and target levels are derived from that same close.
+      That is trading the close.
+    - Perfect exits: a resting stop or limit fills exactly at its level once a later bar's range
+      touches it (_triggered returns the level). A bar that gaps through a stop would fill at its
+      open, worse. If both are touched in one bar the order is unknowable from daily data; the
+      harness comment says stops are checked first.
+    - Shorting is unrealistic for delivery equity: go_short sells without owning. Holding a short
+      past the session needs F&O or SLB in India, and borrow and margin are not modelled.
+    - Made to fit: _closes builds flat, then a rally, then a sell-off so exactly one golden and one
+      death cross occur. Two trades on a hand-shaped path show the mechanics, not an edge.
+    - Known limits stated above: no automatic OCO and busy() hides should_exit while protective
+      orders rest. Live, an unlinked stop and target can both fill and leave an unintended opposite
+      position.
 """
 
 from __future__ import annotations

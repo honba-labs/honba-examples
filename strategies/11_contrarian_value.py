@@ -22,6 +22,25 @@ Run::
 
     python strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sip-amount 10000
     python strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sizer inv_vol --format json
+
+Pitfalls::
+
+    - Cheap for a reason: P/E, P/B and ROCE are the latest statement dated on or before --asof
+      (period end) combined with the as-of close, near the 52-week low. Trailing earnings at a
+      cyclical peak or a stale year-old statement look cheap, and falling knives keep falling.
+    - The risk leg is a stub: BuyAndHoldSignal passes everything through (the text says the ATR
+      trailing-stop is not wired), so there is no exit rule. The result is buy-and-hold with monthly
+      buys, not a risk-managed strategy, and drawdowns are not limited.
+    - Stacked hand-set thresholds: max P/E 20, max P/B 2, ROCE 12, debt/equity 1.0, within 15
+      percent of the low, then ROCE and debt/equity again in the quality filter (which lets missing
+      values pass). Tuning these against the forward window you then report is in-sample; fix them
+      first.
+    - As-of boundary and survivorship: the screen uses --asof's close while the harness buys at that
+      session's open (the default Saturday avoids it), and the universe is whatever is in today's
+      catalog. Names with no later bars are skipped or held flat in the simulation.
+    - Regime and sample: value near lows does badly in persistent downtrends and well in rebounds,
+      so the answer depends on the as-of month. One as-of, about 10 names, price-only and no costs:
+      repeat over several dates and compare with an index.
 """
 
 from __future__ import annotations

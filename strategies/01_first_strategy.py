@@ -13,6 +13,25 @@ Run::
 
     python strategies/01_first_strategy.py
     python strategies/01_first_strategy.py --out first_strategy.json
+
+Pitfalls::
+
+    - Fill timing: replay_report calls replay with its default fill_delay=0, so each order fills at
+      the close of the bar whose close produced the signal. You cannot trade a close you have just
+      observed; the realistic model is the next bar's open (fill_delay=1, or the engine's
+      NextOpenExecution).
+    - State test, not an event: entry is fast > slow while flat, so on the synthetic ramp (always
+      up) the first warmed-up bar buys straight away. Results depend on where the sample starts; try
+      several start dates on real data.
+    - Short from flat: the sell branch tests position >= 0, so a down-state while flat opens a short
+      instead of only exiting a long. Overnight shorts in Indian cash equities are not possible
+      without F&O or SLB, and borrow cost is not modelled. The backtesting/ variants exit longs
+      only.
+    - Perfect-trend data: trending_bars is base + 0.5 x i with no noise, gaps or drawdowns, so a
+      trend follower looks flawless and trades once (one buy, no sell by default). Costs and
+      slippage are zero.
+    - Defence shown: warmup_bars=30 plus the early return while either Sma is None keeps signals
+      from partial windows.
 """
 
 from __future__ import annotations

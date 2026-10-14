@@ -15,6 +15,24 @@ Mirror the CLI "Dogs of the NSE/ Dogs-of-Dow" chain::
 Or, in code::
 
     python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000
+
+Pitfalls::
+
+    - Not the classic Dogs of the Dow: that picks the highest-yielding index members on one date
+      each year and rebalances annually. This recipe screens the catalog for trailing yield >= the
+      minimum and price near the 52-week low, then buy-and-holds with a SIP. The name is a label.
+    - Yield trap and missing income: trailing dividend over the as-of close rises when the price
+      falls, so the screen favours names whose payout may be about to be cut and cannot see that.
+      The forward simulation values shares at price only, so dividends received are not counted.
+    - The regime guard is unwired from the CLI: --benchmark is parsed but main() never passes it to
+      run(), so MarketRegimeFilter is only reachable via build_pipeline(benchmark=...). Even then it
+      passes through with a warning when benchmark data is missing, so it can be silently off.
+    - As-of hygiene: the screen reads bars up to and including --asof but the harness buys at that
+      session's open (the default Saturday avoids it), fundamentals are filtered by fiscal_date not
+      publication date, and the symbol set is today's catalog. Missing ROCE or debt/equity passes
+      the quality filter.
+    - High-yield value names often cluster in a few sectors and move together. With one as-of, about
+      10 names and no costs, the result mostly reflects the sector and the regime after that date.
 """
 
 from __future__ import annotations

@@ -10,6 +10,22 @@ Runs on synthetic bars with ``honba.strategies.testing.replay``.
 Run::
 
     python strategies/02_with_indicators.py
+
+Pitfalls::
+
+    - It never trades on the default data: on a monotone ramp RSI is 100, and the entry needs RSI <
+      70, so the run has zero intents and zero fills. A filter you never see firing proves nothing;
+      count signals with and without each filter before believing it helps.
+    - Sizing sees a fixed account: equity is hard-coded to 100000 (the comment says no live equity
+      tracking), so risk_pct is a percentage of a constant, not of an account that has grown or
+      shrunk. On the ramp the ATR is 0.5, which would size int(1000 / (0.5 x 2)) = 1000 shares.
+    - Stop at the close: the trailing stop is compared with closes, never intrabar, and a replay
+      fill lands on that same close. A gap through the stop fills worse live, and the close that
+      triggers the exit is not tradable.
+    - Degrees of freedom: fast, slow, rsi_period, atr_period and risk_pct plus the fixed 70 and 2 x
+      ATR constants. Each knob is another way to fit one history; validate on data you did not tune
+      on (see backtesting/04_walk_forward).
+    - Defence shown: on_bar returns until all four indicators (two Sma, Rsi, Atr) have values.
 """
 
 from __future__ import annotations

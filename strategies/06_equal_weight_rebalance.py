@@ -57,6 +57,25 @@ Run::
     python strategies/06_equal_weight_rebalance.py --bars 120 --rebalance-days 10
     python strategies/06_equal_weight_rebalance.py --weighting inverse_vol
     python strategies/06_equal_weight_rebalance.py --schedule monthly:first_session
+
+Pitfalls::
+
+    - Today's membership: build_strategy uses NamedUniverse(UNIVERSE_KEY, EXCHANGE), whose default
+      point_in_time=False ignores as_of and returns the engine's current list. The text says joiners
+      and leavers are picked up each rebalance, but with this default nothing ever joins or leaves;
+      over a real past period it is survivorship bias. Use point_in_time=True with registered
+      history.
+    - Invented market: the 30 series are deterministic (base 100 + 37k, slope +/-0.002 per bar, a
+      sine wobble, close = open x 1.003). Rebalance counts and weight deviation describe mechanics,
+      not any market.
+    - Own fill model: _replay_at_last_close fills each order at its instrument's last close at the
+      moment it is emitted. That is trading the close, and a name whose bar for that session has not
+      been fed yet fills at its previous close (stale). The engine's next-open model would be later.
+    - Turnover and costs: the default run makes 105 fills over 4 rebalances with no brokerage, STT
+      or slippage. Small trims every few days (or drift bands) are cheap here and are not after
+      costs; compare schedules on net numbers.
+    - Defence shown: whole-share sizing against allocation=0.995 leaves a cash buffer,
+      max_weight_deviation reports drift at the last bar, and nothing reads the wall clock.
 """
 
 from __future__ import annotations

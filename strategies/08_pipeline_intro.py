@@ -16,6 +16,17 @@ Run::
     python strategies/08_pipeline_intro.py --json
 
 Pair with ``strategies/09_multibagger_momentum.py`` for a real-data version.
+
+Pitfalls::
+
+    - A hand-typed universe: ListUniverse returns RELIANCE and TCS whatever the date. In the real
+      recipes the symbol list comes from a screen, and its validity depends entirely on the as-of
+      date it ran on (see 09).
+    - Order matters in a context pipeline: steps share one mutable dict, and a sizer computes
+      weights from the symbols present when it runs. A filter placed after the sizer would leave
+      weights that no longer match the surviving names.
+    - Weights are not a result: equal 1/N weights on two names is 50 percent each, which hides
+      concentration. There are no prices here, so nothing can be read as performance.
 """
 
 from __future__ import annotations

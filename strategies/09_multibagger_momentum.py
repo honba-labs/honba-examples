@@ -16,6 +16,26 @@ Run the in-code pipeline::
 
     python strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --sip-amount 10000
     python strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --format json
+
+Pitfalls::
+
+    - Day-of-asof boundary: the screen uses bars up to and including --asof, while the harness buys
+      at the open of the first session on or after it. The default 2025-03-01 is a Saturday, so the
+      first buy is Monday's open and nothing leaks; for a weekday --asof the buy price precedes a
+      close the screen already used.
+    - Fundamentals dating: ROCE and debt/equity use rows with fiscal_date <= asof (period end, not
+      publication date). FundamentalQualityFilter lets a candidate pass when ROCE or debt/equity is
+      missing, so thin data counts as quality.
+    - Survivorship: the screener ranks every symbol in the local catalog, i.e. what is listed and
+      ingested today. In the simulation a name with no bars after the as-of date is skipped or held
+      flat (sip.py), so collapses and delistings under-report.
+    - Data mining: min 1-year return 15, within 15 percent of the 52-week high, debt/equity 1.5 and
+      min ROCE 10 are hand-set thresholds. Re-running with variants until the forward XIRR looks
+      good is a multiple-testing exercise; fix thresholds before looking and log how many were
+      tried.
+    - One draw, no friction: a single as-of, up to 10 names, a forward window that simply runs to the
+      catalog's latest bar, price-only, no costs. Momentum screens also do very differently by regime; repeat
+      over several as-of dates and compare with an index SIP.
 """
 
 from __future__ import annotations
