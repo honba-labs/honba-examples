@@ -401,7 +401,7 @@ def render_mutual_fund_table(
     table.add_column("TER %", justify="right", style="yellow")
     table.add_column("Port ROCE", justify="right", style="bold green")
     table.add_column("Port P/E", justify="right", style="magenta")
-    table.add_column("Cap Mix (L/M/S)", justify="center", style="cyan")
+    table.add_column("Cap Mix (L/M/S)", justify="center", style="cyan", no_wrap=True)
     table.add_column("Top Holdings (Lookthrough)", style="yellow")
     table.add_column("Score", justify="right", style="bold cyan")
 
