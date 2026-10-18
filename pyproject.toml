@@ -17,7 +17,7 @@ dev = ["pytest", "ruff"]
 mutual-funds = ["honba-data", "scipy"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["honba_examples*"]
 
 [tool.ruff]

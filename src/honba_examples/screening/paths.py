@@ -18,8 +18,8 @@ def find_catalog_path(explicit_path: Path | None = None) -> Path:
     candidates = [
         Path.cwd() / "honba-data" / "data" / "catalog" / "1D" / "NSE",
         Path.cwd() / "data" / "catalog" / "1D" / "NSE",
-        Path(__file__).resolve().parents[3] / "honba-data" / "data" / "catalog" / "1D" / "NSE",
-        Path(__file__).resolve().parents[3] / "data" / "catalog" / "1D" / "NSE",
+        Path(__file__).resolve().parents[4] / "honba-data" / "data" / "catalog" / "1D" / "NSE",
+        Path(__file__).resolve().parents[4] / "data" / "catalog" / "1D" / "NSE",
     ]
     for c in candidates:
         if c.is_dir():
@@ -35,8 +35,8 @@ def find_mutual_funds_db_path() -> Path | None:
     candidates = [
         Path.cwd() / "honba-data" / "data" / "mutual_funds.duckdb",
         Path.cwd() / "data" / "mutual_funds.duckdb",
-        Path(__file__).resolve().parents[3] / "honba-data" / "data" / "mutual_funds.duckdb",
-        Path(__file__).resolve().parents[3] / "data" / "mutual_funds.duckdb",
+        Path(__file__).resolve().parents[4] / "honba-data" / "data" / "mutual_funds.duckdb",
+        Path(__file__).resolve().parents[4] / "data" / "mutual_funds.duckdb",
     ]
     for c in candidates:
         if c.is_file():
@@ -49,8 +49,8 @@ def find_duckdb_path() -> Path | None:
     candidates = [
         Path.cwd() / "honba-data" / "data" / "fundamentals.duckdb",
         Path.cwd() / "data" / "fundamentals.duckdb",
-        Path(__file__).resolve().parents[3] / "honba-data" / "data" / "fundamentals.duckdb",
-        Path(__file__).resolve().parents[3] / "data" / "fundamentals.duckdb",
+        Path(__file__).resolve().parents[4] / "honba-data" / "data" / "fundamentals.duckdb",
+        Path(__file__).resolve().parents[4] / "data" / "fundamentals.duckdb",
     ]
     for c in candidates:
         if c.is_file():

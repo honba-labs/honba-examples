@@ -24,7 +24,7 @@ from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.output import OutputFormat, OutputOptions, add_output_args, resolve_output
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 """Root of this checkout; the default data root is searched from here, not from the cwd."""
 from honba.markets.india.universes import resolve_universe
 
