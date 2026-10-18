@@ -33,16 +33,16 @@ Systematic Execution Model (Chained Screener + SIP):
 Usage Examples::
 
     # 1. Screen prospective multibaggers as of 2024-01-01 and backtest forward SIP to present:
-    python backtesting/10_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
+    python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --train-years 3 --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
     # 2. Screen Benjamin Graham Defensive value candidates and run forward SIP:
-    python backtesting/10_chained_screener_and_sip.py --strategy graham --graham-mode defensive --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
+    python examples/backtesting/10_chained_screener_and_sip.py --strategy graham --graham-mode defensive --asof 2024-01-01 --top 3 --capital 100000 --sip 10000
 
     # 3. Equal allocation model benchmark:
-    python backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
+    python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2024-01-01 --top 3 --capital 100000 --sip 10000 --allocation equal
 
     # 4. Prospective screening as of today (live forward monitoring):
-    python backtesting/10_chained_screener_and_sip.py --strategy graham --screen-only --top 5
+    python examples/backtesting/10_chained_screener_and_sip.py --strategy graham --screen-only --top 5
 
 Pitfalls::
 

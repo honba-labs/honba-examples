@@ -10,11 +10,11 @@ the watchlist: "every run it provides a list of symbols to watch for an A+ setup
 
 Usage:
     # Today's A+ watchlist from Nifty50
-    python screening/08_swing_ap_setup_screener.py --format table
+    python examples/screening/08_swing_ap_setup_screener.py --format table
 
     # Loosen to grade A or better and pipe symbols into the forward SIP backtest
-    python screening/08_swing_ap_setup_screener.py --asof 2024-06-01 --min-grade A --format symbols \\
-        | python backtesting/10_chained_screener_and_sip.py --asof 2024-06-01 --sip-amount 10000
+    python examples/screening/08_swing_ap_setup_screener.py --asof 2024-06-01 --min-grade A --format symbols \\
+        | python examples/backtesting/10_chained_screener_and_sip.py --asof 2024-06-01 --sip-amount 10000
 
 Pitfalls::
 

@@ -5,8 +5,8 @@ symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for Unix pipe cha
 
 Usage:
     # Screen deep value at 52-week low with P/E < 20, Debt/Eq < 1.0, pipe into the forward SIP backtest
-    python screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols \\
-        | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+    python examples/screening/02_value_52w_low_screener.py --asof 2023-01-01 --max-pe 20 --max-debt-equity 1.0 --format symbols \\
+        | python examples/backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
 
 Pitfalls::
 

@@ -9,13 +9,13 @@ Composition via :mod:`honba_examples.pipeline` (``>>``/``|``):
 
 Mirror the CLI chain::
 
-    python screening/01_multibagger_screener.py --asof 2025-03-01 --top 10 --format symbols \\
-      | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+    python examples/screening/01_multibagger_screener.py --asof 2025-03-01 --top 10 --format symbols \\
+      | python examples/backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 
 Run the in-code pipeline::
 
-    python strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --sip-amount 10000
-    python strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --format json
+    python examples/strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --sip-amount 10000
+    python examples/strategies/09_multibagger_momentum.py --asof 2025-03-01 --top 10 --format json
 
 Pitfalls::
 

@@ -11,8 +11,8 @@ This example runs a fast SMA(10) vs slow SMA(30) crossover on a synthetic
 
 Run::
 
-    python strategies/01_first_strategy.py
-    python strategies/01_first_strategy.py --out first_strategy.json
+    python examples/strategies/01_first_strategy.py
+    python examples/strategies/01_first_strategy.py --out first_strategy.json
 
 Pitfalls::
 

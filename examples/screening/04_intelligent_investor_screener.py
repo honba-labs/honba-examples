@@ -10,11 +10,11 @@ Emits a pure symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for 
 
 Usage:
     # Screen top 5 Graham defensive value candidates as of 2024-01-01
-    python screening/04_intelligent_investor_screener.py --asof 2024-01-01 --mode defensive --top 5
+    python examples/screening/04_intelligent_investor_screener.py --asof 2024-01-01 --mode defensive --top 5
 
     # Pipe symbols into the forward SIP backtester
-    python screening/04_intelligent_investor_screener.py --asof 2024-01-01 --format symbols \\
-        | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+    python examples/screening/04_intelligent_investor_screener.py --asof 2024-01-01 --format symbols \\
+        | python examples/backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
 
 Pitfalls::
 

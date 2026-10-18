@@ -8,7 +8,7 @@ fewer than ``--min-trades`` closed trades.
 
 Run::
 
-    python backtesting/05_monte_carlo.py --paths 1000
+    python examples/backtesting/05_monte_carlo.py --paths 1000
 
 Pitfalls::
 

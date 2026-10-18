@@ -11,16 +11,16 @@ Emits a pure scheme-code/JSON stream on ``stdout`` and diagnostics on ``stderr``
 
 Usage:
     # Screen top Direct Growth funds across all categories
-    python screening/07_mutual_fund_screener.py --top 5
+    python examples/screening/07_mutual_fund_screener.py --top 5
 
     # Screen Flexi Cap funds with high underlying business quality (Portfolio ROCE >= 15%)
-    python screening/07_mutual_fund_screener.py --category "Equity:Flexi Cap" --min-portfolio-roce 15.0
+    python examples/screening/07_mutual_fund_screener.py --category "Equity:Flexi Cap" --min-portfolio-roce 15.0
 
     # Reverse Lookup: Find funds holding RELIANCE
-    python screening/07_mutual_fund_screener.py --holding-symbol RELIANCE
+    python examples/screening/07_mutual_fund_screener.py --holding-symbol RELIANCE
 
     # Pipe scheme codes into the SIP backtester
-    python screening/07_mutual_fund_screener.py --category "Equity:Flexi Cap" --format symbols | ...
+    python examples/screening/07_mutual_fund_screener.py --category "Equity:Flexi Cap" --format symbols | ...
 Pitfalls::
 
     - Disclosure reporting lag: AMC portfolios are disclosed monthly by the 10th of the following

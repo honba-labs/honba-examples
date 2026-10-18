@@ -10,7 +10,7 @@ Catalog counterpart: honba.markets.india.universes
 
 Run::
 
-    python universes/03_alpha30_constituents.py
+    python examples/universes/03_alpha30_constituents.py
 
 Pitfalls::
 

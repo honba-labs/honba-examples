@@ -7,7 +7,7 @@ deterministic on recorded NAV fixtures.
 
 Run::
 
-    python mutual_funds/03_category_analysis.py --category "Equity:Large Cap" --start 2020-01-01
+    python examples/mutual_funds/03_category_analysis.py --category "Equity:Large Cap" --start 2020-01-01
 
 Pitfalls::
 

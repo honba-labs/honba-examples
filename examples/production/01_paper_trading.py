@@ -7,7 +7,7 @@ the paper-trading loop before live capital; runs are offline and deterministic.
 
 Run::
 
-    python production/01_paper_trading.py --strategy sma_crossover --capital 100000
+    python examples/production/01_paper_trading.py --strategy sma_crossover --capital 100000
 
 Pitfalls::
 

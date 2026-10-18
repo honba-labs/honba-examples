@@ -10,7 +10,7 @@ Custom universe here: a hand-picked basket of Indian infrastructure names.
 
 Run::
 
-    python universes/05_alpha30_custom_universe.py
+    python examples/universes/05_alpha30_custom_universe.py
 
 Pitfalls::
 

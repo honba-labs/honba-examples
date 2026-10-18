@@ -8,7 +8,7 @@ so runs are offline and deterministic.
 
 Run::
 
-    python options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
+    python examples/options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
 
 Pitfalls::
 

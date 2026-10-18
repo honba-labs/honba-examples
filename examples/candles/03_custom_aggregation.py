@@ -20,9 +20,9 @@ which is exactly why this example always fetches ``1m`` and resamples itself.
 
 Run::
 
-    python candles/03_custom_aggregation.py --timeframe 5m
-    python candles/03_custom_aggregation.py --timeframe 15m --out aggregation.json
-    python candles/03_custom_aggregation.py --timeframe 1w
+    python examples/candles/03_custom_aggregation.py --timeframe 5m
+    python examples/candles/03_custom_aggregation.py --timeframe 15m --out aggregation.json
+    python examples/candles/03_custom_aggregation.py --timeframe 1w
 
 Pitfalls::
 

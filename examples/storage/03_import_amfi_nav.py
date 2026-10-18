@@ -15,8 +15,8 @@ window that ends the day after the last NAV.
 
 Run::
 
-    python storage/03_import_amfi_nav.py
-    python storage/03_import_amfi_nav.py --data-dir /tmp/nav --out nav.json
+    python examples/storage/03_import_amfi_nav.py
+    python examples/storage/03_import_amfi_nav.py --data-dir /tmp/nav --out nav.json
 
 Pitfalls::
 

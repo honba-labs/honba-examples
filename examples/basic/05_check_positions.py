@@ -20,9 +20,9 @@ carrying ``realized_pnl`` in minor units and ``realized_pnl_rupees`` for display
 
 Run::
 
-    python basic/05_check_positions.py
-    python basic/05_check_positions.py --out positions.json
-    python basic/05_check_positions.py --format json
+    python examples/basic/05_check_positions.py
+    python examples/basic/05_check_positions.py --out positions.json
+    python examples/basic/05_check_positions.py --format json
 
 Pitfalls::
 

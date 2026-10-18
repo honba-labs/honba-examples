@@ -7,8 +7,8 @@ offline and deterministic on a synthetic chain.
 
 Run::
 
-    python options/01_option_chain.py --underlying NIFTY --expiry 2024-12-26
-    python options/01_option_chain.py --format json
+    python examples/options/01_option_chain.py --underlying NIFTY --expiry 2024-12-26
+    python examples/options/01_option_chain.py --format json
 
 Pitfalls::
 

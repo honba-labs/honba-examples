@@ -12,8 +12,8 @@ catalog and no network — the next recipes replace it with real screeners from
 
 Run::
 
-    python strategies/08_pipeline_intro.py
-    python strategies/08_pipeline_intro.py --json
+    python examples/strategies/08_pipeline_intro.py
+    python examples/strategies/08_pipeline_intro.py --json
 
 Pair with ``strategies/09_multibagger_momentum.py`` for a real-data version.
 

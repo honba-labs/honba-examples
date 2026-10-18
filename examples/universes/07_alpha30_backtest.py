@@ -19,7 +19,7 @@ Pipeline
 
 Run::
 
-    python universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \\
+    python examples/universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \\
         --out-dir /tmp/alpha30
 
 Pitfalls::

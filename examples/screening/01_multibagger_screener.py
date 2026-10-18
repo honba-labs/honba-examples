@@ -5,8 +5,8 @@ symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for Unix pipe cha
 
 Usage:
     # Screen top 5 multibaggers as of 2023-01-01 and pipe the symbols into the forward SIP backtest
-    python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
-        | python backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+    python examples/screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
+        | python examples/backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
 
 Pitfalls::
 

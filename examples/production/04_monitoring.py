@@ -6,7 +6,7 @@ simple HTTP endpoint for Prometheus/Grafana scraping. The values are simulated
 
 Run::
 
-    python production/04_monitoring.py --port 9090
+    python examples/production/04_monitoring.py --port 9090
 
 Pitfalls::
 

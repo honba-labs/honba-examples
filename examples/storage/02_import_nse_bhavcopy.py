@@ -25,8 +25,8 @@ What the parser does, asserted here:
 
 Run::
 
-    python storage/02_import_nse_bhavcopy.py
-    python storage/02_import_nse_bhavcopy.py --data-dir /tmp/bhavcopy --out report.json
+    python examples/storage/02_import_nse_bhavcopy.py
+    python examples/storage/02_import_nse_bhavcopy.py --data-dir /tmp/bhavcopy --out report.json
 
 Pitfalls::
 

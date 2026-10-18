@@ -56,10 +56,10 @@ at the last bar, which includes price drift since the last rebalance.
 
 Run::
 
-    python strategies/06_equal_weight_rebalance.py
-    python strategies/06_equal_weight_rebalance.py --bars 120 --rebalance-days 10
-    python strategies/06_equal_weight_rebalance.py --weighting inverse_vol
-    python strategies/06_equal_weight_rebalance.py --schedule monthly:first_session
+    python examples/strategies/06_equal_weight_rebalance.py
+    python examples/strategies/06_equal_weight_rebalance.py --bars 120 --rebalance-days 10
+    python examples/strategies/06_equal_weight_rebalance.py --weighting inverse_vol
+    python examples/strategies/06_equal_weight_rebalance.py --schedule monthly:first_session
 
 Pitfalls::
 

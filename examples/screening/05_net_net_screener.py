@@ -12,17 +12,17 @@ Emits a pure symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for 
 
 Usage:
     # Classic Graham net-nets (price <= 2/3 of NCAV per share, the default) as of 2024-01-01
-    python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
+    python examples/screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 
     # Looser: price <= 1.0 x NCAV per share
-    python screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 1.0 --top 5
+    python examples/screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 1.0 --top 5
 
     # Rank only: no price cap, cheapest P/NCAV first (NOT a net-net screen)
-    python screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 0 --top 5
+    python examples/screening/05_net_net_screener.py --asof 2024-01-01 --max-p-ncav 0 --top 5
 
     # Pipe symbols into the forward SIP backtester
-    python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
-        | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+    python examples/screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
+        | python examples/backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
 
 Pitfalls::
 

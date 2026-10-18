@@ -19,10 +19,10 @@ basket on a fixed calendar schedule. Runs over NSE daily bars from the Parquet s
 
 Run::
 
-    python universes/08_alpha30_union_ewr_backtest.py
-    python universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
-    python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 1000000 --sip 50000 --no-of-sip 12
-    python universes/08_alpha30_union_ewr_backtest.py --initial-corpus 500000 --sip 25000 --duration 180d
+    python examples/universes/08_alpha30_union_ewr_backtest.py
+    python examples/universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
+    python examples/universes/08_alpha30_union_ewr_backtest.py --initial-corpus 1000000 --sip 50000 --no-of-sip 12
+    python examples/universes/08_alpha30_union_ewr_backtest.py --initial-corpus 500000 --sip 25000 --duration 180d
 
 Pitfalls::
 

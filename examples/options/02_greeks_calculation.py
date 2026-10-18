@@ -7,7 +7,7 @@ subclass — runs are offline and deterministic.
 
 Run::
 
-    python options/02_greeks_calculation.py --spot 24000 --strike 24000 --days-to-expiry 7 --iv 0.15
+    python examples/options/02_greeks_calculation.py --spot 24000 --strike 24000 --days-to-expiry 7 --iv 0.15
 
 Pitfalls::
 

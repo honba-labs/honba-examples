@@ -7,13 +7,13 @@ before anything runs; ``--describe`` prints the manifest of every available step
 
 Usage:
     # Validate a chain without running it
-    python screening/06_run_chain.py --chain screening/chains/quality_value.toml --validate-only
+    python examples/screening/06_run_chain.py --chain screening/chains/quality_value.toml --validate-only
 
     # Run it and print the surviving candidates as CSV
-    python screening/06_run_chain.py --chain screening/chains/quality_value.toml --format csv
+    python examples/screening/06_run_chain.py --chain screening/chains/quality_value.toml --format csv
 
     # List the available steps, their params and reportable columns
-    python screening/06_run_chain.py --describe
+    python examples/screening/06_run_chain.py --describe
 
 Pitfalls::
 

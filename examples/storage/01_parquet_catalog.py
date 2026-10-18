@@ -17,8 +17,8 @@ crashing. Nothing here touches the network or the honba checkout's own data root
 
 Run::
 
-    python storage/01_parquet_catalog.py
-    python storage/01_parquet_catalog.py --data-dir /tmp/store --out catalog.json
+    python examples/storage/01_parquet_catalog.py
+    python examples/storage/01_parquet_catalog.py --data-dir /tmp/store --out catalog.json
 
 Pitfalls::
 

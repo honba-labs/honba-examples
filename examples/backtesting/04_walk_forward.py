@@ -7,7 +7,7 @@ in and out of sample. See ``honba_examples.backtest.run_portfolio_backtest`` for
 
 Run::
 
-    python backtesting/04_walk_forward.py
+    python examples/backtesting/04_walk_forward.py
 
 Pitfalls::
 

@@ -19,7 +19,7 @@ against the bundled universe map.
 
 Run::
 
-    python universes/04_alpha30_generic_rebalancer.py
+    python examples/universes/04_alpha30_generic_rebalancer.py
 
 Pitfalls::
 

@@ -8,7 +8,7 @@ fixtures.
 
 Run::
 
-    python mutual_funds/04_portfolio_optimization.py \
+    python examples/mutual_funds/04_portfolio_optimization.py \
         --schemes 120503,120504,120505 --start 2022-01-01
 
 Pitfalls::

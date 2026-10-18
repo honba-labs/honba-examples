@@ -7,10 +7,10 @@ transaction fee modeling. Supports automated data gap fetching via Honba's
 
 Run::
 
-    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
-    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency weekly --sip-amount 1000
-    python backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --download
-    python backtesting/08_sip_buy_and_hold.py --out sip_report.json
+    python examples/backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+    python examples/backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency weekly --sip-amount 1000
+    python examples/backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --download
+    python examples/backtesting/08_sip_buy_and_hold.py --out sip_report.json
 
 Pitfalls::
 

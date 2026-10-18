@@ -24,15 +24,15 @@ For a SIP (rupee-cost averaging) variant use ``09_forward_sip_backtest`` /
 Usage::
 
     # Equal-weight rebalance on multibaggers screened as of 2023-01-01
-    python screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
-      | python backtesting/11_portfolio_rebalancer.py --asof 2023-01-01 --capital 100000
+    python examples/screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
+      | python examples/backtesting/11_portfolio_rebalancer.py --asof 2023-01-01 --capital 100000
 
     # With explicit symbols
-    python backtesting/11_portfolio_rebalancer.py --symbols RELIANCE,TCS,INFY --asof 2023-01-01
+    python examples/backtesting/11_portfolio_rebalancer.py --symbols RELIANCE,TCS,INFY --asof 2023-01-01
 
     # JSON stream in, table out
-    python screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 3 --format json \\
-      | python backtesting/11_portfolio_rebalancer.py --asof 2025-03-01 --capital 50000 --format json
+    python examples/screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 3 --format json \\
+      | python examples/backtesting/11_portfolio_rebalancer.py --asof 2025-03-01 --capital 50000 --format json
 
 For the in-code DSL see ``strategies/11_contrarian_value.py`` (and friends) which compose
 ``MultibaggerScreener >> EqualWeightSizer >> SipBacktestHarness`` directly.

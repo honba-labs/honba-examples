@@ -9,8 +9,8 @@ Composition via :mod:`honba_examples.pipeline` (``>>``/``|``):
 
 Mirror the CLI chain::
 
-    python screening/02_value_52w_low_screener.py --asof 2025-03-01 --max-pe 20 --max-pb 2.0 --max-debt-equity 1.0 --format symbols \\
-      | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+    python examples/screening/02_value_52w_low_screener.py --asof 2025-03-01 --max-pe 20 --max-pb 2.0 --max-debt-equity 1.0 --format symbols \\
+      | python examples/backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 
 Roadmap note (§3 "Risk Manager"): the ATR trailing-stop leg is a timing signal.  It is wired
 as a signal-step stub in this recipe (pass-through); a future phase replaces it with the
@@ -20,8 +20,8 @@ trims positions inside the backtest yet.
 
 Run::
 
-    python strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sip-amount 10000
-    python strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sizer inv_vol --format json
+    python examples/strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sip-amount 10000
+    python examples/strategies/11_contrarian_value.py --asof 2025-03-01 --top 10 --sizer inv_vol --format json
 
 Pitfalls::
 

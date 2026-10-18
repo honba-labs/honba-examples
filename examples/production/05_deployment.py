@@ -5,8 +5,8 @@ for production deployment of Honba strategies.
 
 Run::
 
-    python production/05_deployment.py --output /etc/honba/
-    python production/05_deployment.py  # prints to stdout
+    python examples/production/05_deployment.py --output /etc/honba/
+    python examples/production/05_deployment.py  # prints to stdout
 
 Pitfalls::
 

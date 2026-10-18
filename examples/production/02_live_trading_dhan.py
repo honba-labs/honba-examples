@@ -8,7 +8,7 @@ Dhan credentials (client_id, access_token) as arguments.
 
 Run::
 
-    python production/02_live_trading_dhan.py \
+    python examples/production/02_live_trading_dhan.py \
         --client-id XXX --access-token YYY --strategy sma_crossover
 
 Pitfalls::

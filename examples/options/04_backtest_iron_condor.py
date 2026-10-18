@@ -8,7 +8,7 @@ deterministic.
 
 Run::
 
-    python options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
+    python examples/options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
 
 Pitfalls::
 

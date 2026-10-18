@@ -8,7 +8,7 @@ Risk controls enforced inside the strategy (not the engine):
 
 Run::
 
-    python strategies/04_risk_management.py
+    python examples/strategies/04_risk_management.py
 
 Pitfalls::
 

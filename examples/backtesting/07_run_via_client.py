@@ -9,13 +9,13 @@ assumptions presence.
 Run::
 
     # In-process only (no server needed)
-    python backtesting/07_run_via_client.py --data-dir data/catalog --inproc
+    python examples/backtesting/07_run_via_client.py --data-dir data/catalog --inproc
 
     # Via HTTP to a running `honba serve` (requires the binary)
-    python backtesting/07_run_via_client.py --data-dir data/catalog --url http://127.0.0.1:8080
+    python examples/backtesting/07_run_via_client.py --data-dir data/catalog --url http://127.0.0.1:8080
 
     # Both, asserting parity
-    python backtesting/07_run_via_client.py --data-dir data/catalog --both
+    python examples/backtesting/07_run_via_client.py --data-dir data/catalog --both
 
 Pitfalls::
 

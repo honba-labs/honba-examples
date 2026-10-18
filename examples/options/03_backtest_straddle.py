@@ -7,7 +7,7 @@ no `Strategy` subclass; runs are offline and deterministic.
 
 Run::
 
-    python options/03_backtest_straddle.py --underlying NIFTY --expiry 2024-12-26
+    python examples/options/03_backtest_straddle.py --underlying NIFTY --expiry 2024-12-26
 
 Pitfalls::
 

@@ -8,8 +8,8 @@ on recorded NAV fixtures.
 
 Run::
 
-    python mutual_funds/01_fetch_nav.py --scheme 120503 --start 2023-01-01 --end 2024-12-31
-    python mutual_funds/01_fetch_nav.py --scheme 120503 --latest
+    python examples/mutual_funds/01_fetch_nav.py --scheme 120503 --start 2023-01-01 --end 2024-12-31
+    python examples/mutual_funds/01_fetch_nav.py --scheme 120503 --latest
 
 Pitfalls::
 

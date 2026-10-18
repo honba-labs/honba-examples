@@ -16,8 +16,8 @@ are byte-identical between two runs over the same inputs.
 
 Run::
 
-    python storage/04_export_tearsheet.py
-    python storage/04_export_tearsheet.py --out-dir /tmp/tearsheet --out report.json
+    python examples/storage/04_export_tearsheet.py
+    python examples/storage/04_export_tearsheet.py --out-dir /tmp/tearsheet --out report.json
 
 Pitfalls::
 

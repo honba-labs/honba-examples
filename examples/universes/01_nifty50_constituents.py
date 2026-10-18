@@ -7,7 +7,7 @@ network.
 
 Run::
 
-    python universes/01_nifty50_constituents.py
+    python examples/universes/01_nifty50_constituents.py
 
 Pitfalls::
 

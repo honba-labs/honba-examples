@@ -8,8 +8,8 @@ signal), and compares fill prices. The engine has no next-close model.
 
 Run::
 
-    python backtesting/03_latency_modeling.py
-    python backtesting/03_latency_modeling.py --fast 5 --slow 20
+    python examples/backtesting/03_latency_modeling.py
+    python examples/backtesting/03_latency_modeling.py --fast 5 --slow 20
 
 Pitfalls::
 

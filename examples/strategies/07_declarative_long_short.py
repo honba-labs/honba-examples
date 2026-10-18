@@ -26,8 +26,8 @@ close; stops and limits fill when a later bar's range touches their level.
 
 Run::
 
-    python strategies/07_declarative_long_short.py
-    python strategies/07_declarative_long_short.py --stop-pct 0.02 --target-pct 0.05
+    python examples/strategies/07_declarative_long_short.py
+    python examples/strategies/07_declarative_long_short.py --stop-pct 0.02 --target-pct 0.05
 
 Pitfalls::
 

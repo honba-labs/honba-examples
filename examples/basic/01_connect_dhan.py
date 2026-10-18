@@ -11,9 +11,9 @@ real broker with ``--adapter dhan`` and its credentials.
 
 Run::
 
-    python basic/01_connect_dhan.py
-    python basic/01_connect_dhan.py --out connection.json
-    python basic/01_connect_dhan.py --adapter dhan
+    python examples/basic/01_connect_dhan.py
+    python examples/basic/01_connect_dhan.py --out connection.json
+    python examples/basic/01_connect_dhan.py --adapter dhan
 
 Pitfalls::
 

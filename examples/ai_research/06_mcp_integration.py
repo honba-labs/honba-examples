@@ -13,8 +13,8 @@ the Rust HTTP API (`honba-api-rest`).
 
 Run::
 
-    python ai_research/06_mcp_integration.py
-    python ai_research/06_mcp_integration.py --out mcp_tools.json
+    python examples/ai_research/06_mcp_integration.py
+    python examples/ai_research/06_mcp_integration.py --out mcp_tools.json
 
 Pitfalls::
 

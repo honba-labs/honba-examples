@@ -17,8 +17,8 @@ capability, valued by the refusal message).
 
 Run::
 
-    python basic/03_subscribe_quotes.py
-    python basic/03_subscribe_quotes.py --out quotes.json
+    python examples/basic/03_subscribe_quotes.py
+    python examples/basic/03_subscribe_quotes.py --out quotes.json
 
 Pitfalls::
 

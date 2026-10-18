@@ -14,7 +14,7 @@ equity / price (no leverage).
 
 Run::
 
-    python strategies/03_position_sizing.py
+    python examples/strategies/03_position_sizing.py
 
 Pitfalls::
 

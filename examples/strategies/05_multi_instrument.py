@@ -8,7 +8,7 @@ slow SMA, and each member is sized to ``equity / n_symbols``:
 
 Run::
 
-    python strategies/05_multi_instrument.py
+    python examples/strategies/05_multi_instrument.py
 
 Pitfalls::
 

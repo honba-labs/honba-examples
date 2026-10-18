@@ -12,10 +12,10 @@ real feed.
 
 Run::
 
-    python candles/01_historical_candles.py
-    python candles/01_historical_candles.py --out bars.json
-    python candles/01_historical_candles.py --timeframe 1m --instrument TCS
-    python candles/01_historical_candles.py --start 2025-06-02T09:16:00+00:00 --end 2025-06-02T09:18:00+00:00
+    python examples/candles/01_historical_candles.py
+    python examples/candles/01_historical_candles.py --out bars.json
+    python examples/candles/01_historical_candles.py --timeframe 1m --instrument TCS
+    python examples/candles/01_historical_candles.py --start 2025-06-02T09:16:00+00:00 --end 2025-06-02T09:18:00+00:00
 
 Pitfalls::
 

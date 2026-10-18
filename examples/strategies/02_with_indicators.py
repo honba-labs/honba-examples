@@ -9,7 +9,7 @@ Runs on deterministic sine-wave bars (``oscillating_bars``) with ``honba.strateg
 
 Run::
 
-    python strategies/02_with_indicators.py
+    python examples/strategies/02_with_indicators.py
 
 Pitfalls::
 

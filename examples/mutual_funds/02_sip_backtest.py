@@ -9,7 +9,7 @@ and deterministic on recorded NAV fixtures.
 
 Run::
 
-    python mutual_funds/02_sip_backtest.py --scheme 120503 --monthly 10000 --start 2023-01-01
+    python examples/mutual_funds/02_sip_backtest.py --scheme 120503 --monthly 10000 --start 2023-01-01
 
 Pitfalls::
 

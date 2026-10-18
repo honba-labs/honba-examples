@@ -10,9 +10,9 @@ fake LLM; swapping in a real provider (`LlmPort` impl) is the only change for pr
 
 Run::
 
-    python ai_research/01_llm_research_analyst.py --query "large cap stocks with volume > 1m"
-    python ai_research/01_llm_research_analyst.py --query "volume > 5m" --fake-response "volume > 5000000"
-    python ai_research/01_llm_research_analyst.py --out analyst.json
+    python examples/ai_research/01_llm_research_analyst.py --query "large cap stocks with volume > 1m"
+    python examples/ai_research/01_llm_research_analyst.py --query "volume > 5m" --fake-response "volume > 5000000"
+    python examples/ai_research/01_llm_research_analyst.py --out analyst.json
 
 Pitfalls::
 

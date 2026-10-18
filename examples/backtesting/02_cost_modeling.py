@@ -6,7 +6,7 @@ cost function is used in live trading through the adapter layer.
 
 Run::
 
-    python backtesting/02_cost_modeling.py
+    python examples/backtesting/02_cost_modeling.py
 
 Pitfalls::
 

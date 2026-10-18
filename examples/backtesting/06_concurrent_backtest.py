@@ -9,7 +9,7 @@ number of combinations tried.
 
 Run::
 
-    python backtesting/06_concurrent_backtest.py --workers 4
+    python examples/backtesting/06_concurrent_backtest.py --workers 4
 
 Pitfalls::
 

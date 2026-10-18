@@ -8,7 +8,7 @@ catalog history exists (see Pitfalls).
 
 Run::
 
-    python universes/02_banknifty_constituents.py
+    python examples/universes/02_banknifty_constituents.py
 
 Pitfalls::
 

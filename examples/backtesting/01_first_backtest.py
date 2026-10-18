@@ -9,9 +9,9 @@ multi-instrument runs). The report names its data source (``lakehouse`` or ``syn
 
 Run::
 
-    python backtesting/01_first_backtest.py
-    python backtesting/01_first_backtest.py --synthetic --capital 50000
-    python backtesting/01_first_backtest.py --out first_backtest.json
+    python examples/backtesting/01_first_backtest.py
+    python examples/backtesting/01_first_backtest.py --synthetic --capital 50000
+    python examples/backtesting/01_first_backtest.py --out first_backtest.json
 
 Pitfalls::
 

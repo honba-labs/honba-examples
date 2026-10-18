@@ -10,12 +10,12 @@ Composition via :mod:`honba_examples.pipeline` (``>>``/``|``):
 The same chain from the command line (a yield-plus-52-week-low screen, not the classic Dogs of the
 Dow)::
 
-    python screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \\
-      | python backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
+    python examples/screening/03_dividend_yield_screener.py --asof 2025-03-01 --min-div-yield 3.0 --max-pct-from-52w-low 15.0 --format symbols \\
+      | python examples/backtesting/10_chained_screener_and_sip.py --asof 2025-03-01 --sip-amount 10000
 
 Or in one go, optionally with the regime guard (``--benchmark``) and a forward window end::
 
-    python strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000 \\
+    python examples/strategies/10_dogs_of_nifty.py --asof 2025-03-01 --min-yield 3.0 --top 10 --sip-amount 10000 \\
       --benchmark "NIFTY 50" --end-date 2025-09-01
 
 Pitfalls::

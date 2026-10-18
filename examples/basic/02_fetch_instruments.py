@@ -10,9 +10,9 @@ here. Output is structured JSON for machine data-exchange, or a rich table in in
 
 Run::
 
-    python basic/02_fetch_instruments.py
-    python basic/02_fetch_instruments.py --query RELIANCE --out instruments.json
-    python basic/02_fetch_instruments.py --format json
+    python examples/basic/02_fetch_instruments.py
+    python examples/basic/02_fetch_instruments.py --query RELIANCE --out instruments.json
+    python examples/basic/02_fetch_instruments.py --format json
 
 Pitfalls::
 

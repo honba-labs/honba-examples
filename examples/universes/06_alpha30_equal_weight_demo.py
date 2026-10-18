@@ -14,7 +14,7 @@ offline and deterministically against the bundled universe map.
 
 Run::
 
-    python universes/06_alpha30_equal_weight_demo.py
+    python examples/universes/06_alpha30_equal_weight_demo.py
 
 Pitfalls::
 

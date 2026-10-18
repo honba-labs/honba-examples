@@ -14,13 +14,13 @@ Supports:
 Run::
 
     # Point-in-time screen 5 years ago with forward multibagger backtest
-    python ai_research/03_nl_screener.py --asof 2021-10-11 --query "market_cap > 25000Cr and close above 50-day moving average"
+    python examples/ai_research/03_nl_screener.py --asof 2021-10-11 --query "market_cap > 25000Cr and close above 50-day moving average"
 
     # Natural language historical backtest query
-    python ai_research/03_nl_screener.py --query "close above 50-day moving average and volume > 500k 5 years ago"
+    python examples/ai_research/03_nl_screener.py --query "close above 50-day moving average and volume > 500k 5 years ago"
 
     # Latest live screen
-    python ai_research/03_nl_screener.py --query "volume > 500k and rsi < 40"
+    python examples/ai_research/03_nl_screener.py --query "volume > 500k and rsi < 40"
 
 Pitfalls::
 

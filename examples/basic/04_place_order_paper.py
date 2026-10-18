@@ -11,9 +11,9 @@ send real orders, so it is refused unless ``HONBA_EXAMPLES_ALLOW_LIVE_ORDERS=1``
 
 Run::
 
-    python basic/04_place_order_paper.py
-    python basic/04_place_order_paper.py --out orders.json
-    python basic/04_place_order_paper.py --adapter dhan
+    python examples/basic/04_place_order_paper.py
+    python examples/basic/04_place_order_paper.py --out orders.json
+    python examples/basic/04_place_order_paper.py --adapter dhan
 
 Pitfalls::
 

@@ -22,8 +22,8 @@ is proved against synthetic multi-day bars in the tests instead.
 
 Run::
 
-    python candles/04_multi_timeframe.py
-    python candles/04_multi_timeframe.py --out multi_timeframe.json
+    python examples/candles/04_multi_timeframe.py
+    python examples/candles/04_multi_timeframe.py --out multi_timeframe.json
 
 Pitfalls::
 

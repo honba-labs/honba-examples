@@ -7,8 +7,8 @@ isolation and aggregation; runs are offline and deterministic on synthetic bars.
 
 Run::
 
-    python production/03_multi_account.py --accounts config/accounts.yaml
-    python production/03_multi_account.py  # demo with synthetic accounts
+    python examples/production/03_multi_account.py --accounts config/accounts.yaml
+    python examples/production/03_multi_account.py  # demo with synthetic accounts
 
 Pitfalls::
 

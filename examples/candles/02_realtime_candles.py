@@ -18,9 +18,9 @@ price moves), ``timeframe`` (the frame interval), ``subscription`` (``id``, ``mo
 
 Run::
 
-    python candles/02_realtime_candles.py
-    python candles/02_realtime_candles.py --out frames.json
-    python candles/02_realtime_candles.py --advances 5
+    python examples/candles/02_realtime_candles.py
+    python examples/candles/02_realtime_candles.py --out frames.json
+    python examples/candles/02_realtime_candles.py --advances 5
 
 Pitfalls::
 
