@@ -50,4 +50,4 @@ Adapters are discovered through the registry (`available_adapters`, `resolve_ada
 `connect()` returns a session; capabilities are pure data, so an unsupported request
 (streaming mode, holdings, depth) is refused *before* any I/O, and the refusal can be
 reported as data rather than a traceback. See also the dedicated
-[adapter examples](../../honba-adapters/examples/) for each broker.
+[adapter examples](../../../honba-adapters/examples/) for each broker.
