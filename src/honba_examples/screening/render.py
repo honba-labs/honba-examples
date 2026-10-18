@@ -1,20 +1,27 @@
-"""honba_examples.screening.render: Rich terminal tables for chained screener -> SIP runs.
+"""honba_examples.screening.render: terminal tables for chained screener -> SIP runs.
 
-Pure presentation helpers: Stage 1 candidate tables (one layout per screener family) and the
-Stage 2 forward-confirmation table with its summary panel. Candidates and portfolios are the
-plain dicts produced by :mod:`honba_examples.screening` and :mod:`honba_examples.sip`.
+Pure presentation helpers: Stage 1 candidate tables (one column layout per screener family) and
+the Stage 2 forward-confirmation table with its summary panel. Candidates and portfolios are
+the plain dicts produced by :mod:`honba_examples.screening` and :mod:`honba_examples.sip`.
+
+Every table renders through :func:`honba.display.render_table` using the shared palette in
+:mod:`honba_examples.display_style`, so a strategy's candidates look the same here as they do
+printed directly by its standalone screener script (e.g. ``screening/01_multibagger_screener.py``).
+The Stage 2 summary block is a Rich ``Panel``, not a table, and stays hand-built -- it is a
+different widget, out of scope for table unification.
 """
 
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+from typing import Any, TextIO, cast
 
+from honba.display import Column, render_table
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
+from honba_examples.display_style import SCORE, SECONDARY, SURGE, SYMBOL, pnl_style_fn
 from honba_examples.sip import sip_data_notes
 
 __all__ = [
@@ -25,6 +32,35 @@ __all__ = [
 ]
 
 
+def _inr(v: Any) -> str:
+    return f"₹{float(v):,.2f}"
+
+
+def _inr_cr(v: Any) -> str:
+    return f"₹{float(v):,.0f}Cr"
+
+
+def _inr0(v: Any) -> str:
+    return f"₹{float(v):,.0f}"
+
+
+def _pct1(v: Any) -> str:
+    return f"{float(v):.1f}%"
+
+
+def _signed_pct1(v: Any) -> str:
+    return f"{float(v):+.1f}%"
+
+
+def _with_company_fallback(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Candidates with ``company_name`` defaulted to ``symbol`` (display only)."""
+    return [{**c, "company_name": c.get("company_name", c["symbol"])} for c in candidates]
+
+
+def _console_stream(console: Console | None) -> TextIO | None:
+    return cast(TextIO, console.file) if console is not None else None
+
+
 def render_screener_table(
     candidates: list[dict[str, Any]],
     asof_date: dt.date,
@@ -33,184 +69,188 @@ def render_screener_table(
     graham_mode: str = "defensive",
     console: Console | None = None,
 ) -> None:
-    """Render Rich terminal table for Stage 1 screened candidates."""
-    if console is None:
-        console = Console()
+    """Render Stage 1 screened candidates as a table."""
+    out = _console_stream(console)
+
     if strategy == "multibagger":
         title = f"Stage 1 (In-Sample): Prospective 'Going-to-Be' Multibaggers as of {asof_date} ({train_years}-Yr Base Window)"
-        table = Table(
-            title=title,
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-        )
-        table.add_column("Symbol", style="bold cyan")
-        table.add_column("Price (₹)", justify="right")
-        table.add_column("1-Yr Ret", justify="right", style="green")
-        table.add_column("3-Mo Surge", justify="right", style="bold green")
-        table.add_column("From 52w High", justify="right", style="magenta")
-        table.add_column("Vol Surge", justify="right", style="yellow")
-        table.add_column("200 SMA", justify="right", style="dim")
-        table.add_column("ROCE %", justify="right", style="yellow")
-        table.add_column("MB Score", justify="right", style="bold cyan")
+        columns = [
+            Column("symbol", "Symbol", style=SYMBOL),
+            Column("close", "Price (₹)", align="right", fmt=_inr),
+            Column("ret_1y", "1-Yr Ret", align="right", fmt=_signed_pct1, style_fn=pnl_style_fn),
+            Column("ret_3m", "3-Mo Surge", align="right", fmt=_signed_pct1, style_fn=pnl_style_fn),
+            Column(
+                "pct_from_high",
+                "From 52w High",
+                align="right",
+                fmt=_signed_pct1,
+                style_fn=pnl_style_fn,
+            ),
+            Column(
+                "vol_surge",
+                "Vol Surge",
+                align="right",
+                fmt=lambda v: f"{v:.2f}x",
+                style=SURGE,
+            ),
+            Column("sma200", "200 SMA", align="right", fmt=_inr, style=SECONDARY),
+            Column("roce_pct", "ROCE %", align="right", fmt=_pct1, style="green"),
+            Column(
+                "debt_to_equity",
+                "Debt/Eq",
+                align="right",
+                fmt=lambda v: f"{v:.2f}",
+                style=SECONDARY,
+            ),
+            Column("mb_score", "MB Score", align="right", fmt=lambda v: f"{v:.1f}", style=SCORE),
+        ]
+        rows = [{**c, "ret_3m": c.get("ret_3m", 0.0)} for c in candidates]
+        render_table(rows, columns, title=title, out=out)
+        return
 
-        for c in candidates:
-            roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
-            vol_s = f"{c['vol_surge']:.2f}x" if c.get("vol_surge") is not None else "-"
-            table.add_row(
-                c["symbol"],
-                f"₹{c['close']:,.2f}",
-                f"{c['ret_1y']:+.1f}%",
-                f"{c.get('ret_3m', 0.0):+.1f}%",
-                f"{c['pct_from_high']:+.1f}%",
-                vol_s,
-                f"₹{c['sma200']:,.2f}",
-                roce_s,
-                f"{c.get('mb_score', 0.0):.1f}",
-            )
-        console.print(table)
-    elif strategy in ("graham", "intelligent_investor"):
+    if strategy in ("graham", "intelligent_investor"):
         title = (
             f"Stage 1 (In-Sample): Benjamin Graham '{graham_mode.title()}' Value Candidates "
             f"as of {asof_date} ({train_years}-Yr Base Window)"
         )
-        table = Table(
-            title=title,
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-        )
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("EPS (₹)", justify="right", style="green", no_wrap=True)
-        table.add_column("BVPS (₹)", justify="right", style="dim", no_wrap=True)
-        table.add_column("P/E", justify="right", no_wrap=True)
-        table.add_column("P/B", justify="right", no_wrap=True)
-        table.add_column("P/E×P/B", justify="right", style="yellow", no_wrap=True)
-        table.add_column("Graham Val (₹)", justify="right", style="bold yellow", no_wrap=True)
-        table.add_column("Margin of Safety", justify="right", style="bold green", no_wrap=True)
-        table.add_column("Cur Ratio", justify="right", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
-        table.add_column("Div Yield", justify="right", style="bold magenta", no_wrap=True)
+        columns = [
+            Column("symbol", "Symbol", style=SYMBOL),
+            Column("company_name", "Company", style=SECONDARY),
+            Column("close", "Price (₹)", align="right", fmt=_inr),
+            Column("eps", "EPS (₹)", align="right", fmt=_inr, style="green"),
+            Column("bvps", "BVPS (₹)", align="right", fmt=_inr, style=SECONDARY),
+            Column("pe_ratio", "P/E", align="right", fmt=lambda v: f"{v:.1f}"),
+            Column("pb_ratio", "P/B", align="right", fmt=lambda v: f"{v:.2f}"),
+            Column("graham_product", "P/E×P/B", align="right", fmt=lambda v: f"{v:.1f}"),
+            Column("graham_num", "Graham Val (₹)", align="right", fmt=_inr),
+            Column(
+                "margin_of_safety_pct",
+                "Margin of Safety",
+                align="right",
+                fmt=_signed_pct1,
+                style_fn=pnl_style_fn,
+            ),
+            Column("current_ratio", "Cur Ratio", align="right", fmt=lambda v: f"{v:.2f}"),
+            Column(
+                "debt_to_equity",
+                "Debt/Eq",
+                align="right",
+                fmt=lambda v: f"{v:.2f}",
+                style=SECONDARY,
+            ),
+            Column(
+                "div_yield_pct",
+                "Div Yield",
+                align="right",
+                fmt=lambda v: f"{v:.2f}%" if v > 0 else "-",
+                style="bold magenta",
+            ),
+        ]
+        render_table(_with_company_fallback(candidates), columns, title=title, out=out)
+        return
 
-        for c in candidates:
-            pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
-            pb_s = f"{c['pb_ratio']:.2f}" if c.get("pb_ratio") is not None else "-"
-            gp_s = f"{c['graham_product']:.1f}" if c.get("graham_product") is not None else "-"
-            cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
-            mos_s = (
-                f"+{c['margin_of_safety_pct']:.1f}%"
-                if c.get("margin_of_safety_pct", 0) >= 0
-                else f"{c['margin_of_safety_pct']:.1f}%"
-            )
-            comp_name = c.get("company_name", c["symbol"])
-            table.add_row(
-                c["symbol"],
-                comp_name,
-                f"₹{c['close']:,.2f}",
-                f"₹{c['eps']:,.2f}",
-                f"₹{c['bvps']:,.2f}",
-                pe_s,
-                pb_s,
-                gp_s,
-                f"₹{c['graham_num']:,.2f}",
-                mos_s,
-                cr_s,
-                de_s,
-                div_s,
-            )
-        console.print(table)
-    elif strategy in ("net_net", "ncav"):
+    if strategy in ("net_net", "ncav"):
         title = (
             f"Stage 1 (In-Sample): Benjamin Graham Net-Net (NCAV) Candidates as of {asof_date} "
             f"({train_years}-Yr Base Window)"
         )
-        table = Table(
-            title=title,
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-        )
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("Cur Assets", justify="right", style="dim", no_wrap=True)
-        table.add_column("Tot Liab", justify="right", style="dim", no_wrap=True)
-        table.add_column("NCAV/Sh (₹)", justify="right", style="bold yellow", no_wrap=True)
-        table.add_column("P/NCAV", justify="right", style="bold green", no_wrap=True)
-        table.add_column("NCAV MoS", justify="right", no_wrap=True)
-        table.add_column("Cur Ratio", justify="right", no_wrap=True)
-        table.add_column("Cash/Sh (₹)", justify="right", style="magenta", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
-        table.add_column("CFO (₹Cr)", justify="right", style="green", no_wrap=True)
+        columns = [
+            Column("symbol", "Symbol", style=SYMBOL),
+            Column("company_name", "Company", style=SECONDARY),
+            Column("close", "Price (₹)", align="right", fmt=_inr),
+            Column("cur_assets_cr", "Cur Assets", align="right", fmt=_inr_cr, style=SECONDARY),
+            Column("tot_liab_cr", "Tot Liab", align="right", fmt=_inr_cr, style=SECONDARY),
+            Column("ncav_per_share", "NCAV/Sh (₹)", align="right", fmt=_inr),
+            Column(
+                "price_to_ncav",
+                "P/NCAV",
+                align="right",
+                fmt=lambda v: f"{v:.2f}x",
+                style="bold green",
+            ),
+            Column(
+                "ncav_margin_of_safety_pct",
+                "NCAV MoS",
+                align="right",
+                fmt=_signed_pct1,
+                style_fn=pnl_style_fn,
+            ),
+            Column("current_ratio", "Cur Ratio", align="right", fmt=lambda v: f"{v:.2f}"),
+            Column("cash_per_share", "Cash/Sh (₹)", align="right", fmt=_inr, style="magenta"),
+            Column(
+                "debt_to_equity",
+                "Debt/Eq",
+                align="right",
+                fmt=lambda v: f"{v:.2f}",
+                style=SECONDARY,
+            ),
+            Column("cfo_cr", "CFO (₹Cr)", align="right", fmt=_inr_cr, style="green"),
+        ]
+        rows = [
+            {
+                **c,
+                "cur_assets_cr": c.get("cur_assets_cr", 0),
+                "tot_liab_cr": c.get("tot_liab_cr", 0),
+                "ncav_per_share": c.get("ncav_per_share", 0),
+                "cash_per_share": c.get("cash_per_share", 0),
+                "cfo_cr": c.get("cfo_cr", 0),
+            }
+            for c in candidates
+        ]
+        render_table(_with_company_fallback(rows), columns, title=title, out=out)
+        return
 
-        for c in candidates:
-            cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            p_ncav_s = f"{c['price_to_ncav']:.2f}x" if c.get("price_to_ncav") is not None else "-"
-            mos_val = c.get("ncav_margin_of_safety_pct", 0)
-            mos_style = "bold green" if mos_val >= 0 else "dim"
-            mos_s = f"[{mos_style}]{mos_val:+.1f}%[/{mos_style}]"
+    title = f"Stage 1 (In-Sample): Screened {strategy.title()} Candidates as of {asof_date} ({train_years}-Yr Training Data)"
+    columns = [
+        Column("symbol", "Symbol", style=SYMBOL),
+        Column("company_name", "Company", style=SECONDARY),
+        Column("close", "Price (₹)", align="right", fmt=_inr),
+        Column("low52", "52w Low (₹)", align="right", fmt=_inr, style=SECONDARY),
+        Column(
+            "pct_from_low", "From 52w Low", align="right", fmt=lambda v: f"+{v:.1f}%", style=SURGE
+        ),
+        Column(
+            "train_ret_pct",
+            f"{train_years}-Yr Ret",
+            align="right",
+            fmt=_signed_pct1,
+            style=SECONDARY,
+        ),
+        Column(
+            "hit_52w_low_recently",
+            "Hit Low?",
+            align="center",
+            fmt=lambda v: "✓ Touch" if v else "Near",
+            style="bold green",
+        ),
+        Column(
+            "div_yield_pct",
+            "Div Yield",
+            align="right",
+            fmt=lambda v: f"{v:.2f}%" if v > 0 else "-",
+            style="bold magenta",
+        ),
+        Column("pe_ratio", "P/E", align="right", fmt=lambda v: f"{v:.1f}"),
+        Column("pb_ratio", "P/B", align="right", fmt=lambda v: f"{v:.2f}"),
+        Column("roce_pct", "ROCE %", align="right", fmt=_pct1, style="green"),
+        Column("debt_to_equity", "Debt/Eq", align="right", fmt=lambda v: f"{v:.2f}"),
+        Column(
+            "free_cash_flow",
+            "FCF",
+            align="center",
+            fmt=lambda v: "+" if v > 0 else "-",
+        ),
+    ]
+    render_table(_with_company_fallback(candidates), columns, title=title, out=out)
 
-            table.add_row(
-                c["symbol"],
-                c.get("company_name", c["symbol"]),
-                f"₹{c['close']:,.2f}",
-                f"₹{c.get('cur_assets_cr', 0):,.0f}Cr",
-                f"₹{c.get('tot_liab_cr', 0):,.0f}Cr",
-                f"₹{c.get('ncav_per_share', 0):,.2f}",
-                p_ncav_s,
-                mos_s,
-                cr_s,
-                f"₹{c.get('cash_per_share', 0):,.2f}",
-                de_s,
-                f"₹{c.get('cfo_cr', 0):,.0f}Cr",
-            )
-        console.print(table)
-    else:
-        title = f"Stage 1 (In-Sample): Screened {strategy.title()} Candidates as of {asof_date} ({train_years}-Yr Training Data)"
-        table = Table(
-            title=title,
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-        )
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("52w Low (₹)", justify="right", style="dim", no_wrap=True)
-        table.add_column("From 52w Low", justify="right", style="yellow", no_wrap=True)
-        table.add_column(f"{train_years}-Yr Ret", justify="right", style="dim", no_wrap=True)
-        table.add_column("Hit Low?", justify="center", style="bold green", no_wrap=True)
-        table.add_column("Div Yield", justify="right", style="bold magenta", no_wrap=True)
-        table.add_column("P/E", justify="right", no_wrap=True)
-        table.add_column("ROCE %", justify="right", style="green", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
 
-        for c in candidates:
-            div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
-            pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
-            roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            hit_s = "✓ Touch" if c.get("hit_52w_low_recently") else "Near"
-            comp_name = c.get("company_name", c["symbol"])
-            table.add_row(
-                c["symbol"],
-                comp_name,
-                f"₹{c['close']:,.2f}",
-                f"₹{c['low52']:,.2f}",
-                f"+{c['pct_from_low']:.1f}%",
-                f"{c['train_ret_pct']:+.1f}%",
-                hit_s,
-                div_s,
-                pe_s,
-                roce_s,
-                de_s,
-            )
-        console.print(table)
+def _confirmation_style(conf: Any) -> str | None:
+    text = str(conf)
+    if "Multibagger" in text:
+        return "bold green"
+    if "Outperformer" in text:
+        return "green"
+    return "dim"
 
 
 def render_backtest_table(
@@ -220,7 +260,7 @@ def render_backtest_table(
     allocation: str = "52w-ratio",
     console: Console | None = None,
 ) -> None:
-    """Render Rich terminal table and summary panel for Stage 2 out-of-sample forward backtest."""
+    """Render the Stage 2 out-of-sample forward backtest table and its summary panel."""
     if console is None:
         console = Console()
     stocks: list[dict[str, Any]] = portfolio["stocks"]
@@ -238,55 +278,64 @@ def render_backtest_table(
     else:
         header = f"Stage 2 (Out-of-Sample Forward Confirmation): Monthly SIP ₹{port_sip:,.0f}/mo ({asof_date} to {end_date})"
 
-    table = Table(
-        title=header,
-        border_style="green",
-        box=box.ROUNDED,
-        header_style="bold green",
-    )
-    table.add_column("Symbol", style="bold cyan")
-    table.add_column("Weight", justify="right", style="cyan")
-    table.add_column("Months", justify="center")
-    table.add_column("SIP / Mo", justify="right", style="dim")
-    table.add_column("Total Invested", justify="right")
-    table.add_column("Final Valuation", justify="right", style="bold green")
-    table.add_column("Net Profit (₹)", justify="right")
-    table.add_column("SIP Mult", justify="right", style="bold yellow")
-    table.add_column("Lump Mult", justify="right", style="bold green")
-    table.add_column("Peak Mult", justify="right", style="magenta")
-    table.add_column("XIRR (p.a.)", justify="right", style="bold magenta")
-    table.add_column("Confirmation Status", justify="center", style="bold cyan")
+    columns = [
+        Column("symbol", "Symbol", style=SYMBOL),
+        Column("weight_pct", "Weight", align="right", fmt=lambda v: f"{v:.1f}%", style="cyan"),
+        Column("months", "Months", align="center"),
+        Column("sip_amount", "SIP / Mo", align="right", fmt=_inr0, style=SECONDARY),
+        Column("total_invested", "Total Invested", align="right", fmt=_inr0),
+        Column("final_val", "Final Valuation", align="right", fmt=_inr0, style="bold green"),
+        Column(
+            "profit",
+            "Net Profit (₹)",
+            align="right",
+            fmt=lambda v: f"₹{v:+,.0f}",
+            style_fn=pnl_style_fn,
+        ),
+        Column(
+            "sip_multiple",
+            "SIP Mult",
+            align="right",
+            fmt=lambda v: f"{v:.2f}x",
+            style="bold yellow",
+        ),
+        Column(
+            "lump_multiple",
+            "Lump Mult",
+            align="right",
+            fmt=lambda v: f"{v:.2f}x",
+            style="bold green",
+        ),
+        Column(
+            "peak_multiple", "Peak Mult", align="right", fmt=lambda v: f"{v:.2f}x", style="magenta"
+        ),
+        Column(
+            "xirr_pct",
+            "XIRR (p.a.)",
+            align="right",
+            fmt=lambda v: f"{v:+.1f}%",
+            style="bold magenta",
+        ),
+        Column(
+            "confirmation",
+            "Confirmation Status",
+            align="center",
+            style_fn=_confirmation_style,
+        ),
+    ]
+    rows = [
+        {
+            **r,
+            "weight_pct": r.get("weight_pct", 0.0),
+            "sip_amount": r.get("sip_amount", 0.0),
+            "peak_multiple": r.get("peak_multiple", r["lump_multiple"]),
+            "confirmation": r.get("confirmation", "N/A"),
+        }
+        for r in stocks
+    ]
+    confirmed_count = sum(1 for r in rows if "Multibagger" in str(r["confirmation"]))
+    render_table(rows, columns, title=header, out=cast(TextIO, console.file))
 
-    confirmed_count = 0
-    for r in stocks:
-        profit_style = "green" if r["profit"] >= 0 else "red"
-        xirr_str = f"{r['xirr_pct']:+.1f}%" if r["xirr_pct"] is not None else "N/A"
-        conf = r.get("confirmation", "N/A")
-        if "Multibagger" in conf:
-            confirmed_count += 1
-            conf_style = "bold green"
-        elif "Outperformer" in conf:
-            conf_style = "green"
-        else:
-            conf_style = "dim"
-
-        row_data = [
-            r["symbol"],
-            f"{r.get('weight_pct', 0.0):.1f}%",
-            str(r["months"]),
-            f"₹{r.get('sip_amount', 0.0):,.0f}",
-            f"₹{r['total_invested']:,.0f}",
-            f"₹{r['final_val']:,.0f}",
-            f"[{profit_style}]₹{r['profit']:+,.0f}[/{profit_style}]",
-            f"{r['sip_multiple']:.2f}x",
-            f"{r['lump_multiple']:.2f}x",
-            f"{r.get('peak_multiple', r['lump_multiple']):.2f}x",
-            xirr_str,
-            f"[{conf_style}]{conf}[/{conf_style}]",
-        ]
-        table.add_row(*row_data)
-
-    console.print(table)
     for note in sip_data_notes(summary):
         console.print(f"[yellow]⚠ {note}[/yellow]")
 
@@ -383,48 +432,38 @@ def render_mutual_fund_table(
     category: str = "all",
     console: Console | None = None,
 ) -> None:
-    """Render Rich terminal table for screened mutual funds with equity lookthrough."""
-    if console is None:
-        console = Console()
-
+    """Render screened mutual funds with equity lookthrough."""
+    out = _console_stream(console)
     title = f"Mutual Fund Candidates ({category}) with Equity Lookthrough as of {asof_date}"
-    table = Table(
-        title=title,
-        border_style="cyan",
-        box=box.ROUNDED,
-        header_style="bold cyan",
-    )
-    table.add_column("Code", style="bold cyan")
-    table.add_column("Scheme Name", style="white")
-    table.add_column("Category", style="dim")
-    table.add_column("AUM (Cr)", justify="right", style="green")
-    table.add_column("TER %", justify="right", style="yellow")
-    table.add_column("Port ROCE", justify="right", style="bold green")
-    table.add_column("Port P/E", justify="right", style="magenta")
-    table.add_column("Cap Mix (L/M/S)", justify="center", style="cyan", no_wrap=True)
-    table.add_column("Top Holdings (Lookthrough)", style="yellow")
-    table.add_column("Score", justify="right", style="bold cyan")
-
-    for c in candidates:
-        roce_str = f"{c['portfolio_roce']:.1f}%" if c.get("portfolio_roce") is not None else "N/A"
-        pe_str = f"{c['portfolio_pe']:.1f}x" if c.get("portfolio_pe") is not None else "N/A"
-        l = c.get("large_cap_pct", 0)
-        m = c.get("mid_cap_pct", 0)
-        s = c.get("small_cap_pct", 0)
-        cap_mix = f"{l:.0f}/{m:.0f}/{s:.0f}%"
-        top_h = ", ".join(c.get("top_holdings", [])) or "None"
-
-        table.add_row(
-            c["scheme_code"],
-            c["scheme_name"][:35],
-            c["category"].replace("Equity:", ""),
-            f"₹{c['aum_cr']:,.0f}",
-            f"{c['ter_pct']:.2f}%",
-            roce_str,
-            pe_str,
-            cap_mix,
-            top_h,
-            f"{c['score']:.1f}",
-        )
-
-    console.print(table)
+    columns = [
+        Column("scheme_code", "Code", style=SYMBOL),
+        Column("scheme_name", "Scheme Name", fmt=lambda v: v[:35], style="white"),
+        Column("category", "Category", fmt=lambda v: v.replace("Equity:", ""), style=SECONDARY),
+        Column("aum_cr", "AUM (Cr)", align="right", fmt=lambda v: f"₹{v:,.0f}", style="green"),
+        Column("ter_pct", "TER %", align="right", fmt=lambda v: f"{v:.2f}%"),
+        Column(
+            "portfolio_roce",
+            "Port ROCE",
+            align="right",
+            fmt=lambda v: f"{v:.1f}%",
+            style="bold green",
+        ),
+        Column(
+            "portfolio_pe", "Port P/E", align="right", fmt=lambda v: f"{v:.1f}x", style="magenta"
+        ),
+        Column("cap_mix", "Cap Mix (L/M/S)", align="center", style="cyan"),
+        Column("top_holdings", "Top Holdings (Lookthrough)", style=SECONDARY),
+        Column("score", "Score", align="right", fmt=lambda v: f"{v:.1f}", style=SCORE),
+    ]
+    rows = [
+        {
+            **c,
+            "cap_mix": (
+                f"{c.get('large_cap_pct', 0):.0f}/{c.get('mid_cap_pct', 0):.0f}/"
+                f"{c.get('small_cap_pct', 0):.0f}%"
+            ),
+            "top_holdings": ", ".join(c.get("top_holdings", [])) or "None",
+        }
+        for c in candidates
+    ]
+    render_table(rows, columns, title=title, out=out)
