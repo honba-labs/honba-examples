@@ -134,7 +134,7 @@ def nav_bars(rows: Sequence[NavRow]) -> list[Bar]:
 
 def _publication_date(text: str) -> dt.date:
     """``text`` as a calendar date in AMFI's ``%d-%b-%Y`` format, or ``ValueError``."""
-    return dt.datetime.strptime(text, _DATE_FORMAT).date()  # noqa: DTZ007 - date-only parse
+    return dt.datetime.strptime(text, _DATE_FORMAT).date()
 
 
 def _positive_float(text: str) -> float | None:

@@ -39,20 +39,19 @@ class ScreenerCLIExample(HonbaExample):
     output_width: int | None = None
     asof_str: str | None = None
 
-    def add_common_args(self, parser: argparse.ArgumentParser) -> None:
+    @classmethod
+    def add_common_args(cls, parser: argparse.ArgumentParser) -> None:
         """Common screener args: catalog selection, evaluation date and output format.
 
         Overrides ``HonbaExample.add_common_args`` because screeners emit symbol/JSON streams
         rather than the standard table/plain metric blocks.
         """
+        parser.add_argument("--exchange", default=cls.exchange, help="Exchange code (default: NSE)")
         parser.add_argument(
-            "--exchange", default=self.exchange, help="Exchange code (default: NSE)"
+            "--timeframe", default=cls.timeframe, help="Bar timeframe (default: 1D)"
         )
-        parser.add_argument(
-            "--timeframe", default=self.timeframe, help="Bar timeframe (default: 1D)"
-        )
-        parser.add_argument("--data-dir", type=Path, default=self.data_dir, help="Data directory")
-        parser.add_argument("--out-dir", type=Path, default=self.out_dir, help="Output directory")
+        parser.add_argument("--data-dir", type=Path, default=cls.data_dir, help="Data directory")
+        parser.add_argument("--out-dir", type=Path, default=cls.out_dir, help="Output directory")
         parser.add_argument(
             "--asof",
             dest="asof_str",
@@ -64,7 +63,7 @@ class ScreenerCLIExample(HonbaExample):
             "--format",
             dest="stream_format",
             choices=_FORMAT_CHOICES,
-            default=self.stream_format,
+            default=cls.stream_format,
             help="Output format: table, json, csv, symbols (space-separated), plain (newline)",
         )
         parser.add_argument(

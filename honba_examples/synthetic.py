@@ -114,7 +114,8 @@ def load_real_bars(
 ) -> list[Bar]:
     """Load real historical bars from the honba-data lakehouse, falling back to empty list."""
     try:
-        from honba.screener.store import DateInterval, ParquetBarStore, find_data_root
+        from honba.screener.coverage import DateInterval
+        from honba.screener.store import ParquetBarStore, find_data_root
 
         store = ParquetBarStore(find_data_root())
         start_d = start.date() if isinstance(start, dt.datetime) else (start or dt.date(2020, 1, 1))

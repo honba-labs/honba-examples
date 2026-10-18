@@ -1,6 +1,6 @@
 # honba-examples
 
-Runnable learning-path examples for [Honba](../honba). Every numbered script is
+Runnable learning-path examples for [Honba](../honba-tamashii). Every numbered script is
 offline and deterministic by default — the `fake` adapter plus synthetic bars —
 and each one teaches a single concept end to end: broker adapters, bars,
 storage, universes, strategies, backtesting, mutual funds, options, AI research
@@ -12,7 +12,7 @@ The examples import `honba` (the core repo) and a small shared helper package,
 `honba_examples`, that lives in this repo.
 
 ```bash
-pip install -e ../honba/python      # core (or however you install honba)
+pip install -e ../honba-tamashii    # core (or however you install honba)
 pip install -e ".[dev]"             # this repo: honba_examples + pytest/ruff
 ```
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderSide
-from honba.strategies.testing import Trade
+from honba.entities.trade import Trade
 
 from honba_examples.metrics import fills_equity_curve
 from honba_examples.synthetic import bar, weekdays

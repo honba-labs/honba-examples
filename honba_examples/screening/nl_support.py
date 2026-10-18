@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from honba.ai.llm.provider import LlmPort, ScriptedFakeLlm
-from honba.screener.sources import extract_metrics_from_bars
+from honba.screener.evaluator import extract_metrics_from_bars
 
 __all__ = [
     "KNOWN_METRICS",
