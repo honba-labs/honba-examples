@@ -13,6 +13,7 @@ screening/
 ├── 05_net_net_screener.py              # Benjamin Graham Net-Net (NCAV) deep asset value
 ├── 06_run_chain.py                     # Run a screen > filter > size > execute chain from TOML
 ├── 07_mutual_fund_screener.py          # Mutual funds with equity holdings lookthrough
+├── 08_swing_ap_setup_screener.py       # Swing-trading "A+ setup" scan (breakout/pullback, RS)
 ├── chains/quality_value.toml           # Worked example chain
 └── README.md                           # This file
 ```
@@ -217,6 +218,56 @@ python screening/05_net_net_screener.py --asof 2024-01-01 --top 5
 # Pipe Net-Net candidates into forward SIP backtest
 python screening/05_net_net_screener.py --asof 2024-01-01 --format symbols \
   | python backtesting/10_chained_screener_and_sip.py --asof 2024-01-01 --sip-amount 10000
+```
+
+---
+
+## Screener 8: Swing-Trading A+ Setup (`08_swing_ap_setup_screener.py`)
+
+Distilled from startrader.com's "How to Select Stocks for Swing Trading in India": a top-down
+scan of a benchmark universe (default Nifty50) for liquid, moderately volatile names either
+breaking out to a new 20-day high on a volume surge, or pulling back to a rising 20/50-day
+moving average, with a positive-relative-strength and no-gap-down filter. The default output
+(`--min-grade A+`) IS the "names to watch" list.
+
+### Core Principles:
+- **Trend + liquidity first**: price above a rising 50-DMA, 20-day average daily traded value
+  above `--min-adtv`, price band `--min-price`/`--max-price` (`0` disables the cap).
+- **Volatility sweet spot**: a simple 14-day ATR%% (`atr14 / close * 100`) between `--min-atr-pct`
+  and `--max-atr-pct`, scored highest in the 2.0-3.5%% band.
+- **Relative strength vs. the scanned universe**: a symbol's 20-day return must beat the
+  universe's own as-of average 20-day return (an equal-weight benchmark proxy -- the catalog
+  holds no index series) by more than `--min-rs-excess`.
+- **Pattern -- breakout OR pullback**: a new 20-day high on `>= --min-vol-surge` volume, or a
+  pullback to within `--pullback-pct` above a rising 20-day SMA.
+- **Reject gap-downs**: today's open must not have gapped down more than `--max-gap-down-pct`
+  below the prior close.
+- **Score and grade**: every gate-passing symbol gets a hand-weighted 0-100 score (RS, volume
+  surge, moving-average alignment, ATR sweet spot, pattern bonus) and a grade (A+/A/B/C); only
+  `--min-grade` and better are kept, sorted by score, then `--top` is applied.
+
+### Options:
+| Option | Default | Description |
+|--------|---------|--------------|
+| `--universe` | `nifty50` | Scan universe: `nifty50` constituents or `all` catalog symbols |
+| `--lookback-days` | 260 | Calendar days of history loaded before `--asof` |
+| `--min-adtv` | 5,000,000 | Minimum 20-day average daily traded value (close x volume) |
+| `--min-price` / `--max-price` | 50.0 / 0 (disabled) | Close price band |
+| `--min-atr-pct` / `--max-atr-pct` | 1.0 / 5.0 | ATR%% band |
+| `--min-rs-excess` | 0.0 | Minimum 20-day return %% above the universe's own average |
+| `--min-vol-surge` | 1.5 | Minimum volume / 20-day baseline volume for a breakout |
+| `--pullback-pct` | 3.0 | Max %% above the 20-day SMA still counted as a pullback |
+| `--max-gap-down-pct` | 7.0 | Reject symbols whose open gapped down more than this %% |
+| `--min-grade` | `A+` | Minimum grade kept after scoring (`A+`, `A`, `B`, `C`) |
+
+### Example:
+```bash
+# Today's A+ watchlist from Nifty50
+python screening/08_swing_ap_setup_screener.py --format table
+
+# Loosen to grade A or better and pipe symbols into the forward SIP backtest
+python screening/08_swing_ap_setup_screener.py --asof 2024-06-01 --min-grade A --format symbols \
+  | python backtesting/10_chained_screener_and_sip.py --asof 2024-06-01 --sip-amount 10000
 ```
 
 ---

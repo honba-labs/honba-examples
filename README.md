@@ -202,6 +202,7 @@ symbol or JSON stream. Details in [`screening/README.md`](screening/README.md).
 | 04 | `04_intelligent_investor_screener.py` | Graham value and margin of safety |
 | 05 | `05_net_net_screener.py` | Graham net-net (NCAV) deep asset value |
 | 06 | `06_run_chain.py` | Run a screen, filter, size, execute chain from TOML; steps declare what they filter on and which extra columns they `report` |
+| 08 | `08_swing_ap_setup_screener.py` | Swing-trading "A+ setup" scan: breakout/pullback, relative strength, volatility and liquidity gates |
 
 ```bash
 python screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 5 --format symbols

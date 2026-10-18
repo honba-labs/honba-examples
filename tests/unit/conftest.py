@@ -9,7 +9,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-Bar = tuple[dt.date, float, float, float]  # (date, high, low, close)
+Bar = tuple[dt.date, float, float, float, float, float]  # (date, open, high, low, close, volume)
 
 SCREEN_ASOF = dt.date(2024, 6, 28)
 
@@ -34,9 +34,9 @@ def write_symbol(catalog: Path, symbol: str, bars: Sequence[Bar]) -> None:
         "CREATE TABLE b (ts BIGINT, open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE, "
         "volume DOUBLE)"
     )
-    for d, high, low, close in bars:
+    for d, o, high, low, close, volume in bars:
         ts = int(dt.datetime(d.year, d.month, d.day, tzinfo=dt.timezone.utc).timestamp()) * 10**9
-        con.execute("INSERT INTO b VALUES (?, ?, ?, ?, ?, ?)", [ts, close, high, low, close, 1e6])
+        con.execute("INSERT INTO b VALUES (?, ?, ?, ?, ?, ?)", [ts, o, high, low, close, volume])
     con.execute(f"COPY b TO '{sym_dir / 'bars.parquet'}' (FORMAT PARQUET)")
     con.close()
 
@@ -50,17 +50,27 @@ def catalog_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def add_series(catalog_dir: Path) -> Callable[..., None]:
-    """``add_series(symbol, closes, last_date=SCREEN_ASOF, lows=None)``: one bar per session."""
+    """``add_series(symbol, closes, last_date=SCREEN_ASOF, lows=None, opens=None, volumes=None)``:
+    one bar per session. ``opens`` defaults to ``close`` and ``volumes`` to ``1e6`` for every bar
+    (the original behaviour), so existing callers are unaffected.
+    """
 
     def _add(
         symbol: str,
         closes: Sequence[float],
         last_date: dt.date = SCREEN_ASOF,
         lows: Sequence[float] | None = None,
+        opens: Sequence[float] | None = None,
+        volumes: Sequence[float] | None = None,
     ) -> None:
         days = sessions(last_date, len(closes))
         lows = lows if lows is not None else [c * 0.99 for c in closes]
-        bars = [(d, c * 1.01, lo, c) for d, c, lo in zip(days, closes, lows, strict=True)]
+        opens = opens if opens is not None else list(closes)
+        volumes = volumes if volumes is not None else [1e6] * len(closes)
+        bars = [
+            (d, o, c * 1.01, lo, c, v)
+            for d, o, c, lo, v in zip(days, opens, closes, lows, volumes, strict=True)
+        ]
         write_symbol(catalog_dir, symbol, bars)
 
     return _add
