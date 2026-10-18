@@ -139,37 +139,56 @@ class PipelineResult(PipelineContext):
         summary = self.summary or {}
         stocks = self.stocks
         try:
-            from rich import box
             from rich.console import Console
-            from rich.table import Table
         except ImportError:  # pragma: no cover - Rich is a declared dependency
             self._print_plain_summary(summary, stocks)
             return
 
         console = Console()
         if stocks:
-            table = Table(
-                title="Pipeline Backtest — Stock Breakdown",
-                box=box.ROUNDED,
-                header_style="bold cyan",
-            )
-            table.add_column("Symbol", style="bold cyan")
-            table.add_column("Weight %", justify="right")
-            table.add_column("Invested", justify="right")
-            table.add_column("Final Value", justify="right", style="bold green")
-            table.add_column("Profit", justify="right")
-            table.add_column("XIRR %", justify="right", style="magenta")
-            for s in stocks:
-                xirr = s.get("xirr_pct")
-                table.add_row(
-                    str(s.get("symbol", "")),
-                    f"{float(s.get('weight_pct', 0.0)):.1f}",
-                    f"{float(s.get('total_invested', 0.0)):,.0f}",
-                    f"{float(s.get('final_val', 0.0)):,.0f}",
-                    f"{float(s.get('profit', 0.0)):+,.0f}",
-                    f"{float(xirr):+.1f}" if xirr is not None else "N/A",
-                )
-            console.print(table)
+            from honba.display import Column, render_table
+
+            from honba_examples.display_style import SYMBOL, pnl_style_fn
+
+            columns = [
+                Column("symbol", "Symbol", style=SYMBOL),
+                Column("weight_pct", "Weight %", align="right", fmt=lambda v: f"{float(v):.1f}"),
+                Column(
+                    "total_invested", "Invested", align="right", fmt=lambda v: f"{float(v):,.0f}"
+                ),
+                Column(
+                    "final_val",
+                    "Final Value",
+                    align="right",
+                    fmt=lambda v: f"{float(v):,.0f}",
+                    style="bold green",
+                ),
+                Column(
+                    "profit",
+                    "Profit",
+                    align="right",
+                    fmt=lambda v: f"{float(v):+,.0f}",
+                    style_fn=pnl_style_fn,
+                ),
+                Column(
+                    "xirr_pct",
+                    "XIRR %",
+                    align="right",
+                    fmt=lambda v: f"{float(v):+.1f}",
+                    style="magenta",
+                ),
+            ]
+            rows = [
+                {
+                    **s,
+                    "weight_pct": s.get("weight_pct", 0.0),
+                    "total_invested": s.get("total_invested", 0.0),
+                    "final_val": s.get("final_val", 0.0),
+                    "profit": s.get("profit", 0.0),
+                }
+                for s in stocks
+            ]
+            render_table(rows, columns, title="Pipeline Backtest — Stock Breakdown")
             for note in sip_data_notes(summary):
                 console.print(f"[yellow]⚠ {note}[/yellow]")
 

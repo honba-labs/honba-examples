@@ -42,7 +42,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screener_cli import ScreenerCLIExample, rich_console
+from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import screen_multibaggers
 
 __all__ = ["MultibaggerScreenerExample", "main"]
@@ -147,45 +147,11 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
         }
 
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
-        from rich import box
-        from rich.table import Table
+        # Shared with the chained screener+SIP flow (backtesting/10_chained_screener_and_sip.py)
+        # so the same strategy's candidates render identically through either entry point.
+        from honba_examples.screening.render import render_screener_table
 
-        table = Table(
-            title=f"Prospective Multibaggers as of {asof} ({self.train_years}-Yr Base Window)",
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-        )
-        for col in (
-            "Symbol",
-            "Price (₹)",
-            "1-Yr Ret",
-            "3-Mo Surge",
-            "From 52w High",
-            "Vol Surge",
-            "200 SMA",
-            "ROCE %",
-            "Debt/Eq",
-            "MB Score",
-        ):
-            table.add_column(col, justify="right" if col != "Symbol" else "left")
-        for c in candidates:
-            roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            vol_s = f"{c['vol_surge']:.2f}x" if c.get("vol_surge") is not None else "-"
-            table.add_row(
-                c["symbol"],
-                f"₹{c['close']:,.2f}",
-                f"{c['ret_1y']:+.1f}%",
-                f"{c.get('ret_3m', 0.0):+.1f}%",
-                f"{c['pct_from_high']:+.1f}%",
-                vol_s,
-                f"₹{c['sma200']:,.2f}",
-                roce_s,
-                de_s,
-                f"{c.get('mb_score', 0.0):.1f}",
-            )
-        rich_console().print(table)
+        render_screener_table(candidates, asof, "multibagger", self.train_years)
 
 
 def main(argv: list[str] | None = None) -> Any:

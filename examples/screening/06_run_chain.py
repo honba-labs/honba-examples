@@ -92,17 +92,13 @@ def _print_rows(payload: dict[str, Any], fmt: str) -> None:
         for row in rows:
             writer.writerow({k: ("" if row.get(k) is None else row.get(k)) for k in columns})
     else:
-        from rich import box
-        from rich.console import Console
-        from rich.table import Table
+        from honba.display import Column, render_table
 
-        table = Table(title=" > ".join(payload["chain"]), box=box.ROUNDED, header_style="bold cyan")
-        columns = list(rows[0]) if rows else ["symbol"]
-        for name in columns:
-            table.add_column(name, overflow="fold")
-        for row in rows:
-            table.add_row(*("-" if row.get(k) is None else str(row.get(k)) for k in columns))
-        Console().print(table)
+        from honba_examples.display_style import SYMBOL
+
+        keys = list(rows[0]) if rows else ["symbol"]
+        columns = [Column(k, style=SYMBOL if k == "symbol" else None) for k in keys]
+        render_table(rows, columns, title=" > ".join(payload["chain"]))
 
 
 def main(argv: list[str] | None = None) -> int:

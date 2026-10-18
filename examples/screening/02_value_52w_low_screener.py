@@ -39,7 +39,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screener_cli import ScreenerCLIExample, rich_console
+from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import screen_value_and_dividend
 
 __all__ = ["Value52wLowScreenerExample", "main"]
@@ -168,55 +168,12 @@ class Value52wLowScreenerExample(ScreenerCLIExample):
             "candidates": candidates,
         }
 
-    def _render_value_table(
-        self, candidates: list[dict[str, Any]], asof: dt.date, title: str
-    ) -> None:
-        from rich import box
-        from rich.table import Table
-
-        table = Table(title=title, border_style="cyan", box=box.ROUNDED, header_style="bold cyan")
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("52w Low (₹)", justify="right", style="dim", no_wrap=True)
-        table.add_column("From 52w Low", justify="right", style="yellow", no_wrap=True)
-        table.add_column(f"{self.train_years}-Yr Ret", justify="right", style="dim", no_wrap=True)
-        table.add_column("Hit Low?", justify="center", style="green", no_wrap=True)
-        table.add_column("Div Yield", justify="right", style="magenta", no_wrap=True)
-        table.add_column("P/E", justify="right", no_wrap=True)
-        table.add_column("P/B", justify="right", no_wrap=True)
-        table.add_column("ROCE %", justify="right", style="green", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
-
-        for c in candidates:
-            div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
-            pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
-            pb_s = f"{c['pb_ratio']:.2f}" if c.get("pb_ratio") is not None else "-"
-            roce_s = f"{c['roce_pct']:.1f}%" if c.get("roce_pct") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            hit_s = "✓ Touch" if c.get("hit_52w_low_recently") else "Near"
-            table.add_row(
-                c["symbol"],
-                c.get("company_name", c["symbol"]),
-                f"₹{c['close']:,.2f}",
-                f"₹{c['low52']:,.2f}",
-                f"+{c['pct_from_low']:.1f}%",
-                f"{c['train_ret_pct']:+.1f}%",
-                hit_s,
-                div_s,
-                pe_s,
-                pb_s,
-                roce_s,
-                de_s,
-            )
-        rich_console().print(table)
-
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
-        self._render_value_table(
-            candidates,
-            asof,
-            f"Deep Value & 52-Week Low Candidates as of {asof} ({self.train_years}-Yr Training Data)",
-        )
+        # Shared with the chained screener+SIP flow (backtesting/10_chained_screener_and_sip.py)
+        # so the same strategy's candidates render identically through either entry point.
+        from honba_examples.screening.render import render_screener_table
+
+        render_screener_table(candidates, asof, "value", self.train_years)
 
 
 def main(argv: list[str] | None = None) -> Any:

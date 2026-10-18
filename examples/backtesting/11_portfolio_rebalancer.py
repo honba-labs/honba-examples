@@ -68,14 +68,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba.display import OutputFormat
+from honba.display import Column, OutputFormat, render_table
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
-from rich import box
 from rich.console import Console
-from rich.table import Table
 
 from honba_examples.cli import add_out_arg
+from honba_examples.display_style import SYMBOL, pnl_style_fn
 from honba_examples.ewr import FEE_RATE, REBALANCE_DAYS, SimResult, simulate
 from honba_examples.pipeline import SipBacktestHarness
 from honba_examples.pipeline.base import Pipeline, as_date
@@ -382,42 +381,72 @@ class PortfolioRebalancerExample:
         stocks: list[dict[str, Any]] = payload["stocks"]
         rebalanced = payload["rebalanced"]
         title = "Equal-Weight Rebalance" if rebalanced else "Buy-and-Hold (no rebalancing)"
-        table = Table(
-            title=f"{title} — {len(stocks)} symbols (asof {payload.get('asof')})",
-            box=box.ROUNDED,
-            header_style="bold cyan",
-            border_style="cyan",
-        )
-        table.add_column("Symbol", style="bold cyan")
-        table.add_column("Weight %", justify="right")
+        full_title = f"{title} — {len(stocks)} symbols (asof {payload.get('asof')})"
         if rebalanced:
-            table.add_column("Shares", justify="right")
-            table.add_column("Final Price", justify="right")
-            table.add_column("Final Value", justify="right", style="bold green")
-            for s in stocks:
-                table.add_row(
-                    str(s["symbol"]),
-                    f"{float(s['weight_pct']):.1f}",
-                    f"{s['shares_held']:,}",
-                    f"{float(s['final_price']):,.2f}",
-                    f"{float(s['final_val']):,.0f}",
-                )
+            columns = [
+                Column("symbol", "Symbol", style=SYMBOL),
+                Column("weight_pct", "Weight %", align="right", fmt=lambda v: f"{float(v):.1f}"),
+                Column("shares_held", "Shares", align="right", fmt=lambda v: f"{v:,}"),
+                Column(
+                    "final_price", "Final Price", align="right", fmt=lambda v: f"{float(v):,.2f}"
+                ),
+                Column(
+                    "final_val",
+                    "Final Value",
+                    align="right",
+                    fmt=lambda v: f"{float(v):,.0f}",
+                    style="bold green",
+                ),
+            ]
+            rows = stocks
         else:
-            table.add_column("Invested", justify="right")
-            table.add_column("Final Value", justify="right", style="bold green")
-            table.add_column("Profit", justify="right")
-            table.add_column("XIRR %", justify="right", style="magenta")
-            for s in stocks:
-                xirr = s.get("xirr_pct")
-                table.add_row(
-                    str(s.get("symbol", "")),
-                    f"{float(s.get('weight_pct', 0.0)):.1f}",
-                    f"{float(s.get('total_invested', 0.0)):,.0f}",
-                    f"{float(s.get('final_val', 0.0)):,.0f}",
-                    f"{float(s.get('profit', 0.0)):+,.0f}",
-                    f"{float(xirr):+.1f}" if xirr is not None else "N/A",
-                )
-        console.print(table)
+            columns = [
+                Column("symbol", "Symbol", style=SYMBOL),
+                Column(
+                    "weight_pct",
+                    "Weight %",
+                    align="right",
+                    fmt=lambda v: f"{float(v):.1f}",
+                ),
+                Column(
+                    "total_invested",
+                    "Invested",
+                    align="right",
+                    fmt=lambda v: f"{float(v):,.0f}",
+                ),
+                Column(
+                    "final_val",
+                    "Final Value",
+                    align="right",
+                    fmt=lambda v: f"{float(v):,.0f}",
+                    style="bold green",
+                ),
+                Column(
+                    "profit",
+                    "Profit",
+                    align="right",
+                    fmt=lambda v: f"{float(v):+,.0f}",
+                    style_fn=pnl_style_fn,
+                ),
+                Column(
+                    "xirr_pct",
+                    "XIRR %",
+                    align="right",
+                    fmt=lambda v: f"{float(v):+.1f}",
+                    style="magenta",
+                ),
+            ]
+            rows = [
+                {
+                    **s,
+                    "weight_pct": s.get("weight_pct", 0.0),
+                    "total_invested": s.get("total_invested", 0.0),
+                    "final_val": s.get("final_val", 0.0),
+                    "profit": s.get("profit", 0.0),
+                }
+                for s in stocks
+            ]
+        render_table(rows, columns, title=full_title)
         xirr = summary.get("portfolio_xirr")
         xirr_str = f"{float(xirr):+.1f}%" if xirr is not None else "N/A"
         line = (

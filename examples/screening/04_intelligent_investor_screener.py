@@ -47,7 +47,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screener_cli import ScreenerCLIExample, rich_console
+from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import graham_thresholds, screen_intelligent_investor
 
 __all__ = ["IntelligentInvestorScreenerExample", "main"]
@@ -214,59 +214,14 @@ class IntelligentInvestorScreenerExample(ScreenerCLIExample):
         }
 
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
-        from rich import box
-        from rich.table import Table
+        # Shared with the chained screener+SIP flow (backtesting/10_chained_screener_and_sip.py)
+        # so the same strategy's candidates render identically through either entry point. The
+        # effective P/E x P/B cap is already printed to stderr by effective_thresholds() above.
+        from honba_examples.screening.render import render_screener_table
 
-        product_cap = self.effective_thresholds()["max_graham_product"]
-        cap_s = f"{product_cap:.1f}" if product_cap is not None else "off"
-        title = (
-            f"Stage 1 (In-Sample): Benjamin Graham '{self.mode.title()}' Value Candidates "
-            f"as of {asof} (P/E×P/B ≤ {cap_s})"
+        render_screener_table(
+            candidates, asof, "intelligent_investor", self.train_years, graham_mode=self.mode
         )
-        table = Table(title=title, border_style="cyan", box=box.ROUNDED, header_style="bold cyan")
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("EPS (₹)", justify="right", style="green", no_wrap=True)
-        table.add_column("BVPS (₹)", justify="right", style="dim", no_wrap=True)
-        table.add_column("P/E", justify="right", no_wrap=True)
-        table.add_column("P/B", justify="right", no_wrap=True)
-        table.add_column("P/E×P/B", justify="right", style="yellow", no_wrap=True)
-        table.add_column("Graham Val (₹)", justify="right", style="bold yellow", no_wrap=True)
-        table.add_column("Margin of Safety", justify="right", style="bold green", no_wrap=True)
-        table.add_column("Cur Ratio", justify="right", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
-        table.add_column("Div Yield", justify="right", style="magenta", no_wrap=True)
-
-        for c in candidates:
-            pe_s = f"{c['pe_ratio']:.1f}" if c.get("pe_ratio") is not None else "-"
-            pb_s = f"{c['pb_ratio']:.2f}" if c.get("pb_ratio") is not None else "-"
-            gp_s = f"{c['graham_product']:.1f}" if c.get("graham_product") is not None else "-"
-            cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            div_s = f"{c['div_yield_pct']:.2f}%" if c.get("div_yield_pct", 0) > 0 else "-"
-            mos_s = (
-                f"+{c['margin_of_safety_pct']:.1f}%"
-                if c.get("margin_of_safety_pct", 0) >= 0
-                else f"{c['margin_of_safety_pct']:.1f}%"
-            )
-
-            table.add_row(
-                c["symbol"],
-                c.get("company_name", c["symbol"]),
-                f"₹{c['close']:,.2f}",
-                f"₹{c['eps']:,.2f}",
-                f"₹{c['bvps']:,.2f}",
-                pe_s,
-                pb_s,
-                gp_s,
-                f"₹{c['graham_num']:,.2f}",
-                mos_s,
-                cr_s,
-                de_s,
-                div_s,
-            )
-        rich_console().print(table)
 
 
 def main(argv: list[str] | None = None) -> Any:

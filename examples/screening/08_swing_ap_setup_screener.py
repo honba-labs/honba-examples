@@ -47,7 +47,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screener_cli import ScreenerCLIExample, rich_console
+from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import screen_swing_setups
 
 __all__ = ["SwingApSetupScreenerExample", "main"]
@@ -187,44 +187,45 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
         }
 
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
-        from rich import box
-        from rich.table import Table
+        from honba.display import Column, render_table
 
-        table = Table(
-            title=f"Swing A+ Setups as of {asof} (universe: {self.universe}, min grade: {self.min_grade})",
-            border_style="cyan",
-            box=box.ROUNDED,
-            header_style="bold cyan",
+        from honba_examples.display_style import (
+            SCORE,
+            SECONDARY,
+            SURGE,
+            SYMBOL,
+            grade_style_fn,
+            pnl_style_fn,
         )
-        for col in (
-            "Symbol",
-            "Close",
-            "Grade",
-            "Score",
-            "Setup",
-            "ATR%",
-            "RS Excess",
-            "Vol Surge",
-            "Stop",
-            "Target 1R",
-            "Target 2R",
-        ):
-            table.add_column(col, justify="right" if col != "Symbol" and col != "Setup" else "left")
-        for c in candidates:
-            table.add_row(
-                c["symbol"],
-                f"₹{c['close']:,.2f}",
-                c["grade"],
-                f"{c['score']:.1f}",
-                c["setup"],
-                f"{c['atr_pct']:.2f}%" if c.get("atr_pct") is not None else "-",
-                f"{c['rs_excess']:+.2f}%" if c.get("rs_excess") is not None else "-",
-                f"{c['vol_surge']:.2f}x" if c.get("vol_surge") is not None else "-",
-                f"₹{c['stop_loss']:,.2f}",
-                f"₹{c['target_1r']:,.2f}",
-                f"₹{c['target_2r']:,.2f}",
-            )
-        rich_console().print(table)
+
+        columns = [
+            Column("symbol", "Symbol", style=SYMBOL),
+            Column("close", "Close", align="right", fmt=lambda v: f"₹{v:,.2f}"),
+            Column("grade", "Grade", align="right", style_fn=grade_style_fn),
+            Column("score", "Score", align="right", fmt=lambda v: f"{v:.1f}", style=SCORE),
+            Column("setup", "Setup"),
+            Column("atr_pct", "ATR%", align="right", fmt=lambda v: f"{v:.2f}%"),
+            Column(
+                "rs_excess",
+                "RS Excess",
+                align="right",
+                fmt=lambda v: f"{v:+.2f}%",
+                style_fn=pnl_style_fn,
+            ),
+            Column("vol_surge", "Vol Surge", align="right", fmt=lambda v: f"{v:.2f}x", style=SURGE),
+            Column("stop_loss", "Stop", align="right", fmt=lambda v: f"₹{v:,.2f}", style=SECONDARY),
+            Column(
+                "target_1r", "Target 1R", align="right", fmt=lambda v: f"₹{v:,.2f}", style=SECONDARY
+            ),
+            Column(
+                "target_2r", "Target 2R", align="right", fmt=lambda v: f"₹{v:,.2f}", style=SECONDARY
+            ),
+        ]
+        render_table(
+            candidates,
+            columns,
+            title=f"Swing A+ Setups as of {asof} (universe: {self.universe}, min grade: {self.min_grade})",
+        )
 
 
 def main(argv: list[str] | None = None) -> Any:

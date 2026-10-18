@@ -53,7 +53,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from honba_examples.screener_cli import ScreenerCLIExample, rich_console
+from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import screen_net_net
 
 __all__ = ["NetNetScreenerExample", "main"]
@@ -177,47 +177,11 @@ class NetNetScreenerExample(ScreenerCLIExample):
         }
 
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
-        from rich import box
-        from rich.table import Table
+        # Shared with the chained screener+SIP flow (backtesting/10_chained_screener_and_sip.py)
+        # so the same strategy's candidates render identically through either entry point.
+        from honba_examples.screening.render import render_screener_table
 
-        title = f"Stage 1 (In-Sample): Benjamin Graham Net-Net / Deep Asset Value Candidates as of {asof}"
-        table = Table(title=title, border_style="cyan", box=box.ROUNDED, header_style="bold cyan")
-        table.add_column("Symbol", style="bold cyan", no_wrap=True)
-        table.add_column("Company", style="dim")
-        table.add_column("Price (₹)", justify="right", no_wrap=True)
-        table.add_column("Cur Assets", justify="right", style="dim", no_wrap=True)
-        table.add_column("Tot Liab", justify="right", style="dim", no_wrap=True)
-        table.add_column("NCAV/Sh (₹)", justify="right", style="bold yellow", no_wrap=True)
-        table.add_column("P/NCAV", justify="right", style="bold green", no_wrap=True)
-        table.add_column("NCAV MoS", justify="right", no_wrap=True)
-        table.add_column("Cur Ratio", justify="right", no_wrap=True)
-        table.add_column("Cash/Sh (₹)", justify="right", style="magenta", no_wrap=True)
-        table.add_column("Debt/Eq", justify="right", no_wrap=True)
-        table.add_column("CFO (₹Cr)", justify="right", style="green", no_wrap=True)
-
-        for c in candidates:
-            cr_s = f"{c['current_ratio']:.2f}" if c.get("current_ratio") is not None else "-"
-            de_s = f"{c['debt_to_equity']:.2f}" if c.get("debt_to_equity") is not None else "-"
-            p_ncav_s = f"{c['price_to_ncav']:.2f}x" if c.get("price_to_ncav") is not None else "-"
-            mos_val = c.get("ncav_margin_of_safety_pct", 0)
-            mos_style = "bold green" if mos_val >= 0 else "dim"
-            mos_s = f"[{mos_style}]{mos_val:+.1f}%[/{mos_style}]"
-
-            table.add_row(
-                c["symbol"],
-                c.get("company_name", c["symbol"]),
-                f"₹{c['close']:,.2f}",
-                f"₹{c['cur_assets_cr']:,.0f}Cr",
-                f"₹{c['tot_liab_cr']:,.0f}Cr",
-                f"₹{c['ncav_per_share']:,.2f}",
-                p_ncav_s,
-                mos_s,
-                cr_s,
-                f"₹{c['cash_per_share']:,.2f}",
-                de_s,
-                f"₹{c['cfo_cr']:,.0f}Cr",
-            )
-        rich_console().print(table)
+        render_screener_table(candidates, asof, "net_net", self.train_years)
 
 
 def main(argv: list[str] | None = None) -> Any:

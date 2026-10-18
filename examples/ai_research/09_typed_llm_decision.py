@@ -35,13 +35,14 @@ Pitfalls::
 from __future__ import annotations
 
 from honba.ai.decision import DecisionKind, LlmDecision, apply_llm_decision
+from honba.display import Column, render_table
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderIntent, OrderSide
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 from honba_examples.decision_guard import guard_llm_decision
+from honba_examples.display_style import SECONDARY
 
 console = Console()
 
@@ -145,27 +146,26 @@ def run_typed_llm_decision_demo() -> None:
     console.print(
         "\n[bold yellow]7. Decision in Journal (Journal v1 NDJSON records):[/bold yellow]"
     )
-    table = Table(title="Journal v1 Records", show_lines=True)
-    table.add_column("Type", style="cyan")
-    table.add_column("Order ID", style="magenta")
-    table.add_column("Decision", style="bold")
-    table.add_column("Qty Move", style="green")
-    table.add_column("Rationale", style="white")
-
     records = [
         size_down_dec.to_journal_record(),
         veto_dec.to_journal_record(),
     ]
-
-    for rec in records:
-        table.add_row(
-            rec["type"],
-            rec["order_id"],
-            rec["decision"].upper(),
-            f"{rec['original_qty']:.0f} -> {rec['decided_qty']:.0f}",
-            rec["rationale"],
-        )
-    console.print(table)
+    columns = [
+        Column("type", "Type", style="cyan"),
+        Column("order_id", "Order ID", style="magenta"),
+        Column("decision", "Decision", fmt=lambda v: v.upper(), style="bold"),
+        Column(
+            "qty_move",
+            "Qty Move",
+            style="green",
+        ),
+        Column("rationale", "Rationale", style=SECONDARY),
+    ]
+    rows = [
+        {**rec, "qty_move": f"{rec['original_qty']:.0f} -> {rec['decided_qty']:.0f}"}
+        for rec in records
+    ]
+    render_table(rows, columns, title="Journal v1 Records")
     console.print(
         "[bold green]All typed LLM decision invariants verified successfully![/bold green]"
     )
