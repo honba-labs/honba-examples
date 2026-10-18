@@ -39,6 +39,7 @@ from honba.display import Column, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import UNIVERSES, resolve_universe
 
+from honba_examples.display_style import SYMBOL
 from honba_examples.universe_lists import (
     ALPHA30_SEED,
     ALPHA30_VARIANTS,
@@ -97,7 +98,7 @@ def print_members(members: list[InstrumentId]) -> None:
             for iid in sorted(members, key=lambda x: x.symbol)
         ],
         [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column("exchange", "Exchange", style="magenta"),
         ],
         title=f"Nifty200 Alpha 30 ({len(members)} instruments)",

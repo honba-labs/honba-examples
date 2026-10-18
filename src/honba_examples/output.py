@@ -31,6 +31,8 @@ from honba.display import (
 )
 from honba.display import render as _render
 
+from honba_examples.display_style import SYMBOL
+
 __all__ = [
     "OutputFormat",
     "OutputOptions",
@@ -285,7 +287,7 @@ def print_changes(
             )
     cols = [
         Column("date", "Date", style="dim"),
-        Column("symbol", "Symbol", style="cyan"),
+        Column("symbol", "Symbol", style=SYMBOL),
         Column("side", "Side", style="bold yellow"),
         Column("net_shares", "Net shares", fmt=_signed),
         Column("price", "Price", fmt=_num, style="green"),
@@ -403,7 +405,7 @@ def print_holdings(
             row["price"] = px
             row["value"] = None if px is None else px * holdings[sym]
         raw.append(row)
-    cols = [Column("symbol", "Symbol", style="cyan"), Column("shares", "Shares")]
+    cols = [Column("symbol", "Symbol", style=SYMBOL), Column("shares", "Shares")]
     if prices is not None:
         cols += [
             Column("price", "Price", fmt=_num, style="green"),
@@ -421,7 +423,7 @@ def print_rejections(
     raw = [{k: r.get(k) for k in keys} for r in rejections]
     cols = [
         Column("date", "Date", style="dim"),
-        Column("symbol", "Symbol", style="cyan"),
+        Column("symbol", "Symbol", style=SYMBOL),
         Column("side", "Side", style="bold yellow"),
         Column("quantity", "Quantity"),
         Column("reason", "Reason", style="red"),

@@ -33,6 +33,8 @@ from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import UNIVERSES, resolve_universe
 
+from honba_examples.display_style import SYMBOL
+
 # ---------------------------------------------------------------------------
 # Define your custom basket
 # ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ def main() -> None:
             for iid in sorted(resolved, key=lambda x: x.symbol)
         ],
         [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column("exchange", "Exchange", style="magenta"),
         ],
         title=f"{CUSTOM_UNIVERSE_NAME.upper()} ({len(resolved)} symbols)",

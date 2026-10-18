@@ -123,9 +123,11 @@ def main(argv: list[str] | None = None) -> int:
     if is_table:
         from honba.display import Column, render_kv, render_table
 
+        from honba_examples.display_style import SYMBOL
+
         render_kv([("Adapter", result["adapter"]), ("Total Instruments", result["count"])])
         cols = [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column("exchange", "Exchange", style="magenta"),
             Column("kind", "Kind", style="yellow"),
             Column("lot_size", "Lot Size", align="right", style="green"),

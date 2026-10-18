@@ -29,6 +29,7 @@ from __future__ import annotations
 from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
 
+from honba_examples.display_style import SYMBOL
 from honba_examples.universe_lists import UniverseUnavailable, banknifty_members
 
 UNIVERSE_NAME = "banknifty"
@@ -47,7 +48,7 @@ def main() -> None:
             for iid in sorted(members, key=lambda x: x.symbol)
         ],
         [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column("exchange", "Exchange", style="magenta"),
         ],
         title=f"{UNIVERSE_NAME.upper()} Constituents ({len(members)} symbols)",

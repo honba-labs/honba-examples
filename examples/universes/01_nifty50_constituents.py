@@ -29,6 +29,8 @@ from honba.display import Column, render_kv, render_table
 from honba.domain.instrument import InstrumentId
 from honba.markets.india.universes import resolve_universe
 
+from honba_examples.display_style import SYMBOL
+
 UNIVERSE_NAME = "nifty50"
 EXCHANGE = "NSE"
 
@@ -42,7 +44,7 @@ def main() -> None:
             for iid in sorted(members, key=lambda x: x.symbol)
         ],
         [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column("exchange", "Exchange", style="magenta"),
         ],
         title=f"{UNIVERSE_NAME.upper()} Constituents ({len(members)} symbols)",

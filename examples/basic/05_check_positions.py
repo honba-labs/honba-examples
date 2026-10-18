@@ -190,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
     if is_table:
         from honba.display import Column, render_kv, render_table
 
+        from honba_examples.display_style import SYMBOL, pnl_style_fn
+
         funds = result.get("funds", {})
         render_kv(
             [
@@ -208,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
                 "side": p["side"].upper(),
                 "quantity": p["quantity"],
                 "avg_price": f"₹{p['avg_price']:,.2f}",
-                "realized_pnl": f"₹{p.get('realized_pnl_rupees', 0.0):+,.2f}",
+                "realized_pnl": p.get("realized_pnl_rupees", 0.0),
             }
             for p in result.get("positions", [])
         ]
@@ -216,12 +218,18 @@ def main(argv: list[str] | None = None) -> int:
             render_table(
                 pos_rows,
                 [
-                    Column("symbol", "Symbol", style="cyan"),
+                    Column("symbol", "Symbol", style=SYMBOL),
                     Column("exchange", "Exchange", style="magenta"),
                     Column("side", "Side", style="bold yellow"),
                     Column("quantity", "Quantity", align="right"),
                     Column("avg_price", "Avg Price", align="right", style="green"),
-                    Column("realized_pnl", "Realized P&L", align="right", style="magenta"),
+                    Column(
+                        "realized_pnl",
+                        "Realized P&L",
+                        align="right",
+                        fmt=lambda v: f"₹{v:+,.2f}",
+                        style_fn=pnl_style_fn,
+                    ),
                 ],
                 title="Open Positions",
             )
@@ -240,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             render_table(
                 trade_rows,
                 [
-                    Column("symbol", "Symbol", style="cyan"),
+                    Column("symbol", "Symbol", style=SYMBOL),
                     Column("exchange", "Exchange", style="magenta"),
                     Column("side", "Side", style="bold yellow"),
                     Column("quantity", "Quantity", align="right"),

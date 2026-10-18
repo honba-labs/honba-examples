@@ -6,6 +6,8 @@ from typing import Any
 
 from honba.display import Column, render_kv, render_table
 
+from honba_examples.display_style import SYMBOL
+
 __all__ = ["render_nl_result"]
 
 
@@ -44,7 +46,7 @@ def render_nl_result(res: dict[str, Any], query: str) -> None:
 
     if res["is_historical"]:
         cols = [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column(
                 "entry_close",
                 f"Entry ({res['asof']})",
@@ -92,7 +94,7 @@ def render_nl_result(res: dict[str, Any], query: str) -> None:
         title = f"Historical Screener Backtest Results (As of {res['asof']} → Today)"
     else:
         cols = [
-            Column("symbol", "Symbol", style="cyan"),
+            Column("symbol", "Symbol", style=SYMBOL),
             Column(
                 "close",
                 "CMP (₹)",
