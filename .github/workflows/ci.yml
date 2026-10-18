@@ -17,9 +17,7 @@ jobs:
       - name: install deps
         run: |
           python -m pip install --upgrade pip
-          [ -f requirements.txt ] && pip install -r requirements.txt || true
-          [ -f requirements-dev.txt ] && pip install -r requirements-dev.txt || true
-          pip install pytest
+          pip install -e ".[dev]"
       - name: syntax check all sources
         run: |
           find . -name '*.py' -not -path './.venv/*' -print0 \
