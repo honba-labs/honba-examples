@@ -11,7 +11,9 @@ import pytest
 
 from honba_examples.pipeline.base import Step
 
-_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "11_portfolio_rebalancer.py"
+_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "backtesting" / "11_portfolio_rebalancer.py"
+)
 END = dt.date(2024, 6, 28)
 ASOF = "2024-03-04"  # a Monday; the first forward session is Tuesday 2024-03-05
 

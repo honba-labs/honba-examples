@@ -11,7 +11,7 @@ from honba.domain.instrument import InstrumentId
 
 from honba_examples.cli import ALLOW_LIVE_ORDERS_ENV, require_paper_adapter
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[2] / "examples"
 
 
 def _load(name: str):

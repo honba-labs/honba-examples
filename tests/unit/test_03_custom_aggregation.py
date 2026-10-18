@@ -14,7 +14,7 @@ from honba.adapters.testing import FakeAdapter
 
 from honba_examples.bars import SUPPORTED_TIMEFRAMES, bucket_start, timeframe_seconds
 
-_PATH = Path(__file__).resolve().parents[2] / "candles" / "03_custom_aggregation.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "candles" / "03_custom_aggregation.py"
 _NS_PER_SECOND = 1_000_000_000
 
 

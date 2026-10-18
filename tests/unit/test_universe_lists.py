@@ -23,7 +23,7 @@ from honba_examples.universe_lists import (
     banknifty_members,
 )
 
-UNIVERSES_DIR = Path(__file__).resolve().parents[2] / "universes"
+UNIVERSES_DIR = Path(__file__).resolve().parents[2] / "examples" / "universes"
 
 
 def _load(name: str):

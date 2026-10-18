@@ -1,0 +1,110 @@
+# 06 Backtesting – end-to-end runs
+
+Every example here uses Honba's event-driven backtest harness with synthetic data or
+the local Parquet catalog.
+
+## At a glance
+
+| #  | File                             | Strategy class | What you learn                                                             |
+|----|----------------------------------|----------------|----------------------------------------------------------------------------|
+| 01 | `01_first_backtest.py`           | `SmaBacktest`  | Minimal backtest: SMA crossover, next-open fills, India equity costs       |
+| 02 | `02_cost_modeling.py`            | —              | Per-leg cost breakdown (brokerage, STT, exchange, SEBI, IPFT, stamp, GST)   |
+| 03 | `03_latency_modeling.py`         | `SmaLatency`   | Compare fill models: bar_close / next_open / next_close                    |
+| 04 | `04_walk_forward.py`             | `SmaWalk`      | Rolling window optimization/validation (in-sample → out-of-sample)         |
+| 05 | `05_monte_carlo.py`              | `SmaMonteCarlo`| Bootstrap equity curves for risk distribution (final equity, DD, Sharpe)   |
+| 06 | `06_concurrent_backtest.py`      | `SmaSweep`     | Parameter sweep with thread pool; Pareto frontier & best-by-Sharpe         |
+| 07 | `07_run_via_client.py`           | —              | Same strategy over in-process and HTTP transports; run_id and assumptions  |
+| 08 | `08_sip_buy_and_hold.py`         | —              | Systematic investment plan (SIP): monthly/weekly buy-and-hold, XIRR, DD    |
+| 09 | `09_forward_sip_backtest.py`     | —              | Forward SIP backtester (reads ``--symbols`` or a stdin pipe); alias of ``10_chained_screener_and_sip`` |
+| 10 | `10_chained_screener_and_sip.py` | —              | Chained screener (momentum, value, dividend) & forward SIP out-of-sample backtest |
+| 11 | `11_portfolio_rebalancer.py`     | —              | Equal-weight periodic rebalance (screener-agnostic, ``--symbols``/`stdin`-aware; thin over ``honba_examples.pipeline``) |
+
+
+
+## Pitfalls checklist
+
+Every numbered script in this directory has a `Pitfalls::` section in its module docstring
+(enforced by `tests/unit/test_pitfalls_sections.py`): the traps specific to what that script
+does, such as fill timing (signal bar versus fill bar), as-of dates and survivorship in the
+screens, parameter-sweep overfitting, costs, and why synthetic data says nothing about
+performance. Read it before trusting a number. For the general treatment see
+[Avoiding backtest biases](https://honba-labs.github.io/honba/book/backtesting/avoiding_backtest_biases.html).
+
+## The common pattern
+
+```python
+from honba.strategies.base import Strategy
+from honba.strategies.indicators import Sma
+from honba.strategies.testing import replay
+from honba_examples.metrics import curve_metrics
+
+
+class MyStrategy(Strategy):
+    name = "my_strategy"
+    warmup_bars = 30
+
+    def __init__(self, fast=10, slow=30):
+        super().__init__()
+        self.fast = Sma(fast)
+        self.slow = Sma(slow)
+
+    def on_bar(self, bar):
+        fast_val = self.fast.update(bar.close)
+        slow_val = self.slow.update(bar.close)
+        if fast_val is None or slow_val is None:
+            return
+        position = self.position(bar.instrument_id)
+        if fast_val > slow_val and position <= 0:
+            self.buy(bar.instrument_id, 1)
+        elif fast_val < slow_val and position >= 0 and position > 0:
+            self.sell(bar.instrument_id, position)
+
+
+# Run with synthetic bars
+from honba_examples.synthetic import bar as synth_bar, weekdays
+
+bars = [
+    synth_bar("RELIANCE", d, 2500.0 + i * 0.5)
+    for i, d in enumerate(weekdays(dt.date(2026, 1, 1), 60))
+]
+result = replay(MyStrategy(), bars)
+```
+
+## Running them
+
+```bash
+python examples/backtesting/01_first_backtest.py --out first_backtest.json
+python examples/backtesting/02_cost_modeling.py --price 2500 --qty 10
+python examples/backtesting/03_latency_modeling.py
+python examples/backtesting/04_walk_forward.py --bars 120 --window 40 --step 20
+python examples/backtesting/05_monte_carlo.py --paths 1000
+python examples/backtesting/06_concurrent_backtest.py --workers 4
+python examples/backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
+python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
+python examples/backtesting/10_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
+python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
+python examples/backtesting/11_portfolio_rebalancer.py --symbols RELIANCE,TCS --asof 2023-01-01 --capital 100000
+python examples/screening/01_multibagger_screener.py --asof 2025-03-01 --top 5 --format symbols \
+  | python backtesting/09_forward_sip_backtest.py --asof 2025-03-01 --sip-amount 10000
+pytest tests/unit -q -k "first_backtest or cost_modeling or latency_modeling or walk_forward or monte_carlo or concurrent_backtest or sip_buy_and_hold or chained_screener or portfolio_rebalancer"
+```
+
+## Key concepts demonstrated
+
+1. **Synthetic data** — `honba_examples/synthetic.py` provides deterministic bar generators; same bars = same results
+2. **Cost model** — `honba.markets.india.costs.nse_equity_delivery_*` applies the full per-leg breakdown
+3. **Fill models** — `fill_delay` in `replay()` controls bar_close (0), next_open (1), next_close (2), etc.
+4. **Walk-forward** — Optimize on train window, validate on test window, roll forward
+5. **Monte Carlo** — Resample fills with replacement to estimate distribution of outcomes
+6. **Concurrent sweep** — `ThreadPoolExecutor` over parameter grid; deterministic ordering preserved
+7. **Systematic investment plan (SIP)** — Monthly/weekly cash inflows, rupee cost averaging, XIRR and drawdown metrics
+8. **Point-in-time screening & forward backtesting** — Candidate selection evaluated as of `--asof` (prices to that day's close; fundamentals by period end plus a 90-day lag proxy, not filing dates) with subsequent out-of-sample forward SIP compounding
+
+## From here to production backtests
+
+The same `Strategy` subclass works with:
+- `honba.strategies.testing.replay` (these examples — bar-close fills, no settlement)
+- `honba.session.BacktestSession` (event-driven with Parquet data, next-open fills, T+N settlement)
+- `honba.engine` + adapter (paper/live)
+
+The harness handles context binding, intent draining, fill application, settlement — the strategy only sees `self.ctx` and emits intents.

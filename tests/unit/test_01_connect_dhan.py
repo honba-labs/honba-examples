@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from honba.adapters.errors import AdapterNotFound
 
-_PATH = Path(__file__).resolve().parents[2] / "basic" / "01_connect_dhan.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "basic" / "01_connect_dhan.py"
 
 
 @pytest.fixture(scope="module")

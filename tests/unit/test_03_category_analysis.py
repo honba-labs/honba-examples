@@ -10,7 +10,9 @@ import pytest
 
 from honba_examples.amfi import NavPoint
 
-_PATH = Path(__file__).resolve().parents[2] / "mutual_funds" / "03_category_analysis.py"
+_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "mutual_funds" / "03_category_analysis.py"
+)
 
 
 @pytest.fixture(scope="module")

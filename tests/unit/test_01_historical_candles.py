@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from honba.adapters.errors import AdapterError
 
-_PATH = Path(__file__).resolve().parents[2] / "candles" / "01_historical_candles.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "candles" / "01_historical_candles.py"
 #: First bar of the fake's documented session; every later bar is one minute after it.
 _SESSION_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc)
 

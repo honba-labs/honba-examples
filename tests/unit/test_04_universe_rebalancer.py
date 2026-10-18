@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,12 +13,24 @@ from honba.domain.instrument import InstrumentId
 from honba.markets.india import universes as core
 from honba.strategies.context import LedgerContext
 
-_PATH = Path(__file__).resolve().parents[2] / "universes" / "04_alpha30_generic_rebalancer.py"
+_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "universes"
+    / "04_alpha30_generic_rebalancer.py"
+)
 NS_DAY = 86_400 * 1_000_000_000
 
 
 @pytest.fixture(scope="module")
 def ex():
+    # 04_alpha30_generic_rebalancer.py imports its sibling `alpha30_constituents` module by bare
+    # name (it works unmodified when run directly: `python` prepends a script's own directory to
+    # sys.path). spec_from_file_location + exec_module does not do that, so add the script's
+    # directory here, mirroring test_mutual_funds_03_imports.py's sys.path handling.
+    script_dir = str(_PATH.parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
     spec = importlib.util.spec_from_file_location("ex04_test", _PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

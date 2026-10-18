@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2] / "universes"
+ROOT = Path(__file__).resolve().parents[2] / "examples" / "universes"
 
 
 def _load(filename: str, name: str):

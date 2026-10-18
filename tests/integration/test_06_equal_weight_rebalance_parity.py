@@ -16,7 +16,9 @@ from honba.strategies.config import StrategyConfig
 from honba.strategies.context import LedgerContext
 from honba.strategies.loader import CatalogError, find_catalog
 
-EXAMPLE = Path(__file__).resolve().parents[2] / "strategies" / "06_equal_weight_rebalance.py"
+EXAMPLE = (
+    Path(__file__).resolve().parents[2] / "examples" / "strategies" / "06_equal_weight_rebalance.py"
+)
 CAPITAL = 1_000_000.0
 SESSIONS = 50  # initial rebalance + 3 more at the default 15-day cadence
 

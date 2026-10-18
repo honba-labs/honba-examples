@@ -12,7 +12,7 @@ import pytest
 from honba.adapters.errors import AdapterError
 from honba.domain.tick import QuoteTick
 
-_PATH = Path(__file__).resolve().parents[2] / "candles" / "02_realtime_candles.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "candles" / "02_realtime_candles.py"
 _NS_PER_MINUTE = 60 * 1_000_000_000
 
 

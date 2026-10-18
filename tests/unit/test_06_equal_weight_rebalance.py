@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-_PATH = Path(__file__).resolve().parents[2] / "strategies" / "06_equal_weight_rebalance.py"
+_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "strategies" / "06_equal_weight_rebalance.py"
+)
 
 
 @pytest.fixture(scope="module")

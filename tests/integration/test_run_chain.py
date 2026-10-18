@@ -17,7 +17,7 @@ from honba.strategies.loader import CatalogError
 
 from honba_examples.pipeline.chain import ChainError, load_chain, run_chain, validate
 
-EX = Path(__file__).resolve().parents[2]
+EX = Path(__file__).resolve().parents[2] / "examples"
 CHAIN = EX / "screening" / "chains" / "quality_value.toml"
 
 

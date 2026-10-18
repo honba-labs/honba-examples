@@ -12,7 +12,7 @@ import pytest
 
 from honba_examples.screener_cli import ScreenerCLIExample
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[2] / "examples"
 
 
 def _load(module_name: str, relative: str):

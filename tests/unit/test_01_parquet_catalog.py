@@ -14,7 +14,7 @@ from honba.screener.store import ParquetBarStore
 
 from honba_examples.synthetic import weekdays
 
-_PATH = Path(__file__).resolve().parents[2] / "storage" / "01_parquet_catalog.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "storage" / "01_parquet_catalog.py"
 DAYS = weekdays(dt.date(2025, 12, 29), 5)  # one week that crosses the year partition
 DATES = [day.isoformat() for day in DAYS]
 SYMBOLS = ["RELIANCE", "TCS"]

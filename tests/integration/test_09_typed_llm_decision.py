@@ -5,7 +5,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-EXAMPLE_PATH = Path(__file__).resolve().parents[2] / "ai_research" / "09_typed_llm_decision.py"
+EXAMPLE_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "ai_research" / "09_typed_llm_decision.py"
+)
 
 
 def test_09_typed_llm_decision_runs_cleanly() -> None:

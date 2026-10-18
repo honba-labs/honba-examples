@@ -22,7 +22,7 @@ PENDING_PITFALLS: frozenset[str] = frozenset()
 
 
 def _scripts() -> list[str]:
-    return sorted(p.relative_to(ROOT).as_posix() for p in ROOT.glob("*/[0-9][0-9]_*.py"))
+    return sorted(p.relative_to(ROOT).as_posix() for p in ROOT.glob("examples/*/[0-9][0-9]_*.py"))
 
 
 def pitfall_bullets(doc: str | None) -> list[str] | None:

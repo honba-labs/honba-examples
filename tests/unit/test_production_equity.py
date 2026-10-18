@@ -14,7 +14,7 @@ from honba.entities.trade import Trade
 from honba_examples.metrics import fills_equity_curve
 from honba_examples.synthetic import bar, weekdays
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[2] / "examples"
 IID = InstrumentId("RELIANCE", "NSE")
 
 

@@ -125,7 +125,12 @@ def test_09_demo_runs_and_exercises_the_guard(capsys):
     import importlib.util
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[2] / "ai_research" / "09_typed_llm_decision.py"
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "examples"
+        / "ai_research"
+        / "09_typed_llm_decision.py"
+    )
     spec = importlib.util.spec_from_file_location("ex09_demo", path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)

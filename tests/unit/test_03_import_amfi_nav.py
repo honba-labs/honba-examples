@@ -15,7 +15,7 @@ from honba.screener.store import ParquetBarStore
 from honba_examples.amfi import parse_navall
 from honba_examples.synthetic import session_ts
 
-_PATH = Path(__file__).resolve().parents[2] / "storage" / "03_import_amfi_nav.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "storage" / "03_import_amfi_nav.py"
 D1 = "2025-06-02"
 D2 = "2025-06-03"
 CODES = ["100001", "100002", "100003"]

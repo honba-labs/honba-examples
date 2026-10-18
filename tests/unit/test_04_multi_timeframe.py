@@ -14,7 +14,7 @@ import pytest
 from honba_examples.bars import aggregate, bucket_start
 from honba_examples.synthetic import bar, weekdays
 
-_PATH = Path(__file__).resolve().parents[2] / "candles" / "04_multi_timeframe.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "candles" / "04_multi_timeframe.py"
 _NS_PER_SECOND = 1_000_000_000
 _PAIRS = (("1m", "5m"), ("5m", "1h"), ("1h", "1d"))
 

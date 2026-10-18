@@ -23,7 +23,7 @@ from honba_examples.screening.nl_support import (
 )
 
 TODAY = dt.date(2026, 10, 13)
-_PATH = Path(__file__).resolve().parents[2] / "ai_research" / "03_nl_screener.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "ai_research" / "03_nl_screener.py"
 
 
 @pytest.fixture(scope="module")

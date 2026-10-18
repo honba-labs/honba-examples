@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-_PATH = Path(__file__).resolve().parents[2] / "basic" / "02_fetch_instruments.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "basic" / "02_fetch_instruments.py"
 
 
 @pytest.fixture(scope="module")

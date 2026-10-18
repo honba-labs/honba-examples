@@ -12,7 +12,7 @@ import pytest
 from honba_examples.synthetic import bar as synth_bar
 from honba_examples.synthetic import weekdays as weekdays_func
 
-_PATH = Path(__file__).resolve().parents[2] / "backtesting" / "08_sip_buy_and_hold.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "backtesting" / "08_sip_buy_and_hold.py"
 
 
 @pytest.fixture(scope="module")

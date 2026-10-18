@@ -12,7 +12,7 @@ from honba.adapters.errors import AdapterError
 from honba.adapters.models import StreamMode
 from honba.domain.instrument import InstrumentId
 
-_PATH = Path(__file__).resolve().parents[2] / "basic" / "03_subscribe_quotes.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "basic" / "03_subscribe_quotes.py"
 
 
 @pytest.fixture(scope="module")

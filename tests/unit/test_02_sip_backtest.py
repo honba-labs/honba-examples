@@ -12,7 +12,7 @@ from honba.screener.store import ParquetBarStore
 
 from honba_examples.amfi import EXCHANGE, NavRow, nav_bars
 
-_PATH = Path(__file__).resolve().parents[2] / "mutual_funds" / "02_sip_backtest.py"
+_PATH = Path(__file__).resolve().parents[2] / "examples" / "mutual_funds" / "02_sip_backtest.py"
 CODE = "120503"
 # 2025-06-07 is a Saturday (no NAV); 2025-06-09 is the next publication.
 NAVS = {

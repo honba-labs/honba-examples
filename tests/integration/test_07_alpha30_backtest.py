@@ -22,7 +22,7 @@ from honba.strategies.loader import CatalogError, find_catalog
 
 from honba_examples.synthetic import bar, weekdays
 
-SCRIPT = Path(__file__).resolve().parents[2] / "universes" / "07_alpha30_backtest.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "examples" / "universes" / "07_alpha30_backtest.py"
 DAYS = weekdays(dt.date(2026, 5, 4), 45)  # ~9 weeks of sessions
 WARMUP_START = DAYS[0]
 TEST_START = DAYS[10]

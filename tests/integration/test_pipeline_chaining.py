@@ -30,7 +30,7 @@ from honba_examples.pipeline import (
     ValueScreener,
 )
 
-EX = Path(__file__).resolve().parents[2]
+EX = Path(__file__).resolve().parents[2] / "examples"
 PY = sys.executable
 
 
