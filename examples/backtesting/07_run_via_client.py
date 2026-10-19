@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--url",
-        default="http://127.0.0.1:8080",
+        default="http://127.0.0.1:8000",
         help="Base URL of running honba serve",
     )
     parser.add_argument(
