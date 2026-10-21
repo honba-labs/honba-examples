@@ -1,40 +1,38 @@
-# Python
-__pycache__/
-*.py[cod]
+
 *$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-.eggs/
-.venv/
-venv/
-env/
-
-# pytest / coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.mypy_cache/
-.ruff_cache/
-
-# Rust
-target/
-**/*.rs.bk
-Cargo.lock.bak
-
-# Editors / OS
-.vscode/
-.idea/
-.DS_Store
-*.swp
-
-# Local
 *.bak
 *.bak.*
-
+build/
+Cargo.lock.bak
+.claude
+.coverage
+.coverage.*
+dist/
+.DS_Store
+# Editors / OS
+*.egg-info/
+.eggs/
+env/
 # Example output (never commit generated data)
+htmlcov/
+.idea/
+# Local
+.mypy_cache/
 output/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# pytest / coverage
+# Python
+.Python
+**/*.rs.bk
+.ruff_cache/
+# Rust
+*.so
+*.swp
+target/
+.tox/
+.venv
+.venv/
+venv/
+.vscode/

@@ -45,7 +45,7 @@ import argparse
 import datetime as dt
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, override
 
 from honba_examples.screener_cli import ScreenerCLIExample
 from honba_examples.screening import screen_swing_setups
@@ -71,74 +71,75 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
     min_grade: str = "A+"
     top: int = 10
 
+    @override
     def add_custom_args(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
+        _ = parser.add_argument(
             "--universe",
             choices=("nifty50", "all"),
             default=self.universe,
             help="Scan universe: 'nifty50' constituents (default) or 'all' catalog symbols",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--lookback-days",
             type=int,
             default=self.lookback_days,
             help="Calendar days of history to load before --asof (default: 260)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-adtv",
             type=float,
             default=self.min_adtv,
             help="Minimum 20-day average daily traded value, close*volume (default: 5,000,000)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-price",
             type=float,
             default=self.min_price,
             help="Minimum close price (default: 50.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--max-price",
             type=float,
             default=self.max_price,
             help="Maximum close price; 0 disables (default: 0, disabled)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-atr-pct",
             type=float,
             default=self.min_atr_pct,
             help="Minimum ATR%% = atr14 / close * 100 (default: 1.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--max-atr-pct",
             type=float,
             default=self.max_atr_pct,
             help="Maximum ATR%% (default: 5.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-rs-excess",
             type=float,
             default=self.min_rs_excess,
             help="Minimum 20-day return %% above the universe's own average (default: 0.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-vol-surge",
             type=float,
             default=self.min_vol_surge,
             help="Minimum volume / 20-day baseline volume for a breakout (default: 1.5)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--pullback-pct",
             type=float,
             default=self.pullback_pct,
             help="Max %% above the 20-day SMA still counted as a pullback (default: 3.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--max-gap-down-pct",
             type=float,
             default=self.max_gap_down_pct,
             help="Reject symbols whose open gapped down more than this %% below prior close (default: 7.0)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--max-stale-days",
             type=int,
             default=self.max_stale_days,
@@ -147,16 +148,17 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
                 "(delisted/suspended; default: 10, 0 disables)"
             ),
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--min-grade",
             choices=("A+", "A", "B", "C"),
             default=self.min_grade,
             help="Minimum grade to keep after scoring (default: A+)",
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
+    @override
     def screen(self, catalog_dir: Path, asof: dt.date) -> list[dict[str, Any]]:
         return screen_swing_setups(
             catalog_dir=catalog_dir,
@@ -177,6 +179,7 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
             top=self.top,
         )
 
+    @override
     def json_payload(self, candidates: list[dict[str, Any]], asof: dt.date) -> dict[str, Any]:
         return {
             "asof_date": asof.isoformat(),
@@ -186,6 +189,7 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
             "candidates": candidates,
         }
 
+    @override
     def render_table(self, candidates: list[dict[str, Any]], asof: dt.date) -> None:
         from honba.display import Column, render_table
 
@@ -228,8 +232,9 @@ class SwingApSetupScreenerExample(ScreenerCLIExample):
         )
 
 
-def main(argv: list[str] | None = None) -> Any:
-    return SwingApSetupScreenerExample().main(argv)
+def main(argv: list[str] | None = None) -> int:
+    res = SwingApSetupScreenerExample().main(argv)
+    return int(res) if isinstance(res, int) else 0
 
 
 if __name__ == "__main__":
