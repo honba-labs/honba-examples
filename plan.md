@@ -77,7 +77,24 @@ honba-examples/
 
 ---
 
-### Phase 4: Factor Investing & Multibagger Screener (M3) — Week 7–8
+### Phase 4: Ported StockSharp Reference Strategies (M3) — Week 7–8
+> Canonical Python reference implementations of classical strategies ported from StockSharp.Algo.Strategies:
+
+- [ ] **4.1 Statistical Pairs Trading (`04_stocksharp_pairs_trading.py`)**
+  - [ ] Cointegration test (Engle-Granger) on two correlated NIFTY scrips (e.g. ICICIBANK vs HDFCBANK).
+  - [ ] Real-time Z-score spread tracking with two-sided entry at $\pm 2.0\sigma$ and mean exit at $0.0$.
+- [ ] **4.2 Algorithmic Execution Slicers (`05_stocksharp_twap_vwap.py`)**
+  - [ ] Port of StockSharp TWAP and VWAP execution algorithms with intraday volume pacing and randomized microsecond jitter.
+- [ ] **4.3 Turtle Trading System (`06_stocksharp_turtle_breakout.py`)**
+  - [ ] Classical 20/55-day Donchian channel breakout with $2N$ ATR trailing stops and 4-unit pyramiding.
+- [ ] **4.4 Spread Quoting & Market Making (`07_stocksharp_market_maker.py`)**
+  - [ ] Passive bid/ask quoting with Avellaneda-Stoikov inventory skew and Order Book Imbalance filter.
+- [ ] **4.5 Risk Parity Portfolio Rebalancer (`08_stocksharp_risk_parity.py`)**
+  - [ ] Dynamic asset allocation weighting 10 scrips inversely to their 60-day historical volatility.
+
+---
+
+### Phase 5: Factor Investing & Multibagger Screener (M4) — Week 9–10
 - [ ] **4.1 Alpha30 Factor Model**
   - [ ] Implement `01_alpha30_cross_sectional.py` computing daily factor scores across NIFTY 500 stocks.
   - [ ] Long the top decile and rebalance monthly using zero-copy Arrow queries against the Parquet Lakehouse.
@@ -86,7 +103,7 @@ honba-examples/
 
 ---
 
-### Phase 5: AI-Native Quant Research Loop (M4) — Week 9–10
+### Phase 6: AI-Native Quant Research & Odysseus Loop (M5) — Week 11–12
 - [ ] **5.1 MCP Quantitative Agent Workflow**
   - [ ] Implement `01_claude_autonomous_quant.py` invoking the `honba-nou-mcp` server tools.
   - [ ] AI inspects indicator catalog, formulates a mean-reversion hypothesis, runs backtest, and evaluates DSR.
