@@ -120,7 +120,21 @@ def load_real_bars(
         store = ParquetBarStore(find_data_root())
         start_d = start.date() if isinstance(start, dt.datetime) else (start or dt.date(2020, 1, 1))
         end_d = end.date() if isinstance(end, dt.datetime) else (end or dt.date(2026, 12, 31))
-        bars = store.read(InstrumentId(symbol, exchange), timeframe, DateInterval(start_d, end_d))
+        raw_bars = store.read(
+            InstrumentId(symbol, exchange), timeframe, DateInterval(start_d, end_d)
+        )
+        bars = [
+            Bar(
+                InstrumentId(symbol, exchange),
+                b.ts,
+                b.open,
+                b.high,
+                b.low,
+                b.close,
+                b.volume,
+            )
+            for b in raw_bars
+        ]
         if limit is not None and len(bars) > limit:
             return bars[-limit:]
         return bars

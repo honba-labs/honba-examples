@@ -85,7 +85,7 @@ def run(
 
     # Sort bars ascending by timestamp
     bars_sorted = sorted(bars_loaded, key=lambda b: b.ts)
-    bars_by_date: dict[dt.date, Bar] = {}
+    bars_by_date: dict[dt.date, Any] = {}
     for b in bars_sorted:
         d = dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.timezone.utc).date()
         bars_by_date[d] = b

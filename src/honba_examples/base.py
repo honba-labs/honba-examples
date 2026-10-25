@@ -168,7 +168,19 @@ class HonbaExample:
 
         bars: list[Bar] = []
         for inst in instruments:
-            bars.extend(self.store.read(inst, self.timeframe, interval))
+            loaded = self.store.read(inst, self.timeframe, interval)
+            bars.extend(
+                Bar(
+                    inst,
+                    b.ts,
+                    b.open,
+                    b.high,
+                    b.low,
+                    b.close,
+                    b.volume,
+                )
+                for b in loaded
+            )
         bars.sort(key=lambda x: (x.ts, x.instrument_id.symbol))
         return bars
 
