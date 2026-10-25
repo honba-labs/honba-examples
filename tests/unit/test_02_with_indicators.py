@@ -28,6 +28,7 @@ def test_run_returns_strategy_config_and_result(example):
     assert result["config"]["slow"] == 30
     assert result["config"]["rsi_period"] == 14
     assert result["config"]["atr_period"] == 14
+    assert result["config"]["use_ema"] is False
 
 
 def test_result_contains_fills_and_intents(example):
@@ -66,3 +67,13 @@ def test_default_run_trades_both_sides(example):
     sides = {f["side"] for f in res["fills"]}
     assert len(res["intents"]) >= 2
     assert sides == {"buy", "sell"}
+
+
+def test_ema_variant_runs_successfully(example):
+    """Running with use_ema=True enables the EMA trend filter."""
+    result = example.run(bars=100, use_ema=True)
+    assert result["config"]["use_ema"] is True
+    res = result["result"]
+    assert "fills" in res
+    assert "intents" in res
+    assert len(res["fills"]) >= 1

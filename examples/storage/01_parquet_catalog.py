@@ -48,9 +48,9 @@ from typing import Any
 from honba.adapters.errors import AdapterNotFound
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
-from honba.screener.coverage import CoverageRecord, CoverageStatus, DateInterval
 from honba.screener.ports import validate_bar
-from honba.screener.store import ParquetBarStore
+from honba_data.store.coverage import CoverageRecord, CoverageStatus, DateInterval
+from honba_data.store.parquet import ParquetBarStore
 
 from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.jsonable import jsonable

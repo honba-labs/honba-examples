@@ -1,7 +1,8 @@
 """strategies/02_with_indicators: composite indicators + position sizing + risk rules.
 
 Builds on 01 by adding:
-- RSI filter (only buy when RSI < 70; exits come from the SMA cross or the stop, not from RSI)
+- SMA or EMA trend filter (configurable with ``use_ema``)
+- RSI filter (only buy when RSI < 70; exits come from the MA cross or the stop, not from RSI)
 - ATR-based position sizing (risk 1% of equity per trade)
 - ATR trailing stop on exit
 
@@ -10,6 +11,7 @@ Runs on deterministic sine-wave bars (``oscillating_bars``) with ``honba.strateg
 Run::
 
     python examples/strategies/02_with_indicators.py
+    python examples/strategies/02_with_indicators.py --use-ema
 
 Pitfalls::
 
@@ -25,7 +27,9 @@ Pitfalls::
     - Degrees of freedom: fast, slow, rsi_period, atr_period and risk_pct plus the fixed 70 and 2 x
       ATR constants. Each knob is another way to fit one history; validate on data you did not tune
       on (see backtesting/04_walk_forward).
-    - Defence shown: on_bar returns until all four indicators (two Sma, Rsi, Atr) have values.
+    - Moving average lag: while EMA reacts faster than SMA to recent price changes, it can also
+      produce more whipsaws and false breakout signals in choppy sideways markets.
+    - Defence shown: on_bar returns until all four indicators (two MA, Rsi, Atr) have values.
 """
 
 from __future__ import annotations
@@ -35,7 +39,7 @@ import sys
 from typing import Any
 
 from honba.strategies.base import Strategy
-from honba.strategies.indicators import Atr, Rsi, Sma
+from honba.strategies.indicators import Atr, Ema, Rsi, Sma
 
 from honba_examples.cli import run_example
 from honba_examples.replay_report import replay_report
@@ -45,7 +49,7 @@ __all__ = ["main", "run"]
 
 
 class CompositeSmaRsi(Strategy):
-    """SMA crossover with RSI filter and ATR trailing stop."""
+    """SMA/EMA crossover with RSI filter and ATR trailing stop."""
 
     name = "composite_sma_rsi"
     warmup_bars = 30
@@ -57,10 +61,12 @@ class CompositeSmaRsi(Strategy):
         rsi_period: int = 14,
         atr_period: int = 14,
         risk_pct: float = 0.01,
+        use_ema: bool = False,
     ) -> None:
         super().__init__()
-        self.fast_sma = Sma(fast)
-        self.slow_sma = Sma(slow)
+        self.use_ema = use_ema
+        self.fast_ma = Ema(fast) if use_ema else Sma(fast)
+        self.slow_ma = Ema(slow) if use_ema else Sma(slow)
         self.rsi = Rsi(rsi_period)
         self.atr = Atr(atr_period)
         self.risk_pct = risk_pct
@@ -68,8 +74,8 @@ class CompositeSmaRsi(Strategy):
 
     def on_bar(self, bar) -> None:
         close = bar.close
-        fast_val = self.fast_sma.update(close)
-        slow_val = self.slow_sma.update(close)
+        fast_val = self.fast_ma.update(close)
+        slow_val = self.slow_ma.update(close)
 
         rsi_val = self.rsi.update(close)
         atr_val = self.atr.update(bar.high, bar.low, bar.close)
@@ -109,11 +115,17 @@ def run(
     rsi_period: int = 14,
     atr_period: int = 14,
     risk_pct: float = 0.01,
+    use_ema: bool = False,
 ) -> dict[str, Any]:
     bars_list = oscillating_bars("RELIANCE", bars)
 
     strat = CompositeSmaRsi(
-        fast=fast, slow=slow, rsi_period=rsi_period, atr_period=atr_period, risk_pct=risk_pct
+        fast=fast,
+        slow=slow,
+        rsi_period=rsi_period,
+        atr_period=atr_period,
+        risk_pct=risk_pct,
+        use_ema=use_ema,
     )
     return replay_report(
         strat,
@@ -124,6 +136,7 @@ def run(
             "rsi_period": rsi_period,
             "atr_period": atr_period,
             "risk_pct": risk_pct,
+            "use_ema": use_ema,
         },
         config_extra={"bars": bars},
     )
@@ -136,6 +149,7 @@ def _add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--rsi-period", type=int, default=14)
     parser.add_argument("--atr-period", type=int, default=14)
     parser.add_argument("--risk-pct", type=float, default=0.01)
+    parser.add_argument("--use-ema", action="store_true", help="use EMA instead of SMA")
 
 
 def main(argv: list[str] | None = None) -> int:

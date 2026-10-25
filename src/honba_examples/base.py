@@ -17,10 +17,10 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+from honba.data.loaders.nse import DateInterval
+from honba.data.store import ParquetBarStore, find_data_root
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
-from honba.screener.coverage import DateInterval
-from honba.screener.store import ParquetBarStore, find_data_root
 
 from honba_examples.output import OutputFormat, OutputOptions, add_output_args, resolve_output
 
