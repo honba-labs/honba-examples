@@ -20,36 +20,75 @@ def example():
     return module
 
 
-def test_run_returns_windows(example):
-    result = example.run(bars=120, window=40, step=20)
+def test_run_returns_folds_and_wfe(example):
+    result = example.run(
+        use_synthetic=True, train_months=12, test_months=3, n_folds=4, fast=5, slow=20
+    )
     assert "config" in result
-    assert "windows" in result
-    assert len(result["windows"]) > 0
-    for w in result["windows"]:
-        assert set(w) == {
-            "window",
-            "train_range",
-            "test_range",
-            "best_fast",
-            "best_slow",
-            "train_score",
-            "test_score",
-            "train_trades",
-            "test_trades",
-        }
+    assert "gates" in result
+    assert "wfe" in result
+    assert "folds" in result
+    assert len(result["folds"]) == 4
+
+    for fold in result["folds"]:
+        assert "in_sample" in fold
+        assert "out_of_sample" in fold
+        assert "oos_is_ratio" in fold
+        assert fold["in_sample"]["sharpe"] >= 0
+        assert fold["out_of_sample"]["sharpe"] >= 0
+
+
+def test_wfe_structure(example):
+    result = example.run(use_synthetic=True, train_months=12, test_months=3, n_folds=4)
+    wfe = result["wfe"]
+    assert "mean_in_sample_sharpe" in wfe
+    assert "mean_out_of_sample_sharpe" in wfe
+    assert "walk_forward_efficiency" in wfe
+    assert "wfe_passed" in wfe
+
+
+def test_gates_structure(example):
+    result = example.run(use_synthetic=True, train_months=12, test_months=3, n_folds=4)
+    gates = result["gates"]
+    assert "checks" in gates
+    assert "passed" in gates
+    assert set(gates["checks"].keys()) == {"mean_oos_sharpe", "oos_sharpe_std", "profitable_folds"}
 
 
 def test_deterministic_across_two_runs(example):
     import json as _json
 
-    first = _json.dumps(example.run(), sort_keys=True, default=str)
-    second = _json.dumps(example.run(), sort_keys=True, default=str)
+    first = _json.dumps(
+        example.run(use_synthetic=True, train_months=12, test_months=3, n_folds=4),
+        sort_keys=True,
+        default=str,
+    )
+    second = _json.dumps(
+        example.run(use_synthetic=True, train_months=12, test_months=3, n_folds=4),
+        sort_keys=True,
+        default=str,
+    )
     assert first == second
 
 
 def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
     out = tmp_path / "walk_forward.json"
-    assert example.main(["--out", str(out)]) == 0
+    assert (
+        example.main(
+            [
+                "--out",
+                str(out),
+                "--synthetic",
+                "--train-months",
+                "12",
+                "--test-months",
+                "3",
+                "--n-folds",
+                "4",
+            ]
+        )
+        == 0
+    )
     stdout = capsys.readouterr().out
     file_json = json.loads(out.read_text())
     stdout_json = json.loads(stdout)
@@ -57,36 +96,17 @@ def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
 
 
 def test_main_happy_path_returns_zero(example, capsys):
-    assert example.main([]) == 0
-    assert "windows" in capsys.readouterr().out
+    assert (
+        example.main(
+            ["--synthetic", "--train-months", "12", "--test-months", "3", "--n-folds", "4"]
+        )
+        == 0
+    )
+    assert "Walk-forward" in capsys.readouterr().out
 
 
-def _ramp(n):
-    from honba_examples.synthetic import trending_bars
-
-    return trending_bars("RELIANCE", n)
-
-
-def test_backtest_returns_net_return_not_a_price(example):
-    # slow=20: buy at the 20th close (2509.5) with all 100000 -> 39 shares; last close 2529.5
-    score = example._backtest(_ramp(60), 5, 20)
-    assert score == pytest.approx(39 * (2529.5 - 2509.5) / 100_000.0)
-    assert example._backtest(_ramp(10), 5, 20) == 0.0  # never warmed up: flat
-
-
-def test_default_test_windows_trade(example):
-    result = example.run()
-    assert result["config"]["warmup_bars"] == 40
-    assert result["config"]["warnings"] == []
-    assert len(result["windows"]) >= 3
-    for w in result["windows"]:
-        assert w["test_range"][1] - w["test_range"][0] > 40  # test slice outlasts the warm-up
-        assert w["test_trades"] >= 1
-    assert any(w["test_score"] != 0.0 for w in result["windows"])
-    assert all(abs(w["train_score"]) < 1.0 for w in result["windows"])  # a return, not a price
-
-
-def test_short_test_slices_are_flagged(example):
-    result = example.run(bars=120, window=40, step=20)
-    assert result["config"]["warnings"]
-    assert all(w["test_trades"] <= 1 for w in result["windows"])  # little or no room to trade
+def test_rolling_window_option(example):
+    result = example.run(
+        use_synthetic=True, train_months=12, test_months=3, n_folds=4, window="rolling"
+    )
+    assert result["config"]["window"] == "rolling"

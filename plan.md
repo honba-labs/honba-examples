@@ -89,22 +89,22 @@ Home: `examples/strategies/` (adapter-only material stays in `examples/basic/`).
 
 ---
 
-### Phase 2: Strategy Tester & Automatic Strategy Enhancer (M1) — Week 3–4
+### Phase 2: Strategy Tester & Automatic Strategy Enhancer (M1) — Week 3–4 ✅
 Home: new `examples/optimizer/` for search/diagnostics; existing `examples/backtesting/` scripts are **upgraded** (they already exist as plain versions).
 
-- [ ] **2.1 Genetic Algorithm (GA) Optimization (like Jesse)**
-  - [ ] `optimizer/01_ga_trend_breakout.py` with declarative `Parameter(min=..., max=..., step=...)`, via `honba-ya-enhancer` / `honba-nou-genetic-engine`.
-  - [ ] Tournament selection, crossover, mutation across a 50-generation run (seeded, reproducible).
-  - [ ] Plot the Pareto-optimal frontier (Sharpe vs Max Drawdown) — reuse the Pareto logic in `backtesting/06_concurrent_backtest.py`, moved into `honba_examples/optimizer/`.
-- [ ] **2.2 Bayesian Hyperparameter Optimization**
-  - [ ] `optimizer/02_bayesian_mean_reversion.py` — Tree-structured Parzen Estimators (TPE) over a high-dimensional search space.
-- [ ] **2.3 Walk-Forward Analysis (WFO)**
-  - [ ] Upgrade `backtesting/04_walk_forward.py` (`SmaWalk`) to a momentum strategy over 5 years of data, with alternating in-sample / out-of-sample slices.
-  - [ ] Assert Walk-Forward Efficiency $\text{WFE} \ge 0.60$ (as a reported gate on real data; synthetic-data runs report it without asserting).
-- [ ] **2.4 Overfitting Diagnostics & Monte Carlo**
-  - [ ] `optimizer/03_deflated_sharpe_analysis.py` — Marcos López de Prado's DSR and PBO (CSCV) over the trials produced by 2.1/2.2.
-  - [ ] Upgrade `backtesting/05_monte_carlo.py` (`SmaMonteCarlo`): permute 1,000 trade sequences and inject 2x slippage shocks; report drawdown distribution.
-- [ ] Docs: `docs/dsr_pbo.md`, `docs/wfo_efficiency.md`.
+- [x] **2.1 Genetic Algorithm (GA) Optimization (like Jesse)**
+  - [x] `optimizer/01_ga_trend_breakout.py` with declarative `Parameter(min=..., max=..., step=...)`, via `honba-ya-enhancer` / `honba-nou-genetic-engine`.
+  - [x] Tournament selection, crossover, mutation across a 50-generation run (seeded, reproducible).
+  - [x] Plot the Pareto-optimal frontier (Sharpe vs Max Drawdown) — reuse the Pareto logic in `backtesting/06_concurrent_backtest.py`, moved into `honba_examples/optimizer/`.
+- [x] **2.2 Bayesian Hyperparameter Optimization**
+  - [x] `optimizer/02_bayesian_mean_reversion.py` — Tree-structured Parzen Estimators (TPE) over a high-dimensional search space.
+- [x] **2.3 Walk-Forward Analysis (WFO)**
+  - [x] Upgrade `backtesting/04_walk_forward.py` (`SmaWalk`) to a momentum strategy over 5 years of data, with alternating in-sample / out-of-sample slices.
+  - [x] Assert Walk-Forward Efficiency $\text{WFE} \ge 0.60$ (as a reported gate on real data; synthetic-data runs report it without asserting).
+- [x] **2.4 Overfitting Diagnostics & Monte Carlo**
+  - [x] `optimizer/03_deflated_sharpe_analysis.py` — Marcos López de Prado's DSR and PBO (CSCV) over the trials produced by 2.1/2.2.
+  - [x] Upgrade `backtesting/05_monte_carlo.py` (`SmaMonteCarlo`): permute 1,000 trade sequences and inject 2x slippage shocks; report drawdown distribution.
+- [x] Docs: `docs/dsr_pbo.md`, `docs/wfo_efficiency.md`.
 
 ---
 

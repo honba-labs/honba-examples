@@ -112,23 +112,33 @@ Runs on synthetic data via `honba.strategies.testing.replay`.
 | # | File | Strategy class | Indicators / parts |
 |---|---|---|---|
 | 01 | `01_first_strategy.py` | `SmaCrossover` | SMA (fast/slow) |
-| 02 | `02_with_indicators.py` | `CompositeSmaRsi` | SMA + RSI filter + ATR sizing + trailing stop |
+| 02 | `02_with_indicators.py` | `CompositeSmaRsi` | SMA/EMA + RSI filter + ATR sizing + trailing stop |
 | 03 | `03_position_sizing.py` | `SmaSizing` | SMA + ATR; fixed / volatility / fractional-Kelly sizing (capped by equity) |
 | 04 | `04_risk_management.py` | `RiskManagedSma` | SMA + drawdown, daily-loss and position guards |
 | 05 | `05_multi_instrument.py` | `BasketSma` | SMA per symbol + equal-weight rebalance |
 | 06 | `06_equal_weight_rebalance.py` | `PortfolioStrategy` | `NamedUniverse` + `EqualWeight`/`InverseVolatility` + `EveryNDays`/`MonthlyFirstSession`/`DriftBand`; matches catalog `equal_weight` |
 | 07 | `07_declarative_long_short.py` | `LongShortCrossover` | `DeclarativeStrategy`; long/short SMA crossover + stop and target |
+| 12 | `12_buy_and_hold_lifecycle.py` | `BuyAndHold` | Canonical lifecycle hooks: `on_start`, `on_bar`, and `on_stop` |
+| 13 | `13_bracket_order_mis.py` | `BracketOrderMis` | Take-profit / stop-loss bracket orders + MIS intraday margin with 15:20 IST auto-square-off |
+| 14 | `14_partial_fill_handling.py` | `PartialFillStrategy` | Order lifecycle events (`on_order_event`), partial fill accounting, order modification |
+| 15 | `15_multi_symbol_portfolio.py` | `MultiSymbolPortfolio` | Multi-symbol portfolio across 5 NIFTY scrips with per-symbol sizing & risk caps |
+| 16 | `16_dynamic_position_sizing.py` | `DynamicPositionSizing` | First-class comparison: fixed lot vs fixed fractional (1% risk) vs ATR volatility targeting |
 
 Run them:
 
 ```bash
 python examples/strategies/01_first_strategy.py
-python examples/strategies/02_with_indicators.py --rsi-period 14
+python examples/strategies/02_with_indicators.py --rsi-period 14 --use-ema
 python examples/strategies/03_position_sizing.py --sizing volatility
 python examples/strategies/04_risk_management.py --max-drawdown-pct 0.15
 python examples/strategies/05_multi_instrument.py --rebalance-every 15
 python examples/strategies/06_equal_weight_rebalance.py --rebalance-days 10
 python examples/strategies/07_declarative_long_short.py --stop-pct 0.02
+python examples/strategies/12_buy_and_hold_lifecycle.py
+python examples/strategies/13_bracket_order_mis.py --take-profit-pct 0.04 --stop-loss-pct 0.02
+python examples/strategies/14_partial_fill_handling.py --target-qty 20
+python examples/strategies/15_multi_symbol_portfolio.py --max-weight 0.20
+python examples/strategies/16_dynamic_position_sizing.py --compare
 ```
 
 ## `backtesting/` — end-to-end runs
@@ -156,13 +166,29 @@ Run them:
 python examples/backtesting/01_first_backtest.py --out first_backtest.json
 python examples/backtesting/02_cost_modeling.py --price 2500 --qty 10
 python examples/backtesting/03_latency_modeling.py
-python examples/backtesting/04_walk_forward.py --bars 400 --window 120 --step 60
-python examples/backtesting/05_monte_carlo.py --paths 1000
+python examples/backtesting/04_walk_forward.py --synthetic --train-months 12 --test-months 3 --n-folds 4
+python examples/backtesting/05_monte_carlo.py --synthetic --offsets 0 5 10 20
 python examples/backtesting/06_concurrent_backtest.py --workers 4
 python examples/backtesting/08_sip_buy_and_hold.py --symbol ALPHAETF --frequency monthly --sip-amount 5000
 python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --asof 2023-01-01 --top 5
 python examples/backtesting/10_chained_screener_and_sip.py --strategy value --asof 2023-01-01 --top 5
 python examples/backtesting/10_chained_screener_and_sip.py --strategy multibagger --screen-only --top 5
+```
+
+## `optimizer/` — parameter search & overfitting diagnostics
+
+| # | File | Shows |
+|---|---|---|
+| 01 | `01_ga_trend_breakout.py` | Genetic Algorithm optimization of Donchian breakout (lookback, ATR, volume filter); Pareto frontier |
+| 02 | `02_bayesian_mean_reversion.py` | Bayesian TPE optimization of RSI mean-reversion (period, oversold, overbought, lookback) |
+| 03 | `03_deflated_sharpe_analysis.py` | DSR & PBO (CSCV) overfitting diagnostics on optimization trials |
+
+Run them:
+
+```bash
+python examples/optimizer/01_ga_trend_breakout.py --generations 50 --population 50
+python examples/optimizer/02_bayesian_mean_reversion.py --trials 100
+python examples/optimizer/03_deflated_sharpe_analysis.py --trials 100 --folds 5
 ```
 
 ## `screening/` — point-in-time screeners and chains
@@ -218,63 +244,56 @@ Hand-rolled legs (no `Strategy` subclass); see the catalog options strategies
 | 01 | `01_option_chain.py` | No strategy — chain snapshot, filter by expiry/strike/moneyness |
 | 02 | `02_greeks_calculation.py` | No strategy — Black-Scholes Greeks per contract |
 | 03 | `03_backtest_straddle.py` | Long ATM straddle, hold to expiry |
-| 04 | `04_backtest_iron_condor.py` | Iron condor (4-leg credit spread) |
-| 05 | `05_expiry_day_strategy.py` | Expiry-day gamma scalping / theta capture |
+| 04 | `04_backtest_iron_condor.py` | Delta-hedged iron condor, expiry payoff |
+| 05 | `05_expiry_day_strategy.py` | Intraday gamma scalping on expiry day |
 
 Run them:
 
 ```bash
-python examples/options/01_option_chain.py --underlying NIFTY --expiry 2024-12-26
-python examples/options/02_greeks_calculation.py --spot 24000 --strike 24000 --days-to-expiry 7
-python examples/options/03_backtest_straddle.py --underlying NIFTY --expiry 2024-12-26
-python examples/options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
-python examples/options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
+python examples/options/01_option_chain.py
+python examples/options/02_greeks_calculation.py --spot 24500 --strike 24500 --dte 7 --iv 0.15
+python examples/options/03_backtest_straddle.py --strike 24500 --entry-dte 7
+python examples/options/04_backtest_iron_condor.py --wings 200
+python examples/options/05_expiry_day_strategy.py --dte 0 --step 10
 ```
 
-## `ai_research/` — the research loop
+## `ai_research/` — AI-native autonomous research loop
 
-No trading strategy; 01, 03 and 06 are runnable, the rest are design placeholders.
+Typed decision loop using `ScriptedFakeLlm` (no API key required).
 
-| # | File | Status | Purpose |
-|---|---|---|---|
-| 01 | `01_llm_research_analyst.py` | Runnable | NL question → validated screener filter |
-| 02 | `02_autoresearch_loop.py` | Design only | Hypothesis → backtest → journal loop |
-| 03 | `03_nl_screener.py` | Runnable | NL query → screener filter → historical backtest |
-| 04 | `04_nl_to_strategy.py` | Design only | NL → strategy manifest → `verify_manifest` |
-| 05 | `05_rl_training.py` | Design only | Gym environment + RL policy |
-| 06 | `06_mcp_integration.py` | Runnable | Enumerate the static MCP tool schema |
-| 07 | `07_natural_language_critique.py` | Design only | Backtest result → structured LLM critique |
-
-Run one (the two runnable steps):
-
-```bash
-python examples/ai_research/01_llm_research_analyst.py --query "rsi below 30" --fake-response "rsi < 30"
-python examples/ai_research/06_mcp_integration.py
-```
-
-## `production/` — paper, live, monitoring, deployment
-
-All run the `sma_crossover` strategy; swap `--adapter dhan` (or any registered
-adapter) for real connectivity.
-
-| # | File | Strategy |
+| # | File | Shows |
 |---|---|---|
-| 01 | `01_paper_trading.py` | Inline `SmaPaper` — simulated fills, P&L, risk guards |
-| 02 | `02_live_trading_dhan.py` | Inline `SmaLive` — Dhan connect, orders, rejections, position sync |
-| 03 | `03_multi_account.py` | Inline `SmaMulti` — isolated capital, aggregated P&L |
-| 04 | `04_monitoring.py` | No strategy — adapter latency, order throughput, position drift |
-| 05 | `05_deployment.py` | No strategy — systemd/container config for `sma_crossover` |
+| 01 | `01_natural_language_to_filter.py` | Prompt → JSON filter schema → duckdb execution |
+| 02 | `02_mcp_query_schema.py` | Expose research catalog via MCP tools |
+| 03 | `03_typed_llm_trade_decision.py` | Bar snapshot → typed Pydantic intent → risk gate |
+| 04 | `04_autonomous_research_agent.py` | Hypothesis → backtest → evaluate → refine |
+| 05 | `05_research_memory_bank.py` | Vector store of past experiments & findings |
+| 06 | `06_factor_idea_generator.py` | Generate candidate alpha expressions |
+| 07 | `07_regime_classification_agent.py` | Macro & volatility state machine |
+| 09 | `09_backtest_refinement_agent.py` | Parameter refinement after drawdown analysis |
 
 Run them:
 
 ```bash
-python examples/production/01_paper_trading.py --strategy sma_crossover --capital 100000
-python examples/production/02_live_trading_dhan.py --client-id XXX --access-token YYY  # needs Dhan creds
-python examples/production/03_multi_account.py --accounts config/accounts.yaml
-python examples/production/04_monitoring.py --port 9090
-python examples/production/05_deployment.py --output /etc/honba/
+python examples/ai_research/01_natural_language_to_filter.py --prompt "low pe high roe"
+python examples/ai_research/02_mcp_query_schema.py
+python examples/ai_research/03_typed_llm_trade_decision.py
+python examples/ai_research/04_autonomous_research_agent.py --max-iterations 3
 ```
 
-All examples default to the `fake` adapter, so they run with no credentials. Swap
-`--adapter dhan` (or any registered adapter) with real credentials for live broker
-connectivity.
+## `production/` — paper & live deployment
+
+| # | File | Shows |
+|---|---|---|
+| 01 | `01_paper_trading.py` | Paper runner with Dhan adapter |
+| 02 | `02_live_trading_dhan.py` | Live order submission with SEBI risk checks |
+| 03 | `03_multi_account_execution.py` | Mirroring intents across master/child accounts |
+| 04 | `04_monitoring.py` | Heartbeat, Prometheus metrics, alerting |
+| 05 | `05_deployment.py` | Docker container & systemd service configuration |
+
+Run them:
+
+```bash
+python examples/production/01_paper_trading.py --broker dhan
+python examples/production/04_monitoring.py --port 9090
+```
