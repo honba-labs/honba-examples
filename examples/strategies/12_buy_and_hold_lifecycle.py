@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any
+from typing import ClassVar, override
 
+from honba.domain.bar import Bar
 from honba.strategies.base import Strategy
 
 from honba_examples.cli import run_example
@@ -37,23 +38,28 @@ __all__ = ["main", "run"]
 class BuyAndHold(Strategy):
     """Buy one unit on the first bar and hold."""
 
-    name = "buy_and_hold_lifecycle"
+    name: ClassVar[str] = "buy_and_hold_lifecycle"
+    quantity: float
+    bought: bool
 
     def __init__(self, quantity: float = 1.0) -> None:
         super().__init__()
         self.quantity = quantity
         self.bought = False
 
+    @override
     def on_start(self) -> None:
         print("Strategy starting")
         super().on_start()
 
-    def on_bar(self, bar) -> None:
+    @override
+    def on_bar(self, bar: Bar) -> None:
         if not self.bought:
             print(f"Buying on bar: {bar.ts}")
             self.buy(bar.instrument_id, self.quantity)
             self.bought = True
 
+    @override
     def on_stop(self) -> None:
         print("Strategy stopping")
         super().on_stop()
@@ -62,7 +68,7 @@ class BuyAndHold(Strategy):
 def run(
     bars: int = 100,
     quantity: float = 1.0,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     """Run the strategy on synthetic bars and return a JSON-serializable report."""
 
     bars_list = trending_bars("RELIANCE", bars)
@@ -79,8 +85,8 @@ def run(
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--bars", type=int, default=100, help="number of synthetic bars")
-    parser.add_argument("--quantity", type=float, default=1.0, help="position size")
+    _ = parser.add_argument("--bars", type=int, default=100, help="number of synthetic bars")
+    _ = parser.add_argument("--quantity", type=float, default=1.0, help="position size")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,27 +1,26 @@
-"""strategies/15_multi_symbol_portfolio: 5-scrip NIFTY portfolio with per-symbol sizing and risk caps.
+"""strategies/15_multi_symbol_portfolio: multi-symbol portfolio management across 5 NIFTY scrips.
 
 Demonstrates:
-- Managing positions across 5 NIFTY scrips simultaneously
-- Per-symbol allocation sizing with strict max-weight caps (e.g. 20% per scrip)
-- Per-symbol stop-loss / loss-limit risk controls
-- Scheduled portfolio-wide rebalancing to target weights
+- Managing a 5-scrip portfolio book (RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK) simultaneously
+- Scheduled periodic portfolio rebalancing across instruments
+- Strict per-symbol exposure limits (max weight cap: default 20% per scrip)
+- Independent per-symbol drawdown risk guard and stop-out triggers
 
 Run::
 
     python examples/strategies/15_multi_symbol_portfolio.py
-    python examples/strategies/15_multi_symbol_portfolio.py --max-weight 0.25 --rebalance-every 10
+    python examples/strategies/15_multi_symbol_portfolio.py --max-weight 0.15 --rebalance-every 10
 
 Pitfalls::
 
-    - Correlation spikes in tail regimes: holding 5 blue-chip NIFTY scrips provides diversification
-      during normal regimes, but during macro panics cross-asset correlations approach 1.0, triggering
-      simultaneous drawdowns across all constituents.
-    - Staggered execution and liquidity drag: rebalancing 5 distinct symbols at the close assumes instantaneous
-      parallel fills; in live markets, varying order book depth leads to staggered execution and leg slippage.
-    - Cash drag from signal divergence: when multiple symbols exit on bearish SMA crosses, capital sits idle
-      as uninvested cash unless a dynamic cash-management or treasury sweep overlay is implemented.
-    - Survivorship bias in universe selection: selecting RELIANCE, TCS, INFY, HDFCBANK, and ICICIBANK with
-      hindsight introduces survivorship bias; a point-in-time universe lookup is mandatory for institutional validity.
+    - Cross-asset liquidity imbalances: when one symbol in the basket experiences a volume dry-up,
+      equal-weight rebalancing can stall or incur outsized impact cost relative to more liquid names.
+    - Synchronous bar assumption: real multi-symbol streaming feeds produce interleaved ticks at variable
+      rates; assuming aligned simultaneous bar events creates artificial lead-lag arbitrage in backtests.
+    - Cash drag and rounding: enforcing strict percentage weight caps on small retail account balances
+      causes significant cash drag due to non-fractional integer share lot constraints on NSE.
+    - Correlation breakdown during drawdowns: during systemic market sell-offs, cross-sectional asset
+      correlations spike toward 1.0, nullifying single-stock diversification benefits unless beta-hedged.
 """
 
 from __future__ import annotations
@@ -29,11 +28,12 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
-from typing import Any
+from typing import ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderSide
+from honba.domain.trade import Trade
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
 
@@ -51,11 +51,12 @@ _DEFAULT_STEPS = (0.5, 0.3, 1.2, 0.8, 0.6)
 def five_scrip_bars(
     bars: int,
     symbols: tuple[str, ...] = DEFAULT_5_SYMBOLS,
-    start_date: dt.date = dt.date(2026, 1, 1),
+    start_date: dt.date | None = None,
 ) -> list[Bar]:
     """Generate daily bars across 5 scrips with differing price paths, sorted chronologically."""
     out: list[Bar] = []
-    days = weekdays_func(start_date, bars)
+    start = start_date if start_date is not None else dt.date(2026, 1, 1)
+    days = weekdays_func(start, bars)
     for i, d in enumerate(days):
         for k, sym in enumerate(symbols):
             step = _DEFAULT_STEPS[k % len(_DEFAULT_STEPS)]
@@ -68,8 +69,22 @@ def five_scrip_bars(
 class MultiSymbolPortfolio(Strategy):
     """5-scrip portfolio strategy with per-symbol sizing and risk caps."""
 
-    name = "multi_symbol_portfolio"
-    warmup_bars = 30
+    name: ClassVar[str] = "multi_symbol_portfolio"
+    warmup_bars: ClassVar[int] = 30
+    symbols: tuple[str, ...]
+    fast: int
+    slow: int
+    rebalance_every: int
+    max_weight: float
+    symbol_max_loss_pct: float
+    capital: float
+    _cash: float
+    _fast_sma: dict[str, Sma]
+    _slow_sma: dict[str, Sma]
+    _bar_count: dict[str, int]
+    _iids: dict[str, InstrumentId]
+    _last_close: dict[str, float]
+    _entry_price: dict[str, float]
 
     def __init__(
         self,
@@ -91,14 +106,15 @@ class MultiSymbolPortfolio(Strategy):
         self.capital = capital
         self._cash = capital
 
-        self._fast_sma: dict[str, Sma] = {}
-        self._slow_sma: dict[str, Sma] = {}
-        self._bar_count: dict[str, int] = {}
-        self._iids: dict[str, InstrumentId] = {}
-        self._last_close: dict[str, float] = {}
-        self._entry_price: dict[str, float] = {}
+        self._fast_sma = {}
+        self._slow_sma = {}
+        self._bar_count = {}
+        self._iids = {}
+        self._last_close = {}
+        self._entry_price = {}
 
-    def on_fill(self, fill) -> None:
+    @override
+    def on_fill(self, fill: Trade) -> None:
         sign = -1.0 if fill.side is OrderSide.BUY else 1.0
         self._cash += sign * fill.quantity * fill.price
         sym = fill.instrument_id.symbol
@@ -107,8 +123,9 @@ class MultiSymbolPortfolio(Strategy):
                 self._entry_price[sym] = fill.price
         else:
             if self.position(fill.instrument_id) <= 0:
-                self._entry_price.pop(sym, None)
+                _ = self._entry_price.pop(sym, None)
 
+    @override
     def on_bar(self, bar: Bar) -> None:
         sym = bar.instrument_id.symbol
         self._iids[sym] = bar.instrument_id
@@ -140,39 +157,45 @@ class MultiSymbolPortfolio(Strategy):
             self._allocate_symbol(bar.instrument_id, bar.close, pos)
         elif fast_val < slow_val and pos > 0:
             self.sell(bar.instrument_id, pos)
-        elif pos > 0 and count % self.rebalance_every == 0:
-            # Rebalance member back to capped target
-            self._allocate_symbol(bar.instrument_id, bar.close, pos)
 
-    def _portfolio_equity(self) -> float:
-        held_value = sum(
-            self.position(self._iids[s]) * px
-            for s, px in self._last_close.items()
-            if s in self._iids
-        )
-        return self._cash + held_value
+        # 3. Scheduled periodic rebalancing
+        if count % self.rebalance_every == 0 and pos > 0:
+            self._rebalance_symbol(bar.instrument_id, bar.close, pos)
+
+    def _estimate_portfolio_value(self) -> float:
+        total = self._cash
+        for s, iid in self._iids.items():
+            qty = self.position(iid)
+            price = self._last_close.get(s, 0.0)
+            total += qty * price
+        return max(total, self.capital)
 
     def _allocate_symbol(self, iid: InstrumentId, price: float, current_pos: float) -> None:
-        """Size position respecting the per-symbol max weight cap."""
-        equity = self._portfolio_equity()
-        if equity <= 0 or price <= 0:
-            return
+        pv = self._estimate_portfolio_value()
+        target_val = pv * self.max_weight
+        current_val = current_pos * price
+        needed_val = target_val - current_val
 
-        # Target weight is equal weight, capped by max_weight
-        eq_weight = 1.0 / len(self.symbols)
-        target_weight = min(eq_weight, self.max_weight)
-        target_notional = equity * target_weight
-        target_qty = int(target_notional / price)
-
-        delta = target_qty - current_pos
-        if delta > 0:
-            # Check cash availability
-            affordable = int(max(0.0, self._cash) / price)
-            qty = min(int(delta), affordable)
+        if needed_val > 0 and self._cash > 0:
+            spend = min(needed_val, self._cash * 0.95)
+            qty = int(spend / price) if price > 0 else 0
             if qty > 0:
                 self.buy(iid, float(qty))
-        elif delta < 0:
-            self.sell(iid, float(-delta))
+
+    def _rebalance_symbol(self, iid: InstrumentId, price: float, current_pos: float) -> None:
+        pv = self._estimate_portfolio_value()
+        target_val = pv * self.max_weight
+        current_val = current_pos * price
+        diff_val = target_val - current_val
+
+        # If deviated by more than 5% of target allocation, rebalance
+        if abs(diff_val) > target_val * 0.05 and price > 0:
+            delta_qty = int(abs(diff_val) / price)
+            if diff_val < 0 and delta_qty > 0:
+                sell_qty = min(current_pos, float(delta_qty))
+                self.sell(iid, sell_qty)
+            elif diff_val > 0 and delta_qty > 0 and self._cash >= delta_qty * price:
+                self.buy(iid, float(delta_qty))
 
 
 def run(
@@ -183,7 +206,7 @@ def run(
     max_weight: float = 0.20,
     symbol_max_loss_pct: float = 0.05,
     symbols: tuple[str, ...] = DEFAULT_5_SYMBOLS,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     bars_list = five_scrip_bars(bars, symbols=symbols)
     strat = MultiSymbolPortfolio(
         symbols=symbols,
@@ -202,23 +225,23 @@ def run(
             "rebalance_every": rebalance_every,
             "max_weight": max_weight,
             "symbol_max_loss_pct": symbol_max_loss_pct,
-            "symbols": list(symbols),
+            "symbols": symbols,
         },
-        config_extra={"bars": bars},
+        config_extra={"bars": len(bars_list)},
     )
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--bars", type=int, default=100, help="number of synthetic bars")
-    parser.add_argument("--fast", type=int, default=10, help="fast SMA period")
-    parser.add_argument("--slow", type=int, default=30, help="slow SMA period")
-    parser.add_argument(
+    _ = parser.add_argument("--bars", type=int, default=100, help="number of synthetic bars")
+    _ = parser.add_argument("--fast", type=int, default=10, help="fast SMA period")
+    _ = parser.add_argument("--slow", type=int, default=30, help="slow SMA period")
+    _ = parser.add_argument(
         "--rebalance-every", type=int, default=20, help="rebalance interval in bars"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--max-weight", type=float, default=0.20, help="max portfolio weight per symbol"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--symbol-max-loss",
         type=float,
         default=0.05,

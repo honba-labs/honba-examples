@@ -29,11 +29,12 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
-from typing import Any
+from typing import ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
 from honba.domain.order import OrderSide
+from honba.domain.trade import Trade
 from honba.strategies.base import Strategy
 
 from honba_examples.cli import run_example
@@ -44,7 +45,7 @@ __all__ = ["BracketOrderMis", "intraday_mis_bars", "main", "run"]
 
 def intraday_mis_bars(
     symbol: str = "RELIANCE",
-    start_date: dt.date = dt.date(2026, 1, 1),
+    start_date: dt.date | None = None,
     days: int = 1,
     base_price: float = 2500.0,
     price_path: list[float] | None = None,
@@ -68,7 +69,7 @@ def intraday_mis_bars(
         (15, 30),
     ]
 
-    current_day = start_date
+    current_day = start_date if start_date is not None else dt.date(2026, 1, 1)
     bar_idx = 0
     for _ in range(days):
         while current_day.weekday() >= 5:  # skip weekends
@@ -111,7 +112,19 @@ def intraday_mis_bars(
 class BracketOrderMis(Strategy):
     """Intraday MIS strategy with bracket take-profit / stop-loss and 15:20 IST square-off."""
 
-    name = "bracket_order_mis"
+    name: ClassVar[str] = "bracket_order_mis"
+    quantity: float
+    stop_loss_pct: float
+    take_profit_pct: float
+    margin_multiplier: float
+    capital: float
+    _cash: float
+    _entry_price: float | None
+    _take_profit_price: float | None
+    _stop_loss_price: float | None
+    _current_date: dt.date | None
+    _entered_today: bool
+    _exit_reason: str | None
 
     def __init__(
         self,
@@ -129,14 +142,15 @@ class BracketOrderMis(Strategy):
         self.capital = capital
         self._cash = capital
 
-        self._entry_price: float | None = None
-        self._take_profit_price: float | None = None
-        self._stop_loss_price: float | None = None
-        self._current_date: dt.date | None = None
+        self._entry_price = None
+        self._take_profit_price = None
+        self._stop_loss_price = None
+        self._current_date = None
         self._entered_today = False
-        self._exit_reason: str | None = None
+        self._exit_reason = None
 
-    def on_fill(self, fill) -> None:
+    @override
+    def on_fill(self, fill: Trade) -> None:
         sign = -1.0 if fill.side is OrderSide.BUY else 1.0
         self._cash += sign * fill.quantity * fill.price
         if fill.side is OrderSide.BUY:
@@ -148,6 +162,7 @@ class BracketOrderMis(Strategy):
             self._take_profit_price = None
             self._stop_loss_price = None
 
+    @override
     def on_bar(self, bar: Bar) -> None:
         # Convert bar timestamp to IST
         utc_dt = dt.datetime.fromtimestamp(bar.ts / 1_000_000_000, tz=dt.timezone.utc)
@@ -191,6 +206,10 @@ class BracketOrderMis(Strategy):
                     self.buy(bar.instrument_id, float(qty))
                     self._entered_today = True
 
+    @property
+    def exit_reason(self) -> str | None:
+        return self._exit_reason
+
 
 def run(
     bars: int = 26,
@@ -200,7 +219,7 @@ def run(
     margin_multiplier: float = 5.0,
     capital: float = 100_000.0,
     price_path: list[float] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     bars_list = intraday_mis_bars("RELIANCE", days=max(1, bars // 13), price_path=price_path)
     if bars and len(bars_list) > bars:
         bars_list = bars_list[:bars]
@@ -227,16 +246,18 @@ def run(
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--bars", type=int, default=26, help="number of intraday bars")
-    parser.add_argument("--quantity", type=float, default=10.0, help="order quantity")
-    parser.add_argument("--stop-loss-pct", type=float, default=0.02, help="stop loss percentage")
-    parser.add_argument(
+    _ = parser.add_argument("--bars", type=int, default=26, help="number of intraday bars")
+    _ = parser.add_argument("--quantity", type=float, default=10.0, help="order quantity")
+    _ = parser.add_argument(
+        "--stop-loss-pct", type=float, default=0.02, help="stop loss percentage"
+    )
+    _ = parser.add_argument(
         "--take-profit-pct", type=float, default=0.04, help="take profit percentage"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--margin-multiplier", type=float, default=5.0, help="MIS leverage multiplier"
     )
-    parser.add_argument("--capital", type=float, default=100_000.0, help="starting capital")
+    _ = parser.add_argument("--capital", type=float, default=100_000.0, help="starting capital")
 
 
 def main(argv: list[str] | None = None) -> int:

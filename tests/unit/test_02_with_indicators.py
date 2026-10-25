@@ -5,75 +5,101 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from typing import Protocol, cast
 
 import pytest
 
 _PATH = Path(__file__).resolve().parents[2] / "examples" / "strategies" / "02_with_indicators.py"
 
 
+class ExampleModule(Protocol):
+    def run(
+        self,
+        bars: int = ...,
+        fast: int = ...,
+        slow: int = ...,
+        rsi_period: int = ...,
+        atr_period: int = ...,
+        risk_pct: float = ...,
+        use_ema: bool = ...,
+    ) -> dict[str, object]: ...
+
+    def main(self, argv: list[str] | None = None) -> int: ...
+
+
 @pytest.fixture(scope="module")
-def example():
+def example() -> ExampleModule:
     spec = importlib.util.spec_from_file_location("with_indicators", _PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module
+    return cast(ExampleModule, module)
 
 
-def test_run_returns_strategy_config_and_result(example):
+def test_run_returns_strategy_config_and_result(example: ExampleModule) -> None:
     result = example.run(bars=20)
-    assert set(result) == {"strategy", "config", "result"}
-    assert result["strategy"]["name"] == "composite_sma_rsi"
-    assert result["config"]["fast"] == 10
-    assert result["config"]["slow"] == 30
-    assert result["config"]["rsi_period"] == 14
-    assert result["config"]["atr_period"] == 14
-    assert result["config"]["use_ema"] is False
+    assert set(result.keys()) == {"strategy", "config", "result"}
+    strat = cast(dict[str, object], result["strategy"])
+    cfg = cast(dict[str, object], result["config"])
+    assert strat["name"] == "composite_sma_rsi"
+    assert cfg["fast"] == 10
+    assert cfg["slow"] == 30
+    assert cfg["rsi_period"] == 14
+    assert cfg["atr_period"] == 14
+    assert cfg["use_ema"] is False
 
 
-def test_result_contains_fills_and_intents(example):
+def test_result_contains_fills_and_intents(example: ExampleModule) -> None:
     result = example.run(bars=100)
-    res = result["result"]
+    res = cast(dict[str, object], result["result"])
     assert "fills" in res
     assert "intents" in res
 
 
-def test_deterministic_across_two_runs(example):
-    import json as _json
-
-    first = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
-    second = _json.dumps(example.run(bars=50), sort_keys=True, default=str)
+def test_deterministic_across_two_runs(example: ExampleModule) -> None:
+    first = json.dumps(example.run(bars=50), sort_keys=True, default=str)
+    second = json.dumps(example.run(bars=50), sort_keys=True, default=str)
     assert first == second
 
 
-def test_main_writes_same_json_to_out_and_stdout(example, tmp_path, capsys):
-    out = tmp_path / "with_indicators.json"
+def test_main_writes_same_json_to_out_and_stdout(
+    example: ExampleModule, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out: Path = tmp_path / "with_indicators.json"
     assert example.main(["--out", str(out)]) == 0
-    stdout = capsys.readouterr().out
-    file_json = json.loads(out.read_text())
-    stdout_json = json.loads(stdout)
+    stdout: str = capsys.readouterr().out
+    file_json = cast(dict[str, object], json.loads(out.read_text()))
+    stdout_json = cast(dict[str, object], json.loads(stdout))
     assert file_json == stdout_json
-    assert file_json["strategy"]["name"] == "composite_sma_rsi"
+    strat = cast(dict[str, object], file_json["strategy"])
+    assert strat["name"] == "composite_sma_rsi"
 
 
-def test_main_happy_path_returns_zero(example, capsys):
+def test_main_happy_path_returns_zero(
+    example: ExampleModule, capsys: pytest.CaptureFixture[str]
+) -> None:
     assert example.main([]) == 0
     assert "composite_sma_rsi" in capsys.readouterr().out
 
 
-def test_default_run_trades_both_sides(example):
+def test_default_run_trades_both_sides(example: ExampleModule) -> None:
     """The default series oscillates, so RSI leaves 100 and entries get through."""
-    res = example.run()["result"]
-    sides = {f["side"] for f in res["fills"]}
-    assert len(res["intents"]) >= 2
+    result = example.run()
+    res = cast(dict[str, object], result["result"])
+    fills = cast(list[dict[str, object]], res["fills"])
+    intents = cast(list[object], res["intents"])
+    sides: set[str] = {str(f.get("side")) for f in fills}
+    assert len(intents) >= 2
     assert sides == {"buy", "sell"}
 
 
-def test_ema_variant_runs_successfully(example):
+def test_ema_variant_runs_successfully(example: ExampleModule) -> None:
     """Running with use_ema=True enables the EMA trend filter."""
     result = example.run(bars=100, use_ema=True)
-    assert result["config"]["use_ema"] is True
-    res = result["result"]
+    cfg = cast(dict[str, object], result["config"])
+    assert cfg["use_ema"] is True
+    res = cast(dict[str, object], result["result"])
     assert "fills" in res
     assert "intents" in res
-    assert len(res["fills"]) >= 1
+    fills = cast(list[object], res["fills"])
+    assert len(fills) >= 1

@@ -36,8 +36,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any
+from typing import ClassVar, override
 
+from honba.domain.bar import Bar
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Atr, Ema, Rsi, Sma
 
@@ -51,8 +52,15 @@ __all__ = ["main", "run"]
 class CompositeSmaRsi(Strategy):
     """SMA/EMA crossover with RSI filter and ATR trailing stop."""
 
-    name = "composite_sma_rsi"
-    warmup_bars = 30
+    name: ClassVar[str] = "composite_sma_rsi"
+    warmup_bars: ClassVar[int] = 30
+    use_ema: bool
+    fast_ma: Sma | Ema
+    slow_ma: Sma | Ema
+    rsi: Rsi
+    atr: Atr
+    risk_pct: float
+    _trailing: dict[str, float]
 
     def __init__(
         self,
@@ -70,9 +78,10 @@ class CompositeSmaRsi(Strategy):
         self.rsi = Rsi(rsi_period)
         self.atr = Atr(atr_period)
         self.risk_pct = risk_pct
-        self._trailing: dict[str, float] = {}
+        self._trailing = {}
 
-    def on_bar(self, bar) -> None:
+    @override
+    def on_bar(self, bar: Bar) -> None:
         close = bar.close
         fast_val = self.fast_ma.update(close)
         slow_val = self.slow_ma.update(close)
@@ -116,7 +125,7 @@ def run(
     atr_period: int = 14,
     risk_pct: float = 0.01,
     use_ema: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     bars_list = oscillating_bars("RELIANCE", bars)
 
     strat = CompositeSmaRsi(
@@ -143,13 +152,13 @@ def run(
 
 
 def _add_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--bars", type=int, default=100)
-    parser.add_argument("--fast", type=int, default=10)
-    parser.add_argument("--slow", type=int, default=30)
-    parser.add_argument("--rsi-period", type=int, default=14)
-    parser.add_argument("--atr-period", type=int, default=14)
-    parser.add_argument("--risk-pct", type=float, default=0.01)
-    parser.add_argument("--use-ema", action="store_true", help="use EMA instead of SMA")
+    _ = parser.add_argument("--bars", type=int, default=100)
+    _ = parser.add_argument("--fast", type=int, default=10)
+    _ = parser.add_argument("--slow", type=int, default=30)
+    _ = parser.add_argument("--rsi-period", type=int, default=14)
+    _ = parser.add_argument("--atr-period", type=int, default=14)
+    _ = parser.add_argument("--risk-pct", type=float, default=0.01)
+    _ = parser.add_argument("--use-ema", action="store_true", help="use EMA instead of SMA")
 
 
 def main(argv: list[str] | None = None) -> int:
