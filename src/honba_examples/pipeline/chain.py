@@ -70,7 +70,7 @@ _CLASSES: tuple[type[Step], ...] = (
     InverseVolatilitySizer,
     SipBacktestHarness,
 )
-REGISTRY: dict[str, type[Step]] = {cls.describe()["id"]: cls for cls in _CLASSES}
+REGISTRY: dict[str, type[Step]] = {str(cls.describe()["id"]): cls for cls in _CLASSES}
 """Step id (``<kind>.<name>``) to the Step class that implements it."""
 
 # Params where a chain file writes 0 for "test disabled" (the constructors take None).
@@ -80,6 +80,8 @@ _STEP_KEYS = {"uses", "id", "with", "report"}
 
 class ChainError(ValueError):
     """An invalid chain; ``errors`` holds every problem found."""
+
+    errors: list[str]
 
     def __init__(self, errors: list[str]) -> None:
         self.errors = errors
@@ -95,12 +97,12 @@ def describe_all() -> dict[str, dict[str, Any]]:
     return {sid: cls.describe() for sid, cls in REGISTRY.items()}
 
 
-def _plain(value: Any) -> Any:
+def _plain(value: object) -> object:
     """TOML dates become ISO strings, which is what ``date`` params and the steps accept."""
     if isinstance(value, (dt.date, dt.datetime)):
         return value.isoformat()
     if isinstance(value, dict):
-        return {k: _plain(v) for k, v in value.items()}
+        return {str(k): _plain(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_plain(v) for v in value]
     return value
@@ -113,10 +115,10 @@ def load_chain(source: str | Path | dict[str, Any] | list[dict[str, Any]]) -> li
     errors raise :class:`ChainError`; whether the chain makes sense is :func:`validate`'s job.
     """
     if isinstance(source, (str, Path)):
-        data: Any = tomllib.loads(Path(source).read_text())
+        data: object = tomllib.loads(Path(source).read_text())
     else:
         data = source
-    raw = data.get("steps") if isinstance(data, dict) else data
+    raw: object = data.get("steps") if isinstance(data, dict) else data
     if not isinstance(raw, list) or not raw:
         raise ChainError(["chain needs a non-empty [[steps]] list"])
     steps: list[dict[str, Any]] = []
@@ -131,8 +133,10 @@ def load_chain(source: str | Path | dict[str, Any] | list[dict[str, Any]]) -> li
             continue
         for key in sorted(set(entry) - _STEP_KEYS):
             errors.append(f"{sid}: unknown key {key!r} (allowed: uses, with, report)")
-        params, report = entry.get("with", {}), entry.get("report", [])
-        if not isinstance(params, dict):
+        raw_params = entry.get("with", {})
+        params = raw_params if isinstance(raw_params, dict) else None
+        report = entry.get("report", [])
+        if params is None:
             errors.append(f"{sid}: 'with' must be a table")
             continue
         if not isinstance(report, list) or not all(isinstance(c, str) for c in report):
@@ -150,16 +154,18 @@ def catalog_manifests() -> dict[str, dict[str, Any]]:
 
     root = strategies_catalog_dir()
     out: dict[str, dict[str, Any]] = {}
-    for entry in json.loads((root / "registry.json").read_text())["strategies"]:
+    data: dict[str, Any] = json.loads((root / "registry.json").read_text())
+    for entry in data.get("strategies", []):
         entry_path = entry.get("path")
         if not entry_path and "versions" in entry:
+            versions = entry.get("versions", {})
             latest = entry.get("latest")
-            if latest and latest in entry["versions"]:
-                entry_path = entry["versions"][latest]["path"]
-            else:
-                entry_path = next(iter(entry["versions"].values()))["path"]
+            if latest and latest in versions:
+                entry_path = versions[latest].get("path")
+            elif versions:
+                entry_path = next(iter(versions.values())).get("path")
         if entry_path:
-            path = root / entry_path / "step.toml"
+            path = root / str(entry_path) / "step.toml"
             if path.is_file():
                 manifest = tomllib.loads(path.read_text())
                 out[manifest["id"]] = manifest
@@ -172,17 +178,18 @@ def _manifests(chain: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[
     errors: list[str] = []
     catalog: dict[str, dict[str, Any]] | None = None
     for step in chain:
-        cls = REGISTRY.get(step["uses"])
+        sid = str(step["uses"])
+        cls = REGISTRY.get(sid)
         if cls is not None:
             base = cls.describe()
         else:
             catalog = catalog_manifests() if catalog is None else catalog
-            if step["uses"] not in catalog:
+            if sid not in catalog:
                 known = sorted(set(REGISTRY) | set(catalog))
-                errors.append(f"unknown step id {step['uses']!r}; known ids are {known}")
+                errors.append(f"unknown step id {sid!r}; known ids are {known}")
                 continue
-            base = catalog[step["uses"]]
-        out.append({**base, "with": step["with"], "report": step["report"]})
+            base = catalog[sid]
+        out.append({**base, "with": step.get("with"), "report": step.get("report")})
     return out, errors
 
 
@@ -198,23 +205,26 @@ def validate(chain: list[dict[str, Any]]) -> list[str]:
 
     tools = load_catalog_tool("validate_chain")  # fail on a missing catalog even if ids are bad
     try:
-        chain = load_chain(chain)
+        loaded_chain = load_chain(chain)
     except ChainError as exc:
         return exc.errors
-    manifests, errors = _manifests(chain)
+    manifests, errors = _manifests(loaded_chain)
     if errors:
         return errors
     return list(tools.validate_chain(manifests))
 
 
 def _build_step(step: dict[str, Any], catalog_dir: Path | None) -> Step:
-    sid, cls = step["uses"], REGISTRY[step["uses"]]
-    kwargs = dict(step["with"])
+    sid = str(step["uses"])
+    cls = REGISTRY[sid]
+    with_val = step.get("with")
+    kwargs: dict[str, Any] = dict(with_val) if isinstance(with_val, dict) else {}
     for name in _ZERO_DISABLES.get(sid, ()):
         if kwargs.get(name) == 0:
             kwargs[name] = None
-    if step["report"]:
-        kwargs["report"] = step["report"]
+    report_val = step.get("report")
+    if report_val:
+        kwargs["report"] = report_val
     if catalog_dir is not None and "catalog_dir" in inspect.signature(cls.__init__).parameters:
         kwargs.setdefault("catalog_dir", catalog_dir)
     return cls(**kwargs)
