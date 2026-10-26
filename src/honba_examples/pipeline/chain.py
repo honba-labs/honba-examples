@@ -151,10 +151,18 @@ def catalog_manifests() -> dict[str, dict[str, Any]]:
     root = strategies_catalog_dir()
     out: dict[str, dict[str, Any]] = {}
     for entry in json.loads((root / "registry.json").read_text())["strategies"]:
-        path = root / entry["path"] / "step.toml"
-        if path.is_file():
-            manifest = tomllib.loads(path.read_text())
-            out[manifest["id"]] = manifest
+        entry_path = entry.get("path")
+        if not entry_path and "versions" in entry:
+            latest = entry.get("latest")
+            if latest and latest in entry["versions"]:
+                entry_path = entry["versions"][latest]["path"]
+            else:
+                entry_path = next(iter(entry["versions"].values()))["path"]
+        if entry_path:
+            path = root / entry_path / "step.toml"
+            if path.is_file():
+                manifest = tomllib.loads(path.read_text())
+                out[manifest["id"]] = manifest
     return out
 
 

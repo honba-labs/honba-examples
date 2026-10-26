@@ -57,7 +57,7 @@ def example() -> ExampleModule:
     module = importlib.util.module_from_spec(spec)
     sys.modules["partial_fill_handling"] = module
     spec.loader.exec_module(module)
-    return cast(ExampleModule, module)
+    return cast(ExampleModule, cast(object, module))
 
 
 def test_run_returns_expected_structure(example: ExampleModule) -> None:
@@ -92,7 +92,7 @@ def test_partial_fill_and_cumulative_accounting(example: ExampleModule) -> None:
     strat.on_fill(fill1)
     assert strat.filled_quantity == 30.0
     assert strat.remaining_quantity == 70.0
-    last_event = cast(dict[str, object], strat.events_log[-1])
+    last_event = strat.events_log[-1]
     assert last_event["event_type"] == "PARTIAL_FILL"
 
     # Second partial fill: 40 shares
@@ -100,7 +100,7 @@ def test_partial_fill_and_cumulative_accounting(example: ExampleModule) -> None:
     strat.on_fill(fill2)
     assert strat.filled_quantity == 70.0
     assert strat.remaining_quantity == 30.0
-    last_event = cast(dict[str, object], strat.events_log[-1])
+    last_event = strat.events_log[-1]
     assert last_event["event_type"] == "PARTIAL_FILL"
 
     # Final fill: 30 shares
@@ -108,7 +108,7 @@ def test_partial_fill_and_cumulative_accounting(example: ExampleModule) -> None:
     strat.on_fill(fill3)
     assert strat.filled_quantity == 100.0
     assert strat.remaining_quantity == 0.0
-    last_event = cast(dict[str, object], strat.events_log[-1])
+    last_event = strat.events_log[-1]
     assert last_event["event_type"] == "FILLED"
 
 

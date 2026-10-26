@@ -33,7 +33,7 @@ def example() -> ExampleModule:
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return cast(ExampleModule, module)
+    return cast(ExampleModule, cast(object, module))
 
 
 def test_run_returns_expected_structure(example: ExampleModule) -> None:
