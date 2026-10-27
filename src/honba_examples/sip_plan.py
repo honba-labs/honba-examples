@@ -134,8 +134,8 @@ def ensure_instrument_data(
     inst = InstrumentId(symbol, exchange)
 
     try:
+        from honba.data.loaders.nse import NseBhavcopyProvider
         from honba.data.loaders.yfinance import YFinanceProvider
-        from honba.research.data_loader.nse import NseBhavcopyProvider
         from honba.screener.service import DataService
 
         bhav_cache = store.data_dir / "cache" / "bhavcopy"

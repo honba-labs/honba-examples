@@ -94,6 +94,7 @@ rebalance". The catalog entry is `portfolio/rebalancing/equal_weight`.
 | 06 | `06_alpha30_equal_weight_demo.py` | Alpha 30 specialization of generic rebalancer 04 |
 | 07 | `07_alpha30_backtest.py` | Catalog `equal_weight` on universe `nifty200_alpha_30`, next-open fills, T+N settlement |
 | 08 | `08_alpha30_union_ewr_backtest.py` | Hand-rolled equal-weight rebalancer (close fills, flat fee) |
+| 09 | `09_alpha30_cross_sectional.py` | Momentum-volatility factor scores; monthly top-decile rebalance (lakehouse Arrow read or synthetic bars) |
 
 Run them:
 
@@ -198,7 +199,7 @@ symbol or JSON stream. Details in [`screening/README.md`](screening/README.md).
 
 | # | File | Adds |
 |---|---|---|
-| 01 | `01_multibagger_screener.py` | Stage 2 momentum breakout candidates |
+| 01 | `01_multibagger_screener.py` | Stage 2 momentum breakout candidates; ``--fundamentals`` adds the QGLP overlay (ROCE >= 20%, D/E <= 0.5) |
 | 02 | `02_value_52w_low_screener.py` | Deep value near the 52-week low |
 | 03 | `03_dividend_yield_screener.py` | High dividend yielders near the 52-week low |
 | 04 | `04_intelligent_investor_screener.py` | Graham value and margin of safety |
@@ -210,6 +211,7 @@ symbol or JSON stream. Details in [`screening/README.md`](screening/README.md).
 python examples/screening/03_dividend_yield_screener.py --asof 2025-03-01 --top 5 --format symbols
 python examples/screening/06_run_chain.py --chain examples/screening/chains/quality_value.toml --validate-only
 python examples/screening/06_run_chain.py --chain examples/screening/chains/quality_value.toml --format csv
+python examples/screening/06_run_chain.py --chain examples/screening/chains/fundamentals.toml --format symbols
 python examples/screening/06_run_chain.py --describe
 ```
 

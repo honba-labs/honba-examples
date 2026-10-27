@@ -34,6 +34,8 @@ registered universe and the workspace has no member list (it never invents one).
 | 06 | `06_alpha30_equal_weight_demo.py`  | `Alpha30EqualWeightRebalance`                    | Alpha 30 specialization of generic rebalancer 04                |
 | 07 | `07_alpha30_backtest.py`           | catalog `EqualWeightRebalance` (`equal_weight`)  | Honba-native backtest: next-open fills, date-aware T+N, run.json |
 | 08 | `08_alpha30_union_ewr_backtest.py` | `Alpha30EWRExample` (hand-rolled)                | Hand-rolled equal-weight rebalancer (close fills, flat fee)      |
+| 09 | `09_alpha30_cross_sectional.py`    | Cross-sectional factor model                     | Momentum-minus-volatility factor scores, monthly top-decile      |
+|    |                                    |                                                  | rebalance; zero-copy Arrow reads over the Parquet lakehouse      |
 
 ## Running them
 
@@ -47,7 +49,18 @@ python examples/universes/06_alpha30_equal_weight_demo.py
 python examples/universes/07_alpha30_backtest.py --test-start 2026-06-01 --test-end 2026-09-20 \
     --out-dir /tmp/alpha30
 python examples/universes/08_alpha30_union_ewr_backtest.py --start 2026-01-01 --end 2026-09-23
-pytest tests/unit -q -k "table_output or 08_adds_sells or 08_settlement"
+python examples/universes/09_alpha30_cross_sectional.py --bars 252 --seed 42 --out /tmp/cross_sectional.json
+pytest tests/unit -q -k "table_output or 08_adds_sells or 08_settlement or 09_alpha30_cross_sectional"
+
+### 09 — Cross-sectional factor model
+
+`09_alpha30_cross_sectional.py` rescores the whole Alpha 30 basket at every rebalance and
+longs the top decile by a cross-sectional factor score (trailing momentum minus a
+realised-volatility penalty, both z-scored across the basket), rebalanced monthly with
+equal weights inside the selection. It mirrors `08`'s ewr conventions (shared cash pool,
+whole shares, per-side fee, sells before buys) and reads lakehouse bars through a single
+zero-copy duckdb `read_parquet` query when a catalog directory is passed; otherwise it
+runs on deterministic synthetic bars.
 ```
 
 ## 01 – 03  Core concepts

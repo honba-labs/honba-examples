@@ -116,6 +116,20 @@ Identifies Stage 2 momentum breakout leaders before late-stage exhaustion.
 - Volume accumulation surge (20-day volume > 200-day baseline)
 - ROCE capital efficiency and low Debt/Equity
 
+### QGLP fundamental overlay (``--fundamentals``)
+
+With ``--fundamentals`` the screener tightens into a small-cap-friendly
+"momentum plus capital efficiency" screen: ROCE at or above 20 percent and
+debt-to-equity at or below 0.5 are required on top of the Stage 2 breakout
+rules (thresholds overridable with ``--min-roce`` / ``--max-debt-equity``).
+Without ``fundamentals.duckdb`` the ROCE floor cannot be cleared, so the
+screen returns nothing — that is by design, not a bug.
+
+```bash
+# Momentum breakout with the QGLP overlay: ROCE >= 20% and D/E <= 0.5
+python examples/screening/01_multibagger_screener.py --asof 2024-01-01 --fundamentals --top 5
+```
+
 ---
 
 ## Screener 2: Deep Value Near 52-Week Low (`02_value_52w_low_screener.py`)
@@ -309,6 +323,15 @@ screeners (04, 05) are not pipeline steps yet. Chains may also name honba-strate
 such as `execute.equal_weight` (an `execute` step accepts `weights` or a bare `universe`); they
 validate, but `06_run_chain.py` refuses to run them ("validated but not runnable in this pipeline
 yet").
+
+### Worked chain: multibagger + QGLP quality (`chains/fundamentals.toml`)
+
+`chains/fundamentals.toml` screens Stage 2 multibagger candidates and then keeps only those
+with ROCE >= 20% and debt-to-equity <= 0.5:
+
+```bash
+python examples/screening/06_run_chain.py --chain examples/screening/chains/fundamentals.toml --format symbols
+```
 
 Before running, the chain is checked by honba-strategies' `tools/validate_chain.py` (found via
 `$HONBA_STRATEGIES_DIR` or the sibling `honba-strategies` checkout): shapes and columns must

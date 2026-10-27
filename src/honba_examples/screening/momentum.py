@@ -26,6 +26,7 @@ def screen_multibaggers(
     max_return_1y: float | None = None,
     max_pct_from_high: float = 15.0,
     max_debt_to_equity: float = 1.5,
+    min_roce: float | None = None,
     fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,
     allow_missing: bool = False,
@@ -45,11 +46,13 @@ def screen_multibaggers(
     A symbol whose last bar is more than ``max_stale_days`` calendar days before ``asof_date``
     is skipped (delisted / suspended); ``None`` or ``0`` disables the check. A missing
     debt-to-equity (or no fundamentals row) fails the leverage gate unless ``allow_missing=True``;
-    a missing ROCE adds 0 points to ``mb_score``.
+    a missing ROCE adds 0 points to ``mb_score``. When ``min_roce`` is set, ROCE becomes a hard
+    gate (symbols below the floor, or with missing ROCE unless ``allow_missing``, are excluded)
+    and the fundamentals lakehouse is required.
     """
     import duckdb
 
-    catalog_glob = str(catalog_dir / "*" / "*.parquet")
+    catalog_glob = str(catalog_dir / "**" / "*.parquet")
     db_path = find_duckdb_path()
     train_start = (asof_date - dt.timedelta(days=int(train_years * 365.25))).isoformat()
     asof_str = asof_date.isoformat()
@@ -79,6 +82,23 @@ def screen_multibaggers(
         if max_return_1y is not None
         else ""
     )
+    if min_roce is not None and not db_path:
+        # ROCE cannot be verified without the fundamentals lakehouse: no symbol can
+        # clear the floor, so the screen is empty (it never silently ignores the gate).
+        return []
+    # "missing debt/equity fails unless allow_missing" must be defined before the
+    # debt_gate below references it (same block, kept adjacent for clarity).
+    null_de_sql = "r.debt_to_equity IS NULL OR " if allow_missing else ""
+    roce_gate = (
+        f"AND ({'r.roce_pct IS NULL OR ' if allow_missing else ''}r.roce_pct >= {min_roce})"
+        if min_roce is not None
+        else ""
+    )
+    debt_gate = (
+        f"AND ({null_de_sql}r.debt_to_equity <= {max_debt_to_equity})"
+        if db_path and max_debt_to_equity is not None
+        else ""
+    )
 
     # DuckDB's least() ignores NULLs, so a missing ROCE must be mapped to 0 points explicitly.
     roce_points_sql = (
@@ -86,7 +106,6 @@ def screen_multibaggers(
         if db_path
         else "7.5"
     )
-    null_de_sql = "r.debt_to_equity IS NULL OR " if allow_missing else ""
 
     query = f"""
     WITH bars AS (
@@ -153,7 +172,8 @@ def screen_multibaggers(
       AND ((m.close / m.close_1y) - 1.0) * 100 >= {min_return_1y}
       AND ((m.close / m.high52) - 1.0) * 100 >= -{abs(max_pct_from_high)}
       {max_ret_filter}
-      AND ({null_de_sql + "r.debt_to_equity <= " + str(max_debt_to_equity) if db_path else "1=1"})
+      {roce_gate}
+      {debt_gate}
     ORDER BY mb_score DESC, ret_3m DESC, vol_surge DESC
     {f"LIMIT {top}" if top and top > 0 else ""}
     """

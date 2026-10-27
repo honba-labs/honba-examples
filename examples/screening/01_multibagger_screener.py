@@ -3,10 +3,20 @@
 Point-in-time Stage 2 breakout screener evaluated strictly as of ``--asof``. Emits a pure
 symbol/JSON stream on ``stdout`` and diagnostics on ``stderr`` for Unix pipe chaining.
 
+With ``--fundamentals`` the screen adds the QGLP fundamental overlay from
+docs/multibagger_screening_research.md: ROCE above 20 percent and low debt-to-equity
+(at or below 0.5) on top of the Stage 2 momentum breakout — a small-cap-friendly
+"momentum plus capital efficiency" screen. Small-cap pre-selection is done by
+choosing the catalog the screener reads; the screener itself screens whatever
+symbols the catalog holds.
+
 Usage:
     # Screen top 5 multibaggers as of 2023-01-01 and pipe the symbols into the forward SIP backtest
     python examples/screening/01_multibagger_screener.py --asof 2023-01-01 --top 5 --format symbols \\
         | python examples/backtesting/10_chained_screener_and_sip.py --asof 2023-01-01 --sip-amount 10000
+
+    # Momentum breakout with the QGLP fundamental overlay: ROCE > 20% and D/E <= 0.5
+    python examples/screening/01_multibagger_screener.py --asof 2023-01-01 --fundamentals --top 5
 
 Pitfalls::
 
@@ -24,7 +34,8 @@ Pitfalls::
       excludes the symbol unless --allow-missing is passed. ROCE is never a filter, it only
       feeds the score, and a missing ROCE now adds 0 points (it used to add 10, as if ROCE were
       20 or more, because DuckDB's least() skips NULLs). With no fundamentals.duckdb the
-      fundamentals test is skipped for every symbol.
+      fundamentals test is skipped for every symbol and --fundamentals drops every symbol
+      (no ROCE means it cannot clear the 20 percent floor).
     - Survivorship: only symbols that have bars in the catalog are scanned, so companies that
       delisted are absent from a past-dated screen. A symbol whose last bar is more than
       --max-stale-days (default 10 calendar days) before --asof is skipped, but a name that
@@ -47,6 +58,10 @@ from honba_examples.screening import screen_multibaggers
 
 __all__ = ["MultibaggerScreenerExample", "main"]
 
+# QGLP fundamental overlay used when --fundamentals is set
+FUNDAMENTALS_MIN_ROCE = 20.0  # ROCE > 20 percent
+FUNDAMENTALS_MAX_DEBT_EQUITY = 0.5  # low leverage
+
 
 class MultibaggerScreenerExample(ScreenerCLIExample):
     """Prospective "going-to-be" multibagger screener (Minervini Stage 2 momentum)."""
@@ -55,7 +70,9 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
     min_return_1y: float = 15.0
     max_return_1y: float = 175.0
     max_pct_from_high: float = 15.0
-    max_debt_equity: float = 1.2
+    fundamentals: bool = False
+    min_roce: float | None = None  # None -> 20.0 with --fundamentals, else not gated
+    max_debt_equity: float | None = None  # None -> 1.2 default, 0.5 with --fundamentals
     max_stale_days: int = 10
     allow_missing: bool = False
     fiscal_lag_days: int = 90
@@ -89,8 +106,26 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
         parser.add_argument(
             "--max-debt-equity",
             type=float,
-            default=self.max_debt_equity,
-            help="Maximum debt-to-equity ratio (default: 1.2)",
+            default=None,
+            help=("Maximum debt-to-equity ratio (default: 1.2; 0.5 with --fundamentals)"),
+        )
+        parser.add_argument(
+            "--min-roce",
+            type=float,
+            default=None,
+            help=(
+                "Minimum ROCE %% to keep a candidate (not gated by default; 20.0 with "
+                "--fundamentals)"
+            ),
+        )
+        parser.add_argument(
+            "--fundamentals",
+            action="store_true",
+            default=self.fundamentals,
+            help=(
+                "Apply the QGLP fundamental overlay: ROCE >= 20 percent and debt-to-equity "
+                "<= 0.5 on top of the Stage 2 momentum breakout"
+            ),
         )
         parser.add_argument(
             "--max-stale-days",
@@ -123,26 +158,49 @@ class MultibaggerScreenerExample(ScreenerCLIExample):
             "--top", type=int, default=self.top, help="Limit to top N candidates (default: 10)"
         )
 
+    def _effective_gates(self) -> tuple[float | None, float | None]:
+        """Resolve ROCE and debt/equity gates, honouring explicit CLI flags first."""
+        min_roce = (
+            self.min_roce
+            if self.min_roce is not None
+            else (FUNDAMENTALS_MIN_ROCE if self.fundamentals else None)
+        )
+        max_de = (
+            self.max_debt_equity
+            if self.max_debt_equity is not None
+            else (FUNDAMENTALS_MAX_DEBT_EQUITY if self.fundamentals else None)
+        )
+        return min_roce, max_de
+
     def screen(self, catalog_dir: Path, asof: dt.date) -> list[dict[str, Any]]:
-        return screen_multibaggers(
+        min_roce, max_de = self._effective_gates()
+        # max_de is never None: 1.2 by default, 0.5 with --fundamentals.
+        # min_roce is None unless gated (20.0 with --fundamentals); the engine
+        # applies both as SQL gates over the point-in-time fundamentals row.
+        candidates = screen_multibaggers(
             catalog_dir=catalog_dir,
             asof_date=asof,
             train_years=self.train_years,
             min_return_1y=self.min_return_1y,
             max_return_1y=self.max_return_1y,
             max_pct_from_high=self.max_pct_from_high,
-            max_debt_to_equity=self.max_debt_equity,
+            max_debt_to_equity=max_de,
+            min_roce=min_roce,
             max_stale_days=self.max_stale_days,
             allow_missing=self.allow_missing,
             fiscal_lag_days=self.fiscal_lag_days,
-            top=self.top,
+            top=None,
         )
+        # Engine already ranks by mb_score DESC; re-sort defensively and apply --top.
+        candidates.sort(key=lambda c: c.get("mb_score", 0.0), reverse=True)
+        return candidates[: self.top]
 
     def json_payload(self, candidates: list[dict[str, Any]], asof: dt.date) -> dict[str, Any]:
         return {
             "asof_date": asof.isoformat(),
             "strategy": "multibagger",
             "train_years": self.train_years,
+            "fundamentals": self.fundamentals,
             "candidates": candidates,
         }
 
