@@ -263,6 +263,32 @@ python examples/options/07_large_qty_options_slicer.py --total-qty 5000 --out sl
 python examples/options/08_iron_condor_hedging.py --spot 24000 --wings 200 --dte 7 --out hedge.json
 ```
 
+## `stocksharp/` — ported StockSharp reference strategies (Phase 4)
+
+Canonical Python implementations of classical `StockSharp.Algo.Strategies`
+samples, ported to the Honba Python SDK. Offline and deterministic by default
+(seeded RNGs, synthetic data).
+
+| # | File | Strategy |
+|---|---|---|
+| 01 | `01_pairs_trading.py` | Statistical pairs trading: Engle-Granger cointegration (OLS hedge ratio + Dickey-Fuller spread test), z-score entry at ±2σ, exit at 0 |
+| 02 | `02_twap_vwap.py` | Execution slicers: TWAP and VWAP intraday pacing with seeded microsecond jitter; freeze-limit verification |
+| 03 | `03_turtle_breakout.py` | Turtle system: 20/55-day Donchian breakout, 2N ATR trailing stops, 4-unit pyramiding |
+| 04 | `04_market_maker.py` | Passive bid/ask quoting: Avellaneda-Stoikov reservation price and spread with inventory skew and an OBI filter |
+| 05 | `05_risk_parity.py` | Risk-parity rebalancer across 10 scrips: inverse 60-day volatility weights via `PortfolioStrategy` (StaticUniverse + InverseVolatility + EveryNDays) |
+
+Run them:
+
+```bash
+python examples/stocksharp/01_pairs_trading.py --symbol-a ICICIBANK --symbol-b HDFCBANK --bars 252
+python examples/stocksharp/02_twap_vwap.py --scheme twap --parent-qty 5000 --slices 75
+python examples/stocksharp/02_twap_vwap.py --scheme vwap --parent-qty 5000 --slices 75 --seed 7
+python examples/stocksharp/03_turtle_breakout.py --entry-window 20 --exit-window 10 --bars 200
+python examples/stocksharp/04_market_maker.py --steps 240 --seed 42 --gamma 0.1 --k 1.5
+python examples/stocksharp/05_risk_parity.py --symbols 10 --bars 260 --rebalance-days 20 --seed 42
+pytest tests/unit -q -k "pairs_trading or twap_vwap or turtle_breakout or market_maker or risk_parity"
+```
+
 ## `ai_research/` — AI-native autonomous research loop
 
 Typed decision loop using `ScriptedFakeLlm` (no API key required).
