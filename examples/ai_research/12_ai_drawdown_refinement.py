@@ -291,9 +291,9 @@ def run(
     rng = random.Random(seed + 1)
     oos_returns = enhanced_oos["returns"]
     n_trials = 250
+    m = len(oos_returns)
     trial_sharps: list[float] = []
     if oos_returns:
-        m = len(oos_returns)
         for _ in range(n_trials):
             sample = [rng.choice(oos_returns) for _ in range(m)]
             mean_r = sum(sample) / m

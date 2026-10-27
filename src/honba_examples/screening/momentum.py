@@ -25,7 +25,7 @@ def screen_multibaggers(
     min_return_1y: float = 15.0,
     max_return_1y: float | None = None,
     max_pct_from_high: float = 15.0,
-    max_debt_to_equity: float = 1.5,
+    max_debt_to_equity: float | None = 1.5,
     min_roce: float | None = None,
     fiscal_lag_days: int = DEFAULT_FISCAL_LAG_DAYS,
     max_stale_days: int | None = DEFAULT_MAX_STALE_DAYS,

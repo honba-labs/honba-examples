@@ -123,9 +123,13 @@ def run(
             elif entry.digest not in cache:
                 problems.append(f"digest {entry.digest} not in cache")
             else:
-                cached_prompt, _ = cache.get(entry.digest)
-                if cached_prompt != entry.prompt:
-                    problems.append(f"cached prompt differs for {entry.prompt!r}")
+                cached_entry = cache.get(entry.digest)
+                if cached_entry is None:
+                    problems.append(f"digest {entry.digest} not in cache")
+                else:
+                    cached_prompt, _ = cached_entry
+                    if cached_prompt != entry.prompt:
+                        problems.append(f"cached prompt differs for {entry.prompt!r}")
         cached = replayed = len(entries) - len(problems)
 
     replay = {
@@ -148,7 +152,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument(
         "--decisions", type=int, default=DEFAULT_DECISIONS, help="number of decisions to replay"
     )

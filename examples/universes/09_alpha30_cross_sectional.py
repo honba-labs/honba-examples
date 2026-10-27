@@ -743,7 +743,11 @@ class Alpha30CrossSectionalExample(HonbaExample):
             symbols,
             self.start_date,
             self.end_date,
-            initial_capital=self.initial_capital,
+            initial_capital=(
+                self.initial_capital
+                if self.initial_capital is not None
+                else DEFAULT_INITIAL_CAPITAL
+            ),
             top_decile=self.top_decile,
             fee=self.fee,
             min_history_bars=self.min_history_bars,
@@ -813,7 +817,7 @@ def print_summary(out: dict[str, Any], result: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--bars", type=int, default=DEFAULT_BARS, help="Synthetic bars per symbol")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Synthetic-data seed")
     parser.add_argument(
