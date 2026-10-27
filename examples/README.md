@@ -293,26 +293,27 @@ pytest tests/unit -q -k "pairs_trading or twap_vwap or turtle_breakout or market
 
 ## `ai_research/` — AI-native autonomous research loop
 
-Typed decision loop using `ScriptedFakeLlm` (no API key required).
+Typed decision loop using `ScriptedFakeLlm` (no API key required). Scripts 01, 06, 09,
+10, 11 and 12 are runnable offline and deterministic; 02–07 are design-only placeholders.
 
 | # | File | Shows |
 |---|---|---|
-| 01 | `01_natural_language_to_filter.py` | Prompt → JSON filter schema → duckdb execution |
-| 02 | `02_mcp_query_schema.py` | Expose research catalog via MCP tools |
-| 03 | `03_typed_llm_trade_decision.py` | Bar snapshot → typed Pydantic intent → risk gate |
-| 04 | `04_autonomous_research_agent.py` | Hypothesis → backtest → evaluate → refine |
-| 05 | `05_research_memory_bank.py` | Vector store of past experiments & findings |
-| 06 | `06_factor_idea_generator.py` | Generate candidate alpha expressions |
-| 07 | `07_regime_classification_agent.py` | Macro & volatility state machine |
-| 09 | `09_backtest_refinement_agent.py` | Parameter refinement after drawdown analysis |
+| 01 | `01_llm_research_analyst.py` | NL question → validated screener filter via `ScriptedFakeLlm` + `KnowledgePack` |
+| 06 | `06_mcp_integration.py` | Enumerate the static MCP tools (11 today) from `honba/schema/mcp/mcp_tools.json` |
+| 09 | `09_typed_llm_decision.py` | Typed `LlmDecision` (veto / size-down) applied to an order intent; size increases are rejected; Journal v1 audit records |
+| 10 | `10_claude_autonomous_quant.py` | MCP quant agent: inspect MCP schema + indicator catalog, propose a mean-reversion hypothesis, backtest it, evaluate with DSR |
+| 11 | `11_deterministic_ai_replay.py` | Cryptographic prompt replayer: SHA-256 prompt cache + Journal v1 NDJSON, replayed with no API calls |
+| 12 | `12_ai_drawdown_refinement.py` | AI auto-enhancer: diagnose a ≥12% drawdown streak, propose an ADX trend filter, guard via `decision_guard`, re-evaluate out-of-sample with DSR |
 
 Run them:
 
 ```bash
-python examples/ai_research/01_natural_language_to_filter.py --prompt "low pe high roe"
-python examples/ai_research/02_mcp_query_schema.py
-python examples/ai_research/03_typed_llm_trade_decision.py
-python examples/ai_research/04_autonomous_research_agent.py --max-iterations 3
+python examples/ai_research/01_llm_research_analyst.py --query "rsi below 30" --fake-response "rsi < 30"
+python examples/ai_research/06_mcp_integration.py
+python examples/ai_research/10_claude_autonomous_quant.py --underlying RELIANCE --seed 42
+python examples/ai_research/11_deterministic_ai_replay.py --decisions 10 --seed 42
+python examples/ai_research/12_ai_drawdown_refinement.py --seed 42 --out refinement.json
+pytest tests/unit -q -k "llm_research or mcp_integration or claude_autonomous or deterministic_ai_replay or ai_drawdown"
 ```
 
 ## `production/` — paper & live deployment

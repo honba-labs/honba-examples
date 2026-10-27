@@ -19,6 +19,9 @@ modules exist in `honba.ai` as 0-byte stubs waiting for the P1/P2 roadmap phases
 | 06 | `06_mcp_integration.py`           | —                | **Runnable.** Enumerate the static MCP tools (11 today) from `honba/schema/mcp/mcp_tools.json`             |
 | 07 | `07_natural_language_critique.py` | —                | **Design only.** `BacktestResult` → LLM critique → structured `Critique` report                    |
 | 09 | `09_typed_llm_decision.py`        | —                | **Runnable.** Typed `LlmDecision` (veto / size-down) applied to an order intent; size increases are rejected; Journal v1 audit records |
+| 10 | `10_claude_autonomous_quant.py`   | —                | **Runnable.** MCP quant agent workflow: inspect the MCP tool schema + indicator catalog, propose a mean-reversion hypothesis, backtest it, evaluate with the Deflated Sharpe Ratio; offline via `ScriptedFakeLlm` |
+| 11 | `11_deterministic_ai_replay.py`   | —                | **Runnable.** Cryptographic prompt replayer: record N AI decisions to a SHA-256 prompt cache + Journal v1 NDJSON, then replay from disk with no API calls |
+| 12 | `12_ai_drawdown_refinement.py`    | —                | **Runnable.** AI strategy auto-enhancer: diagnose a ≥12% drawdown streak, propose an ADX trend filter, run it through the `decision_guard` guard rules, and re-evaluate out-of-sample with DSR |
 
 Slot 08 is intentionally unused (reserved; numbers are not reused or shifted).
 
@@ -56,7 +59,10 @@ installed and an API key set.
 ```bash
 python examples/ai_research/01_llm_research_analyst.py --query "rsi below 30" --fake-response "rsi < 30"
 python examples/ai_research/06_mcp_integration.py
-pytest tests/unit -q -k "llm_research or mcp_integration"
+python examples/ai_research/10_claude_autonomous_quant.py --underlying RELIANCE --seed 42
+python examples/ai_research/11_deterministic_ai_replay.py --decisions 10 --seed 42
+python examples/ai_research/12_ai_drawdown_refinement.py --seed 42 --out refinement.json
+pytest tests/unit -q -k "llm_research or mcp_integration or claude_autonomous or deterministic_ai_replay or ai_drawdown"
 ```
 
 ## Roadmap pointers (not runnable code)
