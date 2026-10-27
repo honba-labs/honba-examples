@@ -246,6 +246,9 @@ Hand-rolled legs (no `Strategy` subclass); see the catalog options strategies
 | 03 | `03_backtest_straddle.py` | Long ATM straddle, hold to expiry |
 | 04 | `04_backtest_iron_condor.py` | Delta-hedged iron condor, expiry payoff |
 | 05 | `05_expiry_day_strategy.py` | Intraday gamma scalping on expiry day |
+| 06 | `06_nifty_920_straddle.py` | Short ATM straddle at 09:20 IST; 25 % per-leg stop, 15:20 square-off; sell-side STT |
+| 07 | `07_large_qty_options_slicer.py` | Freeze-limit slicer: 5,000 contracts sliced ≤ freeze limit (1,800) from the instrument master |
+| 08 | `08_iron_condor_hedging.py` | Iron condor with dynamic delta hedging and Greek risk bounds |
 
 Run them:
 
@@ -255,6 +258,9 @@ python examples/options/02_greeks_calculation.py --spot 24500 --strike 24500 --d
 python examples/options/03_backtest_straddle.py --strike 24500 --entry-dte 7
 python examples/options/04_backtest_iron_condor.py --wings 200
 python examples/options/05_expiry_day_strategy.py --dte 0 --step 10
+python examples/options/06_nifty_920_straddle.py --spot 22000 --iv 0.15 --out straddle.json
+python examples/options/07_large_qty_options_slicer.py --total-qty 5000 --out slices.json
+python examples/options/08_iron_condor_hedging.py --spot 24000 --wings 200 --dte 7 --out hedge.json
 ```
 
 ## `ai_research/` — AI-native autonomous research loop

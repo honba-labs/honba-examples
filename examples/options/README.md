@@ -15,6 +15,9 @@ Catalog equivalents live in `honba-strategies/options/*`.
 | 03 | `03_backtest_straddle.py`       | Long ATM straddle     | Backtest long straddle: buy ATM call+put, hold to expiry            |
 | 04 | `04_backtest_iron_condor.py`    | Iron condor           | Backtest iron condor: 4-leg credit spread, P&L zones                |
 | 05 | `05_expiry_day_strategy.py`     | Expiry-day scalp      | Intraday expiry-day strategy: gamma scalping / theta decay capture  |
+| 06 | `06_nifty_920_straddle.py`      | Short ATM straddle    | Sell ATM call+put at 09:20 IST; 25 % per-leg stop-loss, 15:20 square-off; sell-side premium STT |
+| 07 | `07_large_qty_options_slicer.py`| Freeze-limit slicer   | 5,000-contract order sliced ≤ freeze limit (1,800) read from the instrument master; `verify_slices` gate |
+| 08 | `08_iron_condor_hedging.py`     | Delta-hedged iron condor | Greek risk bounds (delta/gamma/vega) + dynamic underlying delta hedge on a seeded path |
 
 Catalog equivalents: `options/nifty_short_straddle`, `options/banknifty_iron_condor`,
 `options/expiry_day_scalp`.
@@ -49,7 +52,10 @@ python examples/options/02_greeks_calculation.py --spot 24000 --strike 24000 --d
 python examples/options/03_backtest_straddle.py --underlying NIFTY --expiry 2024-12-26
 python examples/options/04_backtest_iron_condor.py --underlying NIFTY --expiry 2024-12-26
 python examples/options/05_expiry_day_strategy.py --underlying BANKNIFTY --expiry 2024-12-25
-pytest tests/unit -q -k "option or greeks or straddle or iron_condor"
+python examples/options/06_nifty_920_straddle.py --spot 22000 --iv 0.15 --out straddle.json
+python examples/options/07_large_qty_options_slicer.py --total-qty 5000 --out slices.json
+python examples/options/08_iron_condor_hedging.py --spot 24000 --wings 200 --dte 7 --out hedge.json
+pytest tests/unit -q -k "option or greeks or straddle or iron_condor or nifty_920 or slicer or iron_condor_hedging"
 ```
 
 > There are no dedicated option unit tests in `tests/unit` yet; the `-k` filter
