@@ -31,6 +31,8 @@ def manifest(
     adds: list[str] | None = None,
     reportable: list[str] | None = None,
     tags: list[str] | None = None,
+    version: str = "1.0.0",
+    strategy_api_version: str = "1.0.0",
 ) -> dict[str, Any]:
     """Assemble a manifest; ``consumes``/``emits`` are shapes, ``id`` is ``<kind>.<name>``.
 
@@ -51,6 +53,8 @@ def manifest(
         "title": title,
         "description": description,
         "tags": list(tags or []),
+        "version": version,
+        "strategy_api_version": strategy_api_version,
         "params": params,
         "requires": requires or {},
         "consumes": in_consumes,

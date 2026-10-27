@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 from honba.domain.instrument import InstrumentId
-from honba.screener.coverage import DateInterval
-from honba.screener.store import ParquetBarStore
+from honba_data.store.coverage import DateInterval
+from honba_data.store.parquet import ParquetBarStore
 
 from honba_examples.synthetic import weekdays
 
@@ -67,10 +67,15 @@ def test_every_written_file_sits_under_the_documented_layout(report, store_dir):
     assert len(partitions) == len(SYMBOLS) * 2  # two symbols, two year partitions
     for path in partitions:
         parts = path.split("/")
-        assert parts[:3] == ["catalog", "1D", "NSE"]
-        assert parts[3] in SYMBOLS
-        assert parts[4][:4] in {"2025", "2026"}
-        assert parts[4].endswith(".parquet")
+        # Hive-partitioned layout: catalog/timeframe=1D/exchange=NSE/symbol=RELIANCE/year=2025.parquet
+        assert parts[0] == "catalog"
+        assert any(p.startswith("timeframe=") for p in parts)
+        assert any(p.startswith("exchange=") for p in parts)
+        symbol_part = parts[-2]  # "symbol=RELIANCE"
+        assert symbol_part.split("=", 1)[1] in SYMBOLS
+        year_part = parts[-1]  # "year=2025.parquet"
+        assert year_part.startswith("year=") and year_part[5:9] in {"2025", "2026"}
+        assert year_part.endswith(".parquet")
         assert (store_dir / path).is_file()
 
 

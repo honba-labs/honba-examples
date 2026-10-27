@@ -90,6 +90,10 @@ def write_run_json(
         "schema": schema,
         "config": dict(config),
         "universe": u_symbols,
+        # "coverage" is the Phase 5 key (cross-sectional factor model artifact);
+        # "data_coverage" is the pre-existing key used by the 07 alpha30 backtest
+        # artifact. Keep both so neither contract breaks.
+        "coverage": dict(coverage),
         "data_coverage": dict(coverage),
         "result": body,
         "input_hash": input_hash,

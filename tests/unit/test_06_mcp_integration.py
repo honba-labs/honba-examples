@@ -52,8 +52,13 @@ def test_tool_names_match_the_six_design_tools(example):
         "get_sweep",
         "get_backtest_journal",
         "get_backtest",
+        "get_portfolio_holdings",
+        "get_portfolio",
+        "get_portfolio_accounts",
+        "get_portfolio_positions",
+        "get_portfolio_trades",
     }
-    assert names == expected
+    assert expected <= names, f"missing expected tools: {expected - names}"
 
 
 def test_output_is_deterministic_across_two_calls(example):

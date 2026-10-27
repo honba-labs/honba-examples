@@ -1,0 +1,27 @@
+# Multibagger + fundamentals: Stage 2 momentum breakout -> QGLP quality overlay ->
+# equal weights -> forward SIP backtest.
+#
+#   python examples/screening/06_run_chain.py --chain screening/chains/multibagger_fundamentals.toml
+#
+# screen.multibagger supplies the momentum breakout candidates; filter.fundamental_quality
+# then applies the QGLP hard gates from docs/multibagger_screening_research.md:
+# ROCE >= 20 percent and debt-to-equity <= 0.5 (low leverage). market_cap is reported
+# so small-cap candidates can be triaged by size (there is no dedicated small-cap filter
+# step yet; pre-select the catalog universe instead). size.equal_weight allocates across
+# the survivors and execute.sip_backtest would forward-test them (commented out below).
+
+[[steps]]
+uses = "screen.multibagger"
+with = { asof = "2025-03-01", train_years = 2, min_return_1y = 10.0, max_pct_from_high = 15.0, top = 10 }
+
+[[steps]]
+uses = "filter.fundamental_quality"
+with = { min_roce = 20.0, max_debt_to_equity = 0.5, allow_missing = false }
+report = ["market_cap", "roce_pct", "debt_to_equity"]
+
+[[steps]]
+uses = "size.equal_weight"
+
+# [[steps]]
+# uses = "execute.sip_backtest"
+# with = { monthly_sip = 10000.0, end_date = "2025-12-31" }

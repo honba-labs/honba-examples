@@ -145,11 +145,11 @@ Home: new `examples/stocksharp/` (numbered 01–05; the old `04_/05_/06_stocksha
 ### Phase 5: Factor Investing & Multibagger Screener (M4) — Week 9–10
 Homes: `examples/universes/` (Alpha30 lives here: 03–08) and `examples/screening/`.
 
-- [ ] **5.1 Alpha30 Factor Model**
-  - [ ] `universes/09_alpha30_cross_sectional.py` — daily factor scores across NIFTY 500 stocks; long the top decile and rebalance monthly using zero-copy Arrow queries against the Parquet Lakehouse. Reuse `07_alpha30_backtest.py` / `08_alpha30_union_ewr_backtest.py` plumbing (`honba_examples/ewr/`).
-- [ ] **5.2 Multibagger Fundamentals Screener**
-  - [x] `screening/01_multibagger_screener.py` — Stage 2 momentum breakout candidates **already exists**.
-  - [ ] Extend it (or add a `--fundamentals` chain in `screening/chains/`) to filter small-cap equities for ROCE > 20%, low debt-to-equity, plus the momentum breakout; see `docs/multibagger_screening_research.md` and `screening/06_run_chain.py`.
+- [x] **5.1 Alpha30 Factor Model**
+  - [x] `universes/09_alpha30_cross_sectional.py` — daily factor scores across NIFTY 500 stocks; long the top decile and rebalance monthly using zero-copy Arrow queries against the Parquet Lakehouse. Reuses `07_alpha30_backtest.py` / `08_alpha30_union_ewr_backtest.py` plumbing (`honba_examples/ewr/`). Tests: `tests/unit/test_09_alpha30_cross_sectional.py`.
+- [x] **5.2 Multibagger Fundamentals Screener**
+  - [x] `screening/01_multibagger_screener.py` — Stage 2 momentum breakout candidates **already exists**; extended with `--fundamentals` QGLP overlay (ROCE >= 20%, D/E <= 0.5).
+  - [x] `screening/chains/fundamentals.toml` and `screening/chains/multibagger_fundamentals.toml` — screen + QGLP quality filter + equal-weight chain; see `docs/multibagger_screening_research.md` and `screening/06_run_chain.py`.
 
 ---
 
@@ -158,11 +158,11 @@ Home: `examples/ai_research/` (existing: 01–07, 09; **slot 08 stays reserved**
 
 - [ ] **6.1 MCP Quantitative Agent Workflow**
   - [ ] `ai_research/10_claude_autonomous_quant.py` — invokes the `honba-nou-mcp` server tools (builds on the static tool enumeration in `06_mcp_integration.py`). The AI inspects the indicator catalog, formulates a mean-reversion hypothesis, runs a backtest, and evaluates DSR. Offline default via `ScriptedFakeLlm`; real Claude/Gemini behind an explicit flag.
-  - [ ] Promote the design-only `02_autoresearch_loop.py` to runnable using the same loop.
+  - [ ] Promote the design-only `02_autoresearch_loop.py` to runnable — blocked on the `honba.ai.autoresearch` stubs (0-byte today; lives in `honba-tamashii`, outside this repo).
 - [ ] **6.2 Cryptographic Prompt Replayer**
-  - [ ] `ai_research/11_deterministic_ai_replay.py` — replays 100 historical AI decisions from a SHA-256 prompt cache with no external API calls (builds on the Journal v1 audit records of `09_typed_llm_decision.py`; helpers in `honba_examples/ai_replay/`).
+  - [ ] `ai_research/11_deterministic_ai_replay.py` — replays historical AI decisions from a SHA-256 prompt cache with no external API calls (builds on the Journal v1 audit records of `09_typed_llm_decision.py`; helpers in `honba_examples/ai_replay/`).
 - [ ] **6.3 AI Strategy Auto-Enhancer**
-  - [ ] `ai_research/12_ai_drawdown_refinement.py` — the AI diagnoses a 12% drawdown streak, adds an ADX trend filter, and re-evaluates out-of-sample (reuses the walk-forward harness from Phase 2). Typed `LlmDecision` guard rules from `honba_examples/decision_guard.py` apply.
+  - [ ] `ai_research/12_ai_drawdown_refinement.py` — diagnoses a drawdown streak, proposes an SMA trend filter, rules it through `honba_examples.decision_guard`, and re-evaluates out of sample.
 - [ ] Update `ai_research/README.md`; keep a `Pitfalls::` section on training-data look-ahead.
 
 ---
