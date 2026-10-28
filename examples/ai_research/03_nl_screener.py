@@ -297,7 +297,7 @@ def run_nl_screener(
 ) -> dict[str, Any]:
     llm = resolve_llm_provider(backend)
 
-    today = dt.datetime.now(tz=dt.timezone.utc).date()
+    today = dt.datetime.now(tz=dt.UTC).date()
 
     # 1. Resolve Point-in-Time As-Of Date ("5 years ago", a bare year, --asof, --lookback-years)
     asof_date, backtest = resolve_asof(query, asof, lookback_years, backtest, today)
@@ -315,9 +315,7 @@ def run_nl_screener(
     interval = DateInterval(dt.date(2015, 1, 1), dt.date(2027, 1, 1))
     metrics_to_extract = ["close", "volume", "sma20", "sma50", "rsi"]
 
-    asof_ns = int(
-        dt.datetime.combine(asof_date, dt.time.max, tzinfo=dt.timezone.utc).timestamp() * 1e9
-    )
+    asof_ns = int(dt.datetime.combine(asof_date, dt.time.max, tzinfo=dt.UTC).timestamp() * 1e9)
 
     matched_rows = []
     total_valid_instruments = 0
@@ -339,7 +337,7 @@ def run_nl_screener(
             # Forward performance simulation up to today
             if is_historical:
                 term_bar = all_bars[-1]
-                term_date = dt.datetime.fromtimestamp(term_bar.ts / 1e9, tz=dt.timezone.utc).date()
+                term_date = dt.datetime.fromtimestamp(term_bar.ts / 1e9, tz=dt.UTC).date()
                 row.update(
                     forward_performance(entry_close, float(term_bar.close), asof_date, term_date)
                 )

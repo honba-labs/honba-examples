@@ -165,7 +165,7 @@ class BracketOrderMis(Strategy):
     @override
     def on_bar(self, bar: Bar) -> None:
         # Convert bar timestamp to IST
-        utc_dt = dt.datetime.fromtimestamp(bar.ts / 1_000_000_000, tz=dt.timezone.utc)
+        utc_dt = dt.datetime.fromtimestamp(bar.ts / 1_000_000_000, tz=dt.UTC)
         ist_dt = utc_dt + dt.timedelta(hours=5, minutes=30)
         ist_time = ist_dt.time()
         bar_date = ist_dt.date()

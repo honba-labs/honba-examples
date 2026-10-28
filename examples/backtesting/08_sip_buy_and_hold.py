@@ -75,7 +75,7 @@ def run(
         root = data_dir if data_dir is not None else find_data_root(REPO_ROOT)
         store = ParquetBarStore(root)
         s_date = start or dt.date(2025, 1, 1)
-        e_date = end or (dt.datetime.now(tz=dt.timezone.utc).date() + dt.timedelta(days=1))
+        e_date = end or (dt.datetime.now(tz=dt.UTC).date() + dt.timedelta(days=1))
         bars_loaded = store.read(inst, "1D", DateInterval(s_date, e_date))
     else:
         bars_loaded = list(bars)
@@ -87,7 +87,7 @@ def run(
     bars_sorted = sorted(bars_loaded, key=lambda b: b.ts)
     bars_by_date: dict[dt.date, Any] = {}
     for b in bars_sorted:
-        d = dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.timezone.utc).date()
+        d = dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.UTC).date()
         bars_by_date[d] = b
 
     trading_days = sorted(bars_by_date.keys())

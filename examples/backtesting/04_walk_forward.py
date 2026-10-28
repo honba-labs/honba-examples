@@ -107,13 +107,11 @@ def _evaluate_replay(bars_list: list, strategy: Strategy) -> FoldStats:
         cash += position * last_price
         curve.append({"value": cash, "cash": cash, "date": str(result.fills[-1].ts + 1)})
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     metric_curve = [
         {
-            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=timezone.utc)
-            .date()
-            .isoformat(),
+            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=dt.UTC).date().isoformat(),
             "value": c["value"],
             "cash": c["cash"],
         }

@@ -17,7 +17,7 @@ IST_OPEN_UTC = dt.time(3, 45)  # 09:15 IST; Parquet daily bars are stamped at th
 
 def session_ts(day: dt.date) -> int:
     """Unix-ns timestamp of a daily bar for ``day`` (session open, as the store has it)."""
-    moment = dt.datetime.combine(day, IST_OPEN_UTC, tzinfo=dt.timezone.utc)
+    moment = dt.datetime.combine(day, IST_OPEN_UTC, tzinfo=dt.UTC)
     return int(moment.timestamp()) * 1_000_000_000
 
 

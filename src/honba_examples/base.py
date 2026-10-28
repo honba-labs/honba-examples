@@ -219,13 +219,13 @@ class HonbaExample:
 
 def ts_to_date(ts: int) -> dt.date:
     """Convert nanosecond timestamp to calendar date (UTC)."""
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).date()
+    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).date()
 
 
 def format_timestamp(ts: int) -> str:
     """Format nanosecond timestamp as readable date string."""
     try:
-        return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).strftime("%Y-%m-%d")
+        return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).strftime("%Y-%m-%d")
     except (ValueError, OSError):
         return "?"
 

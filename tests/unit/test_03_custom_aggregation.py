@@ -55,7 +55,7 @@ def requested_timeframes(monkeypatch):
 def _ns(iso: str) -> int:
     """Exact unix nanoseconds of an ISO-8601 stamp, without a float round trip."""
     moment = dt.datetime.fromisoformat(iso)
-    delta = moment - dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
+    delta = moment - dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
     return (delta.days * 86_400 + delta.seconds) * _NS_PER_SECOND + delta.microseconds * 1_000
 
 
@@ -104,10 +104,7 @@ def test_each_row_is_the_fold_of_its_own_constituent_bars(report, source):
     bucket_ns = timeframe_seconds("5m") * _NS_PER_SECOND
     for row, (bucket, members) in zip(report["bars"], sorted(grouped.items()), strict=True):
         assert row["constituents"] == len(members)
-        assert (
-            row["date"]
-            == dt.datetime.fromtimestamp(members[0].ts / 1e9, tz=dt.timezone.utc).isoformat()
-        )
+        assert row["date"] == dt.datetime.fromtimestamp(members[0].ts / 1e9, tz=dt.UTC).isoformat()
         assert row["open"] == members[0].open
         assert row["close"] == members[-1].close
         assert row["high"] == max(bar.high for bar in members)

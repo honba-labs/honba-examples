@@ -87,7 +87,7 @@ def get_latest_market_date(catalog_dir: Path) -> dt.date:
     except Exception as exc:  # noqa: BLE001
         logger.debug("Falling back on system date: %s", exc)
 
-    return dt.datetime.now(dt.timezone.utc).date()
+    return dt.datetime.now(dt.UTC).date()
 
 
 def resolve_eval_window(

@@ -50,7 +50,7 @@ from honba_examples.cli import add_out_arg, emit_json, make_parser
 from honba_examples.jsonable import jsonable
 
 #: The fake's whole history: five bars, one minute apart from this instant, UTC.
-_SESSION_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc)
+_SESSION_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.UTC)
 _DEFAULT_WINDOW = (_SESSION_START, _SESSION_START + dt.timedelta(minutes=5))
 _EXCHANGE = "NSE"
 
@@ -64,7 +64,7 @@ def _registry():
 
 def _iso(ts: int) -> str:
     """ISO-8601 UTC instant of a nanosecond timestamp."""
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).isoformat()
+    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).isoformat()
 
 
 def _bar_row(bar: Any) -> dict[str, Any]:

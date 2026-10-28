@@ -16,7 +16,7 @@ B = InstrumentId("BBB", "NSE")
 
 
 def ts(year: int, month: int, day: int, hour: int = 0, minute: int = 0) -> int:
-    moment = dt.datetime(year, month, day, hour, minute, tzinfo=dt.timezone.utc)
+    moment = dt.datetime(year, month, day, hour, minute, tzinfo=dt.UTC)
     return int(moment.timestamp()) * 1_000_000_000
 
 

@@ -61,7 +61,7 @@ def screen_mutual_funds(
         store = DuckDbMutualFundsStore(db_file)
 
     eq_db = equity_db_path or find_duckdb_path()
-    asof = asof_date or dt.datetime.now(dt.timezone.utc).date()
+    asof = asof_date or dt.datetime.now(dt.UTC).date()
 
     schemes: list[dict[str, Any]] = store.get_schemes(category=category, plan=plan, option=option)
 

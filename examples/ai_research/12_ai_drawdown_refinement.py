@@ -97,7 +97,7 @@ def _fills_by_day(result: Any) -> dict[str, list[dict[str, Any]]]:
     fills = data.get("fills", [])
     by_day: dict[str, list[dict[str, Any]]] = {}
     for f in fills:
-        day = dt.datetime.fromtimestamp(f["ts"] / 1e9, tz=dt.timezone.utc).date().isoformat()
+        day = dt.datetime.fromtimestamp(f["ts"] / 1e9, tz=dt.UTC).date().isoformat()
         by_day.setdefault(day, []).append(f)
     return by_day
 
@@ -115,7 +115,7 @@ def _equity_curve_from_replay(
     position = 0.0
     curve: list[float] = []
     for bar in bars:
-        day = dt.datetime.fromtimestamp(bar.ts / 1e9, tz=dt.timezone.utc).date().isoformat()
+        day = dt.datetime.fromtimestamp(bar.ts / 1e9, tz=dt.UTC).date().isoformat()
         for f in fills_by_day.get(day, []):
             notional = f["quantity"] * f["price"]
             if f["side"] == "buy":

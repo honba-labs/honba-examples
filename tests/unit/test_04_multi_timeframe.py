@@ -42,7 +42,7 @@ def report(example):
 def _ns(iso: str) -> int:
     """Exact unix nanoseconds of an ISO-8601 stamp, without a float round trip."""
     moment = dt.datetime.fromisoformat(iso)
-    delta = moment - dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
+    delta = moment - dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
     return (delta.days * 86_400 + delta.seconds) * _NS_PER_SECOND + delta.microseconds * 1_000
 
 

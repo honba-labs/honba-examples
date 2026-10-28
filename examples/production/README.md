@@ -15,6 +15,7 @@ unless you explicitly opt into a real broker (`--no-dry-run` on the Dhan example
 | 03 | `03_multi_account.py`         | SMA crossover     | Multiple accounts: isolate capital, aggregate P&L, per-account risk    |
 | 04 | `04_monitoring.py`            | —                 | Metrics/health endpoint shape (values are simulated)                   |
 | 05 | `05_deployment.py`            | —                 | Systemd/container deploy: config, secrets, logging, graceful shutdown  |
+| 06 | `06_multi_broker_dispatch.py` | SMA crossover     | Same strategy dispatched across Zerodha, Angel One (paper mode) and Upstox (scaffold); asserts adapter-agnostic parity |
 
 ## Pitfalls checklist
 

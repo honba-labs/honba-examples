@@ -177,7 +177,7 @@ class Alpha30BacktestExample(HonbaExample):
             test_end, end_source = self.test_end, "cli"
             bars = self.load(universe, warmup_start, test_end)
         else:
-            today = dt.datetime.now(dt.timezone.utc).date()
+            today = dt.datetime.now(dt.UTC).date()
             bars = self.load(universe, warmup_start, today)
             if not bars:
                 raise SystemExit(f"no bars on or after {warmup_start} in {self.store.data_dir}")

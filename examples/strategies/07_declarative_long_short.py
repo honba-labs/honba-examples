@@ -133,7 +133,7 @@ class LongShortCrossover(DeclarativeStrategy):
         self.entries.append(
             {
                 "side": side,
-                "date": dt.datetime.fromtimestamp(bar.ts / 1e9, dt.timezone.utc).date(),
+                "date": dt.datetime.fromtimestamp(bar.ts / 1e9, dt.UTC).date(),
                 "price": bar.close,
                 "quantity": entry.quantity,
                 "stop_loss": entry.stop_loss,

@@ -35,7 +35,7 @@ def write_symbol(catalog: Path, symbol: str, bars: Sequence[Bar]) -> None:
         "volume DOUBLE)"
     )
     for d, o, high, low, close, volume in bars:
-        ts = int(dt.datetime(d.year, d.month, d.day, tzinfo=dt.timezone.utc).timestamp()) * 10**9
+        ts = int(dt.datetime(d.year, d.month, d.day, tzinfo=dt.UTC).timestamp()) * 10**9
         con.execute("INSERT INTO b VALUES (?, ?, ?, ?, ?, ?)", [ts, o, high, low, close, volume])
     con.execute(f"COPY b TO '{sym_dir / 'bars.parquet'}' (FORMAT PARQUET)")
     con.close()

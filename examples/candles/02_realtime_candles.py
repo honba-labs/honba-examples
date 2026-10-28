@@ -71,7 +71,7 @@ def _registry():
 
 def _iso(ts: int) -> str:
     """ISO-8601 UTC instant of a nanosecond timestamp."""
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).isoformat()
+    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).isoformat()
 
 
 def _tick_row(tick: Any) -> dict[str, Any]:

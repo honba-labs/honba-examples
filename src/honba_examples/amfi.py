@@ -134,7 +134,7 @@ def nav_bars(rows: Sequence[NavRow]) -> list[Bar]:
 
 def _publication_date(text: str) -> dt.date:
     """``text`` as a calendar date in AMFI's ``%d-%b-%Y`` format, or ``ValueError``."""
-    return dt.datetime.strptime(text, _DATE_FORMAT).replace(tzinfo=dt.timezone.utc).date()
+    return dt.datetime.strptime(text, _DATE_FORMAT).replace(tzinfo=dt.UTC).date()
 
 
 def _positive_float(text: str) -> float | None:
@@ -171,7 +171,7 @@ class AmfiNavLoader:
         bars = self._store.read(inst, "1D", interval)
         return [
             NavPoint(
-                date=dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.timezone.utc).date(),
+                date=dt.datetime.fromtimestamp(b.ts / 1e9, tz=dt.UTC).date(),
                 nav=b.close,
             )
             for b in bars

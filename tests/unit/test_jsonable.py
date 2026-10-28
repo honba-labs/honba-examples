@@ -54,9 +54,7 @@ def test_dataclass_becomes_a_dict_with_declared_field_order():
 
 
 def test_dates_and_times_become_iso_strings():
-    assert jsonable(dt.datetime(2026, 6, 1, 9, 15, tzinfo=dt.timezone.utc)) == (
-        "2026-06-01T09:15:00+00:00"
-    )
+    assert jsonable(dt.datetime(2026, 6, 1, 9, 15, tzinfo=dt.UTC)) == ("2026-06-01T09:15:00+00:00")
     assert jsonable(dt.time(9, 15)) == "09:15:00"
 
 

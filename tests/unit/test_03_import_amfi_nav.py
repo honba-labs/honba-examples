@@ -41,7 +41,7 @@ def report(example, store_dir) -> dict:
 
 
 def _utc_date(ts: int) -> str:
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).date().isoformat()
+    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).date().isoformat()
 
 
 def test_report_states_the_import_shape(report):

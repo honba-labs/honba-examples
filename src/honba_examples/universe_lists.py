@@ -95,7 +95,7 @@ def banknifty_members(
         return resolve_universe("banknifty", exchange=exchange)
     except ValueError:
         pass
-    day = as_of or dt.datetime.now(tz=dt.timezone.utc).date()
+    day = as_of or dt.datetime.now(tz=dt.UTC).date()
     try:
         members = resolve_universe("banknifty", exchange=exchange, as_of=day, data_dir=data_dir)
     except ValueError:

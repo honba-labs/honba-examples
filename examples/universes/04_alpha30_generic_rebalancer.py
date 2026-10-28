@@ -41,7 +41,7 @@ Pitfalls::
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from honba.domain.bar import Bar
@@ -231,9 +231,9 @@ def _bar_day(bar: Bar, now_ns: int) -> date:
             v /= 1e9
         elif v > 1e11:
             v /= 1e3
-        return datetime.fromtimestamp(v, tz=timezone.utc).date()
+        return datetime.fromtimestamp(v, tz=UTC).date()
     if now_ns > 0:
-        return datetime.fromtimestamp(now_ns / 1e9, tz=timezone.utc).date()
+        return datetime.fromtimestamp(now_ns / 1e9, tz=UTC).date()
     raise ValueError(
         "bar has no usable timestamp and the context clock is 0; refusing to fall back to the "
         "wall clock (replays must be reproducible)"

@@ -26,10 +26,9 @@ from __future__ import annotations
 
 import datetime as dt
 import inspect
+import tomllib
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 from honba_examples.catalog import strategies_catalog_dir
 from honba_examples.pipeline.base import Pipeline, PipelineResult, Step

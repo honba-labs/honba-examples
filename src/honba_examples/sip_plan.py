@@ -129,7 +129,7 @@ def ensure_instrument_data(
         store = ParquetBarStore(find_data_root(REPO_ROOT))
 
     start = start or dt.date(2022, 1, 1)
-    end = end or (dt.datetime.now(tz=dt.timezone.utc).date() + dt.timedelta(days=1))
+    end = end or (dt.datetime.now(tz=dt.UTC).date() + dt.timedelta(days=1))
     interval = DateInterval(start, end)
     inst = InstrumentId(symbol, exchange)
 

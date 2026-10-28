@@ -1,0 +1,24 @@
+{
+  "strategy": "sma_cross",
+  "capital_inr": 100000.0,
+  "bars": 60,
+  "fast": 10,
+  "slow": 30,
+  "symbol": "RELIANCE",
+  "exchange": "NSE",
+  "data_source": "synthetic",
+  "fill_model": "next_open",
+  "costs": "nse_equity_delivery_fill_cost",
+  "test_start": "2026-01-01",
+  "test_end": "2026-06-30",
+  "expected": {
+    "final_equity": 100013.15,
+    "total_return": 13.15,
+    "max_drawdown_pct": -0.00185,
+    "sharpe": 9.531391537518791,
+    "n_fills": 1,
+    "n_intents": 1
+  },
+  "tolerance": 1e-6,
+  "note": "Phase 8 test-parity golden vector. Pins the deterministic Python backtest (honba_examples.backtest.run_portfolio_backtest, next-open fills, NSE cost model). The intent is that the Python backtest matches the compiled Rust backtest (honba-ya-backtest) within 1e-6; until the Rust golden vector is wired in, this snapshot makes the target executable and offline."
+}

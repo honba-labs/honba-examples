@@ -37,8 +37,7 @@ def _write_symbol_parquet(
     )
     for day, close in zip(days, closes, strict=True):
         ts = (
-            int(dt.datetime.combine(day, dt.time(9, 15), tzinfo=dt.timezone.utc).timestamp())
-            * 1_000_000_000
+            int(dt.datetime.combine(day, dt.time(9, 15), tzinfo=dt.UTC).timestamp()) * 1_000_000_000
         )
         con.execute(
             "INSERT INTO b VALUES (?, ?, ?, ?, ?, ?)",

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import random
 import sys
+from datetime import UTC
 from typing import Any
 
 from honba.strategies.base import Strategy
@@ -134,13 +135,11 @@ def _evaluate(bars_list: list, params: dict[str, Any]) -> dict[str, Any]:
         curve.append({"date": str(result.fills[-1].ts + 1), "value": cash, "cash": cash})
 
     # Compute metrics
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     metric_curve = [
         {
-            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=timezone.utc)
-            .date()
-            .isoformat(),
+            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=UTC).date().isoformat(),
             "value": c["value"],
             "cash": c["cash"],
         }

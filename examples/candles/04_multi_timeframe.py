@@ -63,7 +63,7 @@ _INSTRUMENT = InstrumentId("RELIANCE", "NSE")
 _SOURCE_TIMEFRAME = "1m"
 _VIEWS = ("1m", "5m", "1h", "1d")
 _PAIRS = (("1m", "5m"), ("5m", "1h"), ("1h", "1d"))
-_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc)
+_START = dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.UTC)
 _END = _START + dt.timedelta(days=1)
 #: The fake serves five bars per request by default - far too few for four resolutions.
 _BARS_PER_REQUEST = 120
@@ -108,7 +108,7 @@ async def _fetch_bars(adapter_name: str, config: dict[str, str]) -> list[Bar]:
 
 def _date(ts: int) -> str:
     """ISO-8601 UTC stamp of a bar's ``ts`` (unix nanoseconds)."""
-    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.timezone.utc).isoformat()
+    return dt.datetime.fromtimestamp(ts / 1e9, tz=dt.UTC).isoformat()
 
 
 def _row(bar: Bar) -> dict[str, Any]:

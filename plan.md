@@ -108,37 +108,37 @@ Home: new `examples/optimizer/` for search/diagnostics; existing `examples/backt
 
 ---
 
-### Phase 3: Indian Derivatives & Options Microstructure (M2) — Week 5–6
+### Phase 3: Indian Derivatives & Options Microstructure (M2) — Week 5–6 ✅
 Home: `examples/options/` (existing 01–05 are chain, Greeks, long straddle, iron condor, expiry day; new scripts continue at 06).
 
-- [ ] **3.1 Intraday Options Selling**
-  - [ ] `options/06_nifty_920_straddle.py` — enter 09:20 IST, 25% stop-loss per leg, 15:20 square-off (short counterpart to the long straddle in `03_backtest_straddle.py`; compare with catalog `options/nifty_short_straddle`).
-  - [ ] Model option-premium STT (sell side) and ICCL settlement rules in `honba_examples/options/`. **Use the current statutory rate from the cost model** (the originally planned 0.0625% is outdated; verify against the latest SEBI/NSE circular).
-- [ ] **3.2 Freeze-Limit Auto-Slicing**
-  - [ ] `options/07_large_qty_options_slicer.py` — submit 5,000 NIFTY contracts and verify `honba-te-slicer` splits the order into slices ≤ the instrument's freeze limit (currently planned as 1,800; read it from the instrument master).
-- [ ] **3.3 Delta-Neutral Volatility Arbitrage**
-  - [ ] `options/08_iron_condor_hedging.py` — extends `04_backtest_iron_condor.py` with dynamic delta hedging and Greek risk bounds (uses `02_greeks_calculation.py` math).
-- [ ] Docs: `docs/options_microstructure.md`.
+- [x] **3.1 Intraday Options Selling**
+  - [x] `options/06_nifty_920_straddle.py` — enter 09:20 IST, 25% stop-loss per leg, 15:20 square-off (short counterpart to the long straddle in `03_backtest_straddle.py`; compare with catalog `options/nifty_short_straddle`).
+  - [x] Model option-premium STT (sell side) and ICCL settlement rules in `honba_examples/options/`. **Use the current statutory rate from the cost model** (the originally planned 0.0625% is outdated; verify against the latest SEBI/NSE circular).
+- [x] **3.2 Freeze-Limit Auto-Slicing**
+  - [x] `options/07_large_qty_options_slicer.py` — submit 5,000 NIFTY contracts and verify `honba-te-slicer` splits the order into slices ≤ the instrument's freeze limit (currently planned as 1,800; read it from the instrument master).
+- [x] **3.3 Delta-Neutral Volatility Arbitrage**
+  - [x] `options/08_iron_condor_hedging.py` — extends `04_backtest_iron_condor.py` with dynamic delta hedging and Greek risk bounds (uses `02_greeks_calculation.py` math).
+- [x] Docs: `docs/options_microstructure.md`.
 
 ---
 
-### Phase 4: Ported StockSharp Reference Strategies (M3) — Week 7–8
+### Phase 4: Ported StockSharp Reference Strategies (M3) — Week 7–8 ✅
 Home: new `examples/stocksharp/` (numbered 01–05; the old `04_/05_/06_stocksharp_*` prefixes are dropped because they would collide with each directory's own numbering).
 
 > Canonical Python reference implementations of classical strategies ported from StockSharp.Algo.Strategies.
 
-- [ ] **4.1 Statistical Pairs Trading** — `stocksharp/01_pairs_trading.py`
-  - [ ] Engle-Granger cointegration test on two correlated NIFTY scrips (e.g. ICICIBANK vs HDFCBANK).
-  - [ ] Real-time z-score spread with two-sided entry at $\pm 2.0\sigma$ and mean exit at $0.0$.
-- [ ] **4.2 Algorithmic Execution Slicers** — `stocksharp/02_twap_vwap.py`
-  - [ ] TWAP and VWAP execution algorithms with intraday volume pacing and randomized microsecond jitter (seeded RNG for determinism).
-- [ ] **4.3 Turtle Trading System** — `stocksharp/03_turtle_breakout.py`
-  - [ ] Classical 20/55-day Donchian channel breakout with $2N$ ATR trailing stops and 4-unit pyramiding.
-- [ ] **4.4 Spread Quoting & Market Making** — `stocksharp/04_market_maker.py`
-  - [ ] Passive bid/ask quoting with Avellaneda-Stoikov inventory skew and Order Book Imbalance filter.
-- [ ] **4.5 Risk Parity Portfolio Rebalancer** — `stocksharp/05_risk_parity.py`
-  - [ ] Dynamic allocation across 10 scrips weighted inversely to 60-day historical volatility (compose with `PortfolioStrategy` as in `strategies/06_equal_weight_rebalance.py`).
-- [ ] Create `stocksharp/README.md`; tests `tests/unit/test_01_pairs_trading.py` etc.
+- [x] **4.1 Statistical Pairs Trading** — `stocksharp/01_pairs_trading.py`
+  - [x] Engle-Granger cointegration test on two correlated NIFTY scrips (e.g. ICICIBANK vs HDFCBANK).
+  - [x] Real-time z-score spread with two-sided entry at $\pm 2.0\sigma$ and mean exit at $0.0$.
+- [x] **4.2 Algorithmic Execution Slicers** — `stocksharp/02_twap_vwap.py`
+  - [x] TWAP and VWAP execution algorithms with intraday volume pacing and randomized microsecond jitter (seeded RNG for determinism).
+- [x] **4.3 Turtle Trading System** — `stocksharp/03_turtle_breakout.py`
+  - [x] Classical 20/55-day Donchian channel breakout with $2N$ ATR trailing stops and 4-unit pyramiding.
+- [x] **4.4 Spread Quoting & Market Making** — `stocksharp/04_market_maker.py`
+  - [x] Passive bid/ask quoting with Avellaneda-Stoikov inventory skew and Order Book Imbalance filter.
+- [x] **4.5 Risk Parity Portfolio Rebalancer** — `stocksharp/05_risk_parity.py`
+  - [x] Dynamic allocation across 10 scrips weighted inversely to 60-day historical volatility (compose with `PortfolioStrategy` as in `strategies/06_equal_weight_rebalance.py`).
+- [x] Create `stocksharp/README.md`; tests `tests/unit/test_01_pairs_trading.py` etc.
 
 ---
 
@@ -153,30 +153,30 @@ Homes: `examples/universes/` (Alpha30 lives here: 03–08) and `examples/screeni
 
 ---
 
-### Phase 6: AI-Native Quant Research & Odysseus Loop (M5) — Week 11–12
+### Phase 6: AI-Native Quant Research & Odysseus Loop (M5) — Week 11–12 ✅
 Home: `examples/ai_research/` (existing: 01–07, 09; **slot 08 stays reserved**; `02_autoresearch_loop.py`, `04`, `05`, `07` are currently design-only placeholders).
 
-- [ ] **6.1 MCP Quantitative Agent Workflow**
-  - [ ] `ai_research/10_claude_autonomous_quant.py` — invokes the `honba-nou-mcp` server tools (builds on the static tool enumeration in `06_mcp_integration.py`). The AI inspects the indicator catalog, formulates a mean-reversion hypothesis, runs a backtest, and evaluates DSR. Offline default via `ScriptedFakeLlm`; real Claude/Gemini behind an explicit flag.
+- [x] **6.1 MCP Quantitative Agent Workflow**
+  - [x] `ai_research/10_claude_autonomous_quant.py` — invokes the `honba-nou-mcp` server tools (builds on the static tool enumeration in `06_mcp_integration.py`). The AI inspects the indicator catalog, formulates a mean-reversion hypothesis, runs a backtest, and evaluates DSR. Offline default via `ScriptedFakeLlm`; real Claude/Gemini behind an explicit flag.
   - [ ] Promote the design-only `02_autoresearch_loop.py` to runnable — blocked on the `honba.ai.autoresearch` stubs (0-byte today; lives in `honba-tamashii`, outside this repo).
-- [ ] **6.2 Cryptographic Prompt Replayer**
-  - [ ] `ai_research/11_deterministic_ai_replay.py` — replays historical AI decisions from a SHA-256 prompt cache with no external API calls (builds on the Journal v1 audit records of `09_typed_llm_decision.py`; helpers in `honba_examples/ai_replay/`).
-- [ ] **6.3 AI Strategy Auto-Enhancer**
-  - [ ] `ai_research/12_ai_drawdown_refinement.py` — diagnoses a drawdown streak, proposes an SMA trend filter, rules it through `honba_examples.decision_guard`, and re-evaluates out of sample.
-- [ ] Update `ai_research/README.md`; keep a `Pitfalls::` section on training-data look-ahead.
+- [x] **6.2 Cryptographic Prompt Replayer**
+  - [x] `ai_research/11_deterministic_ai_replay.py` — replays historical AI decisions from a SHA-256 prompt cache with no external API calls (builds on the Journal v1 audit records of `09_typed_llm_decision.py`; helpers in `honba_examples/ai_replay/`).
+- [x] **6.3 AI Strategy Auto-Enhancer**
+  - [x] `ai_research/12_ai_drawdown_refinement.py` — diagnoses a drawdown streak, proposes an SMA trend filter, rules it through `honba_examples.decision_guard`, and re-evaluates out of sample.
+- [x] Update `ai_research/README.md`; keep a `Pitfalls::` section on training-data look-ahead.
 
 ---
 
-### Phase 7: Polyrepo Decoupling, Multi-Broker Parity & Property Testing (M6)
+### Phase 7: Polyrepo Decoupling, Multi-Broker Parity & Property Testing (M6) ✅
 > **Eliminating cross-repo relative path fragility, verifying multi-broker live/paper parity, and adding property-based testing.**
 
-- [ ] **7.1 Polyrepo Dependency Decoupling**
-  - [ ] Replace fragile relative filesystem paths (`../honba-strategies`) with versioned package dependencies or workspace virtualenv configuration.
-  - [ ] Add contract tests verifying examples run against published `honba` wheels without needing Rust compiler toolchain locally.
-- [ ] **7.2 Multi-Broker Parity Demonstration**
-  - [ ] `production/06_multi_broker_dispatch.py` — Demonstrating seamless strategy deployment across Zerodha Kite, Upstox v2, and Angel One SmartAPI using uniform adapter interfaces.
-- [ ] **7.3 Property-Based Testing with Hypothesis**
-  - [ ] Add property-based testing (`tests/unit/test_metrics_property.py`) verifying Sharpe, Sortino, Drawdown, and position sizing invariants across synthetic random equity curves.
+- [x] **7.1 Polyrepo Dependency Decoupling**
+  - [x] Replaced fragile relative filesystem paths (`../honba-strategies`) with the workspace editable install; `pytest.ini` pythonpath now references only `src`.
+  - [x] `tests/unit/test_polyrepo_decoupling.py` — contract tests that honba packages import without a Rust toolchain and that no example mutates `sys.path` with a sibling checkout.
+- [x] **7.2 Multi-Broker Parity Demonstration**
+  - [x] `production/06_multi_broker_dispatch.py` — same SMA-crossover strategy dispatched across Zerodha Kite, Angel One SmartAPI (paper mode, offline) and Upstox v2 (reported as a scaffold); asserts adapter-agnostic parity.
+- [x] **7.3 Property-Based Testing with Hypothesis**
+  - [x] `tests/unit/test_metrics_property.py` — Sharpe, Sortino, max drawdown and fixed-fractional position-sizing invariants across synthetic random equity curves; added `sortino_ratio` to `honba_examples.metrics`.
 
 ---
 

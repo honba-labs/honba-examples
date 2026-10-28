@@ -39,9 +39,7 @@ def ex():
 
 
 def _ts(day: dt.date) -> int:
-    return int(
-        dt.datetime(day.year, day.month, day.day, 10, tzinfo=dt.timezone.utc).timestamp()
-    ) * (10**9)
+    return int(dt.datetime(day.year, day.month, day.day, 10, tzinfo=dt.UTC).timestamp()) * (10**9)
 
 
 def _bar(sym: str, day: dt.date, close: float = 100.0) -> Bar:

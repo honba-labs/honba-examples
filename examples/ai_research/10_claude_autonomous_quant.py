@@ -273,7 +273,7 @@ def run(
     fills = data.get("fills", [])
     fills_by_date: dict[str, list[dict[str, Any]]] = {}
     for f in fills:
-        f_day = dt.datetime.fromtimestamp(f["ts"] / 1e9, tz=dt.timezone.utc).date().isoformat()
+        f_day = dt.datetime.fromtimestamp(f["ts"] / 1e9, tz=dt.UTC).date().isoformat()
         fills_by_date.setdefault(f_day, []).append(f)
 
     capital = DEFAULT_CAPITAL
@@ -282,7 +282,7 @@ def run(
     curve: list[float] = []
     n_fills = 0
     for bar in bar_list:
-        day = dt.datetime.fromtimestamp(bar.ts / 1e9, tz=dt.timezone.utc).date().isoformat()
+        day = dt.datetime.fromtimestamp(bar.ts / 1e9, tz=dt.UTC).date().isoformat()
         for f in fills_by_date.get(day, []):
             notional = f["quantity"] * f["price"]
             if f["side"] == OrderSide.BUY.value:

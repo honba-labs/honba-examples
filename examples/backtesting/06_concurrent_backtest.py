@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import sys
+from datetime import UTC
 from typing import Any
 
 from honba.strategies.base import Strategy
@@ -111,13 +112,11 @@ def _backtest(bars_list: list, fast: int, slow: int, min_trades: int = 3) -> dic
         curve.append({"value": cash, "cash": cash, "date": str(result.fills[-1].ts + 1)})
 
     # Format for curve_metrics
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     metric_curve = [
         {
-            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=timezone.utc)
-            .date()
-            .isoformat(),
+            "date": datetime.fromtimestamp(int(c["date"]) / 1e9, tz=UTC).date().isoformat(),
             "value": c["value"],
             "cash": c["cash"],
         }

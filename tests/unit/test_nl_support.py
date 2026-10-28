@@ -249,7 +249,7 @@ class _FakeStore:
 
     def read(self, inst, _timeframe, _interval):
         idx = sum(ord(ch) for ch in inst.symbol) % 7  # deterministic per-symbol drift
-        start = dt.datetime(2021, 10, 1, tzinfo=dt.timezone.utc)
+        start = dt.datetime(2021, 10, 1, tzinfo=dt.UTC)
         bars = []
         for i in range(190):
             day = start + dt.timedelta(days=i)

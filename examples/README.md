@@ -325,10 +325,13 @@ pytest tests/unit -q -k "llm_research or mcp_integration or claude_autonomous or
 | 03 | `03_multi_account_execution.py` | Mirroring intents across master/child accounts |
 | 04 | `04_monitoring.py` | Heartbeat, Prometheus metrics, alerting |
 | 05 | `05_deployment.py` | Docker container & systemd service configuration |
+| 06 | `06_multi_broker_dispatch.py` | Same SMA-crossover strategy dispatched across Zerodha, Angel One (paper mode) and Upstox (scaffold); asserts adapter-agnostic parity |
 
 Run them:
 
 ```bash
 python examples/production/01_paper_trading.py --broker dhan
 python examples/production/04_monitoring.py --port 9090
+python examples/production/06_multi_broker_dispatch.py --brokers zerodha,angelone,upstox --bars 120
+pytest tests/unit -q -k "multi_broker_dispatch"
 ```

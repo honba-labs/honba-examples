@@ -67,9 +67,7 @@ def test_frames_are_the_minute_fold_of_the_reported_ticks(report):
     expected = [
         {
             "symbol": "RELIANCE",
-            "date": dt.datetime.fromtimestamp(
-                minute * _NS_PER_MINUTE / 1e9, tz=dt.timezone.utc
-            ).isoformat(),
+            "date": dt.datetime.fromtimestamp(minute * _NS_PER_MINUTE / 1e9, tz=dt.UTC).isoformat(),
             "open": mids[0],
             "high": max(mids),
             "low": min(mids),
@@ -109,7 +107,7 @@ def test_fold_opens_a_new_frame_when_the_minute_changes(example):
             ask_size=1.0,
         )
 
-    utc = dt.timezone.utc
+    utc = dt.UTC
     frames = example._fold(
         [
             tick(dt.datetime(2025, 6, 2, 9, 15, 59, 500_000, tzinfo=utc), 100.0, 102.0),
@@ -178,7 +176,7 @@ def test_main_happy_path_returns_zero(example, capsys):
 def test_fold_keeps_one_frame_per_instrument_minute_when_ticks_interleave(example):
     reliance = example._INSTRUMENT
     tcs = type(reliance)("TCS", reliance.exchange)
-    base = int(dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.timezone.utc).timestamp() * 1e9)
+    base = int(dt.datetime(2025, 6, 2, 9, 15, tzinfo=dt.UTC).timestamp() * 1e9)
 
     def tick(instrument_id, offset_ms: int, mid: float) -> QuoteTick:
         return QuoteTick(

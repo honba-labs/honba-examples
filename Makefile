@@ -1,4 +1,4 @@
-.PHONY: install test lint test-all
+.PHONY: install test lint typecheck test-parity test-all
 
 VENV_BIN := .venv/bin
 
@@ -16,4 +16,13 @@ test:
 lint:
 	$(VENV_BIN)/ruff check . && $(VENV_BIN)/ruff format --check .
 
-test-all: lint test
+typecheck:
+	$(VENV_BIN)/pyright
+
+# Asserts the Python backtest returns match the compiled Rust backtest (honba-ya-backtest)
+# within 1e-6, using golden vectors in tests/snapshots/. Fully offline; no Rust toolchain
+# required on the Python side (Phase 7.1 decoupling).
+test-parity:
+	$(VENV_BIN)/pytest -q tests/unit/test_backtest_parity.py
+
+test-all: lint typecheck test test-parity

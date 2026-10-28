@@ -24,6 +24,7 @@ __all__ = [
     "fills_equity_curve",
     "max_drawdown",
     "sharpe_ratio",
+    "sortino_ratio",
 ]
 
 SESSIONS_PER_YEAR = 252
@@ -157,3 +158,28 @@ def sharpe_ratio(curve: Sequence[dict[str, Any]], capital: float) -> float:
         std = math.sqrt(var)
         return (mean / std) * math.sqrt(SESSIONS_PER_YEAR) if std > 0 else 0.0
     return 0.0
+
+
+def sortino_ratio(curve: Sequence[dict[str, Any]], capital: float) -> float:
+    """Sortino ratio (annualized over 252 sessions, zero risk-free target).
+
+    Like :func:`sharpe_ratio` but the denominator is the downside deviation (sample std of
+    negative session returns only). A curve with no downside returns reports 0.0, mirroring
+    :func:`sharpe_ratio` when there is no variance.
+    """
+    if len(curve) < 2:
+        return 0.0
+    values = [p["value"] for p in curve]
+    rets = [
+        (values[i] - values[i - 1]) / values[i - 1]
+        for i in range(1, len(values))
+        if values[i - 1] != 0
+    ]
+    downside = [r for r in rets if r < 0]
+    n = len(downside)
+    if n == 0:
+        return 0.0
+    mean = sum(rets) / len(rets)
+    var = sum(r * r for r in downside) / (n - 1) if n > 1 else 0.0
+    std = math.sqrt(var)
+    return (mean / std) * math.sqrt(SESSIONS_PER_YEAR) if std > 0 else 0.0

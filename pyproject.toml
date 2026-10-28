@@ -9,12 +9,14 @@ description = "Honba learning path examples"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Honba Labs" }]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = ["honba"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "hypothesis", "pyright"]
 mutual-funds = ["honba-data", "scipy"]
+optimizer = ["optuna", "scipy", "matplotlib"]
+ai = ["optuna", "scipy"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -22,4 +24,4 @@ include = ["honba_examples*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
