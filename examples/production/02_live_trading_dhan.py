@@ -56,7 +56,7 @@ class SmaLive(Strategy):
         self.symbol = symbol
         self.iid = InstrumentId(symbol=symbol, exchange="NSE")
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         if bar.instrument_id != self.iid:
             return
 

@@ -230,7 +230,7 @@ class RsiMeanReversion(Strategy):
         self.quantity = quantity
         self.rsi = Rsi(period)
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         if bar.instrument_id.symbol != self.symbol:
             return
         rsi = self.rsi.update(bar.close)

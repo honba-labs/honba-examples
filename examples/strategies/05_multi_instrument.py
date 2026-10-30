@@ -99,7 +99,7 @@ class BasketSma(Strategy):
         sign = -1.0 if fill.side is OrderSide.BUY else 1.0
         self._cash += sign * fill.quantity * fill.price
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         sym = bar.instrument_id.symbol
         self._iids[sym] = bar.instrument_id
         self._last_close[sym] = bar.close

@@ -101,7 +101,7 @@ def run(
     }
     r = 0.07
 
-    def tau_at(minute_of_session: int) -> float:
+    def tau_at(minute_of_session: float) -> float:
         """Years to expiry: whole days left plus the session fraction of today."""
         return max(
             1e-6,

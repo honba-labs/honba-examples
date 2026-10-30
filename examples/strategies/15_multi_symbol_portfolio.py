@@ -28,7 +28,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
-from typing import ClassVar, override
+from typing import Any, ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
@@ -126,7 +126,7 @@ class MultiSymbolPortfolio(Strategy):
                 _ = self._entry_price.pop(sym, None)
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         sym = bar.instrument_id.symbol
         self._iids[sym] = bar.instrument_id
         self._last_close[sym] = bar.close

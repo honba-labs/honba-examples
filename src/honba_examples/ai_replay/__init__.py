@@ -103,11 +103,12 @@ def verify_journal(cache: PromptCache, path: Path) -> tuple[int, int, list[str]]
             if prompt_digest(prompt) != digest:
                 problems.append(f"line {lineno}: digest does not match prompt")
                 continue
-            if digest not in cache:
+            entry = cache.get(digest)
+            if entry is None:
                 problems.append(f"line {lineno}: digest not in prompt cache")
                 continue
             cached += 1
-            cached_prompt, _ = cache.get(digest)
+            cached_prompt, _ = entry
             if cached_prompt != prompt:
                 problems.append(f"line {lineno}: cached prompt differs from journal")
                 continue

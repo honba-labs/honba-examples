@@ -75,7 +75,7 @@ class RiskManagedSma(Strategy):
         sign = -1.0 if fill.side is OrderSide.BUY else 1.0
         self._cash += sign * fill.quantity * fill.price
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         close = bar.close
         fast_val = self.fast_sma.update(close)
         slow_val = self.slow_sma.update(close)

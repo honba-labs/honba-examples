@@ -36,9 +36,9 @@ import datetime as dt
 import sys
 from typing import Any
 
-from honba.adapters.errors import AdapterError
+from honba.adapters.errors import AdapterError, AdapterNotFound
 from honba.adapters.models import RunMode
-from honba.adapters.registry import AdapterNotFound, resolve_adapter
+from honba.adapters.registry import resolve_adapter
 from honba.domain.instrument import InstrumentId
 from honba.strategies.base import Strategy
 from honba.strategies.indicators import Sma
@@ -78,7 +78,7 @@ class SmaCrossover(Strategy):
         self.iid = InstrumentId(symbol=symbol, exchange="NSE")
         self._signals: int = 0
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         if bar.instrument_id != self.iid:
             return
         fast_val = self.fast.update(bar.close)

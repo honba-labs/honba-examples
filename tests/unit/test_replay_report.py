@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from typing import Any
 
 from honba.strategies.base import Strategy
 
@@ -15,7 +16,7 @@ class _Buyer(Strategy):
     name = "buyer"
     warmup_bars = 2
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         if self.position(bar.instrument_id) <= 0:
             self.buy(bar.instrument_id, 1)
 

@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import ClassVar, override
+from typing import Any, ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.strategies.base import Strategy
@@ -81,7 +81,7 @@ class CompositeSmaRsi(Strategy):
         self._trailing = {}
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         close = bar.close
         fast_val = self.fast_ma.update(close)
         slow_val = self.slow_ma.update(close)

@@ -112,7 +112,7 @@ class SmaSizing(Strategy):
             self._trade_returns.append(fill.price / self._entry_price - 1.0)
             self._entry_price = None
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         close = bar.close
         fast_val = self.fast_sma.update(close)
         slow_val = self.slow_sma.update(close)

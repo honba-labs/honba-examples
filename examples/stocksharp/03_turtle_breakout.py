@@ -174,7 +174,9 @@ def run(
                 )
         else:
             if position > 0:
-                highest_since_entry = max(highest_since_entry, close)
+                highest_since_entry = (
+                    close if highest_since_entry is None else max(highest_since_entry, close)
+                )
                 # Pyramid: add one unit per 1N favourable move, capped at MAX_UNITS.
                 next_add = add_levels[-1] + n
                 if units < MAX_UNITS and close >= next_add:
@@ -209,7 +211,9 @@ def run(
                     highest_since_entry = None
                     add_levels = []
             else:
-                lowest_since_entry = min(lowest_since_entry, close)
+                lowest_since_entry = (
+                    close if lowest_since_entry is None else min(lowest_since_entry, close)
+                )
                 next_add = add_levels[-1] - n
                 if units < MAX_UNITS and close <= next_add:
                     units += 1

@@ -142,7 +142,11 @@ def ensure_instrument_data(
         bhav_cache.mkdir(parents=True, exist_ok=True)
         nse_prov = NseBhavcopyProvider(cache_dir=bhav_cache)
         yf_prov = YFinanceProvider()
-        svc = DataService(store=store, providers=[nse_prov, yf_prov])
+        # NseBhavcopyProvider has no `fetch` (only `download_session_bhavcopy`), so it
+        # doesn't satisfy MarketDataProvider; a bad fetch from it is swallowed by the
+        # except Exception below. Matches the same provider pairing in honba's own
+        # `honba.cli.data` module (an upstream honba-tamashii gap, not fixable here).
+        svc = DataService(store=store, providers=[nse_prov, yf_prov])  # pyright: ignore[reportArgumentType]
 
         plan = svc.plan([inst], timeframe, interval)
         gaps = plan.gaps_by_instrument.get(inst, [])

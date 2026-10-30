@@ -57,7 +57,7 @@ class SmaBacktest(Strategy):
         self.slow = Sma(slow)
         self.capital = capital
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         fast_val = self.fast.update(bar.close)
         slow_val = self.slow.update(bar.close)
 

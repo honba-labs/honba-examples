@@ -60,7 +60,7 @@ class SipPortfolioStrategy(Strategy):
         self._initial_capital = initial_capital
         self._last_month: int | None = None
 
-    def on_bar(self, bar: Any) -> None:
+    def on_bar(self, bar: Any, ctx: Any = None) -> None:
         bar_date = getattr(bar, "date", None)
         if bar_date is None:
             return
