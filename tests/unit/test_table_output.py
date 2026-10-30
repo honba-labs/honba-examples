@@ -154,7 +154,8 @@ def test_08_summary_is_a_metrics_table(capsys: pytest.CaptureFixture[str]) -> No
         "MRF",
         "2026-06-01",
         "Rebalance Schedule",
-        "+AAA(3)",
+        "AAA(3)",
+        "BBB(2)",
         "Equity curve",
     ):
         assert needle in text
