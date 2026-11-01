@@ -125,7 +125,7 @@ class UniverseEqualWeightRebalance(Strategy):
         self._universe = self._resolve()
         print(f"[start] {self.universe_name} size={len(self._universe)}")
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         day = _bar_day(bar, self.ctx.now())
         self._last_prices[bar.instrument_id] = float(bar.close)
         self._price_day[bar.instrument_id] = day

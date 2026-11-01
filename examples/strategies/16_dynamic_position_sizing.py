@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import ClassVar, cast, override
+from typing import Any, ClassVar, cast, override
 
 from honba.domain.bar import Bar
 from honba.domain.order import OrderSide
@@ -96,7 +96,7 @@ class DynamicPositionSizing(Strategy):
         self._cash += sign * fill.quantity * fill.price
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         fast_val = self.fast_sma.update(bar.close)
         slow_val = self.slow_sma.update(bar.close)
         atr_val = self.atr.update(bar.high, bar.low, bar.close)

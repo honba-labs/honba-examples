@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 import pytest
 from honba.domain.bar import Bar
@@ -31,7 +32,7 @@ class BuyEveryBar(Strategy):
     def __init__(self) -> None:
         self.seen: list[Bar] = []
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         self.seen.append(bar)
         if not self.busy(bar.instrument_id):
             self.buy(bar.instrument_id, 1)
@@ -133,7 +134,7 @@ class BuyAllOnFirstBar(Strategy):
         self.order = order
         self.done = False
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         if not self.done and bar.instrument_id.symbol == SYMS[-1]:
             self.done = True
             for s in self.order:

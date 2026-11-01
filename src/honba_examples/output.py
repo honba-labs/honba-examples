@@ -302,8 +302,10 @@ def print_rebalance_schedule(
 ) -> None:
     """Concise rebalance schedule table: 1 row per rebalance session.
 
-    Categorizes trades into Added (new position), Removed (exit), and Rebalanced (trim/top-up),
-    with Day 0 summarized compactly as the Initial basket funding.
+    Each symbol's net share change for the session is shown as ``SYM(qty)`` in the
+    Bought or Sold column, without distinguishing a new entry, a full exit, or a
+    trim/top-up of an existing holding. Day 0 is summarized compactly as the initial
+    basket funding.
     """
     opts = opts or OutputOptions()
     groups: list[dict[str, Any]] = []
@@ -321,7 +323,6 @@ def print_rebalance_schedule(
                 }
             )
 
-    held: dict[str, int] = {}
     raw: list[dict[str, Any]] = []
 
     for idx, g in enumerate(groups):
@@ -332,48 +333,28 @@ def print_rebalance_schedule(
             signed = t["qty"] if t.get("side") == "buy" else -t["qty"]
             net[t["symbol"]] = net.get(t["symbol"], 0) + signed
 
-        added: list[str] = []
-        removed: list[str] = []
-        rebalanced_items: list[tuple[int, str]] = []
+        changes = [(sym, delta) for sym, delta in sorted(net.items()) if delta != 0]
+        bought = sorted((s, d) for s, d in changes if d > 0)
+        sold = sorted((s, d) for s, d in changes if d < 0)
+        bought.sort(key=lambda x: -x[1])
+        sold.sort(key=lambda x: x[1])
 
-        for sym in sorted(net):
-            delta = net[sym]
-            if delta == 0:
-                continue
-            before = held.get(sym, 0)
-            after = before + delta
-            if before == 0 and after > 0:
-                added.append(f"+{sym}({delta})")
-            elif before > 0 and after == 0:
-                removed.append(f"-{sym}(all)")
-            elif before > 0 and after > 0:
-                sign = "+" if delta > 0 else "-"
-                rebalanced_items.append((abs(delta), f"{sign}{sym}({abs(delta)})"))
-            held[sym] = after
-            if after == 0:
-                held.pop(sym, None)
-
-        rebalanced_items.sort(key=lambda x: -x[0])
-        rebalanced = [item[1] for item in rebalanced_items]
-
-        if idx == 0 and not removed and not rebalanced:
+        if idx == 0 and not sold:
             event = "Day 0 Funding"
-            added_str = f"{len(added)} symbols" if len(added) > 5 else ", ".join(added)
-            removed_str = "-"
-            rebalanced_str = "-"
+            items = [f"{sym}({qty})" for sym, qty in bought]
+            bought_str = f"{len(items)} symbols" if len(items) > 5 else ", ".join(items)
+            sold_str = "-"
         else:
             event = f"Rebalance #{idx}" if idx > 0 else "Rebalance"
-            added_str = ", ".join(added) if added else "-"
-            removed_str = ", ".join(removed) if removed else "-"
-            rebalanced_str = ", ".join(rebalanced) if rebalanced else "-"
+            bought_str = ", ".join(f"{sym}({qty})" for sym, qty in bought) if bought else "-"
+            sold_str = ", ".join(f"{sym}({-qty})" for sym, qty in sold) if sold else "-"
 
         raw.append(
             {
                 "date": g["date"],
                 "event": event,
-                "added": added_str,
-                "removed": removed_str,
-                "rebalanced": rebalanced_str,
+                "bought": bought_str,
+                "sold": sold_str,
                 "notional": notional,
             }
         )
@@ -381,9 +362,8 @@ def print_rebalance_schedule(
     cols = [
         Column("date", "Date", style="dim"),
         Column("event", "Event", style="bold cyan"),
-        Column("added", "Added (New)", style="green"),
-        Column("removed", "Removed (Exit)", style="red"),
-        Column("rebalanced", "Rebalanced (Trim / Top-up)", style="yellow"),
+        Column("bought", "Bought", style="green"),
+        Column("sold", "Sold", style="red"),
         Column("notional", "Notional", align="right", style="magenta", fmt=_num),
     ]
     _table("schedule", "Rebalance Schedule", cols, raw, opts)

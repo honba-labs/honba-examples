@@ -70,7 +70,7 @@ class SmaWalk(Strategy):
         self.fast = Sma(fast)
         self.slow = Sma(slow)
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         fast_val = self.fast.update(bar.close)
         slow_val = self.slow.update(bar.close)
 

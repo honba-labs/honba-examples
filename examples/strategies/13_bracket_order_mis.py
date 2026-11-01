@@ -29,7 +29,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import sys
-from typing import ClassVar, override
+from typing import Any, ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.domain.instrument import InstrumentId
@@ -163,7 +163,7 @@ class BracketOrderMis(Strategy):
             self._stop_loss_price = None
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         # Convert bar timestamp to IST
         utc_dt = dt.datetime.fromtimestamp(bar.ts / 1_000_000_000, tz=dt.UTC)
         ist_dt = utc_dt + dt.timedelta(hours=5, minutes=30)

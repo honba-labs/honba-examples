@@ -156,7 +156,7 @@ class SmaCrossover(Strategy):
         self.slow = Sma(slow)
         self.quantity = quantity
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         if bar.instrument_id.symbol != self.symbol:
             return
         fast_val = self.fast.update(bar.close)
@@ -192,7 +192,7 @@ class SmaCrossoverWithAdx(Strategy):
         self.adx_threshold = adx_threshold
         self.quantity = quantity
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         if bar.instrument_id.symbol != self.symbol:
             return
         fast_val = self.fast.update(bar.close)

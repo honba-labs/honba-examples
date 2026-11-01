@@ -68,7 +68,7 @@ class RsiMeanReversion(Strategy):
         self.rsi = Rsi(rsi_period)
         self.recent_closes: list[float] = []
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         rsi_val = self.rsi.update(bar.close)
 
         if rsi_val is None:

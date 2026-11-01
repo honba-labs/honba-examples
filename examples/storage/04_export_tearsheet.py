@@ -84,7 +84,7 @@ class BuyFirstSellLast(Strategy):
         self.entered = False
         self.exited = False
 
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         day = ts_to_date(bar.ts)
         if day < self.test_start or self.exited or self.busy(bar.instrument_id):
             return

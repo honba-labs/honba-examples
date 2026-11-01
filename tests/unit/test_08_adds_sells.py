@@ -77,7 +77,7 @@ def test_simulate_reports_changes_matching_its_fills(ex, settlement_days: int) -
 
 
 def test_summary_prints_the_changes_table_per_rebalance(ex, capsys) -> None:
-    """The summary prints the concise Rebalance Schedule table (date, event, added, removed, rebalanced, notional)
+    """The summary prints the concise Rebalance Schedule table (date, event, bought, sold, notional)
     followed by metrics and equity curve, without the final holdings table."""
     days = weekdays(dt.date(2026, 6, 1), 6)
     bars = [bar(s, d, 100.0) for d in days for s in ("AAA", "BBB")]
@@ -86,8 +86,8 @@ def test_summary_prints_the_changes_table_per_rebalance(ex, capsys) -> None:
     out = capsys.readouterr().out
     rows = [" ".join(line.replace("│", " ").replace("┃", " ").split()) for line in out.splitlines()]
     assert any("Rebalance Schedule" in r for r in rows)
-    assert any("Added" in r for r in rows)
-    assert any(days[0].isoformat() in r and "+AAA(500)" in r for r in rows)
+    assert any("Bought" in r for r in rows)
+    assert any(days[0].isoformat() in r and "AAA(500)" in r for r in rows)
     assert "Final holdings" not in out
 
 

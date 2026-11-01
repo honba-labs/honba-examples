@@ -162,7 +162,7 @@ class AmfiNavLoader:
         self, scheme: str, start: dt.date | None = None, end: dt.date | None = None
     ) -> list[NavPoint]:
         """NAV points for a single scheme from ``start`` to ``end``, both days inclusive."""
-        from honba.screener.coverage import DateInterval
+        from honba_data.domain.coverage import DateInterval
 
         inst = InstrumentId(symbol=scheme, exchange=EXCHANGE)
         start_d = start or dt.date(2000, 1, 1)

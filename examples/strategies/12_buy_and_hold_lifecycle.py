@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import ClassVar, override
+from typing import Any, ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.strategies.base import Strategy
@@ -53,7 +53,7 @@ class BuyAndHold(Strategy):
         super().on_start()
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         if not self.bought:
             print(f"Buying on bar: {bar.ts}")
             self.buy(bar.instrument_id, self.quantity)

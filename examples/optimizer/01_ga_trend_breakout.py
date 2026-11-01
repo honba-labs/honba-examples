@@ -76,7 +76,7 @@ class SmaTrendFollowing(Strategy):
         self.entry_price: float | None = None
         self.trail_price: float | None = None
 
-    def on_bar(self, bar) -> None:
+    def on_bar(self, bar, ctx: Any = None) -> None:
         fast_val = self.fast.update(bar.close)
         slow_val = self.slow.update(bar.close)
         rsi_val = self.rsi.update(bar.close)

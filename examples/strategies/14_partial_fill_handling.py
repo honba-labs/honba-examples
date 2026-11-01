@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import ClassVar, override
+from typing import Any, ClassVar, override
 
 from honba.domain.bar import Bar
 from honba.domain.order import OrderIntent, OrderSide, OrderType
@@ -159,7 +159,7 @@ class PartialFillStrategy(Strategy):
         self.on_order_event(evt)
 
     @override
-    def on_bar(self, bar: Bar) -> None:
+    def on_bar(self, bar: Bar, ctx: Any = None) -> None:
         # Initial order placement: submit buy limit order for target quantity
         if not self._submitted_initial:
             self._order_counter += 1
