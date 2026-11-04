@@ -193,6 +193,7 @@ _METRIC_ORDER = (
     "final_equity",
     "total_return_pct",
     "cagr_pct",
+    "xirr_pct",
     "max_drawdown_pct",
     "sharpe",
     "total_fees",
@@ -209,7 +210,7 @@ _METRIC_ORDER = (
 
 
 def _metric_text(key: str, v: Any) -> str:
-    if key in ("total_return_pct", "cagr_pct", "max_drawdown_pct"):
+    if key in ("total_return_pct", "cagr_pct", "xirr_pct", "max_drawdown_pct"):
         return format_percent(v)
     if key in ("sharpe", "turnover"):
         return _num(v, 3)
@@ -231,6 +232,7 @@ _METRIC_LABEL_OVERRIDES = {
     "total_invested": "Total invested",
     "initial_corpus": "Initial corpus",
     "net_profit": "Net profit",
+    "xirr_pct": "XIRR % (money-weighted)",
 }
 
 
