@@ -30,6 +30,63 @@ __all__ = [
 SESSIONS_PER_YEAR = 252
 
 
+def _xirr(
+    cash_flows: Sequence[tuple[dt.date, float]], tol: float = 1e-6, max_iter: int = 100
+) -> float | None:
+    """Annualized money-weighted return (XIRR) via Newton-Raphson with a bisection fallback.
+
+    ``cash_flows``: ``(date, amount)`` pairs, outflows negative and the terminal value
+    positive. Returns the rate as a percentage, or ``None`` if it can't be solved. A separate
+    copy of the same algorithm as :func:`honba_examples.sip_plan.calculate_xirr`, kept local so
+    this lightweight, dependency-free module doesn't import that heavier one.
+    """
+    if len(cash_flows) < 2:
+        return None
+    amounts = [a for _, a in cash_flows]
+    if not (any(a < 0 for a in amounts) and any(a > 0 for a in amounts)):
+        return None
+
+    d0 = cash_flows[0][0]
+    fractions = [(d - d0).days / 365.25 for d, _ in cash_flows]
+
+    def xnpv(r: float) -> float:
+        return sum(a / ((1.0 + r) ** t) for t, a in zip(fractions, amounts))
+
+    def dxnpv(r: float) -> float:
+        return sum(-t * a / ((1.0 + r) ** (t + 1.0)) for t, a in zip(fractions, amounts))
+
+    r = 0.1
+    for _ in range(max_iter):
+        f = xnpv(r)
+        df = dxnpv(r)
+        if abs(df) < 1e-12:
+            break
+        r_next = r - f / df
+        if abs(r_next - r) < tol:
+            return r_next * 100.0
+        r = r_next
+        if r <= -0.99:
+            r = -0.9
+
+    low, high = -0.99, 5.0
+    f_low, f_high = xnpv(low), xnpv(high)
+    if f_low * f_high > 0:
+        return None
+    mid = (low + high) / 2.0
+    for _ in range(max_iter):
+        mid = (low + high) / 2.0
+        f_mid = xnpv(mid)
+        if abs(f_mid) < tol or (high - low) / 2.0 < tol:
+            return mid * 100.0
+        if f_low * f_mid < 0:
+            high = mid
+            f_high = f_mid
+        else:
+            low = mid
+            f_low = f_mid
+    return mid * 100.0
+
+
 def fills_equity_curve(capital: float, fills: Sequence[Any], bars: Sequence[Any]) -> list[float]:
     """Equity at each bar close: ``capital`` first, then cash plus open position at that close.
 
@@ -62,7 +119,12 @@ def curve_metrics(
 
     When ``cash_inflows`` (e.g. SIP deposits) is provided, session returns use Time-Weighted
     Return (TWR) formulation: ``(V_t - Inflow_t - V_{t-1}) / V_{t-1}`` to avoid false return spikes.
-    ``total_return_pct`` and ``cagr_pct`` use ``total_invested`` when given.
+    ``total_return_pct`` and ``cagr_pct`` use ``total_invested`` when given, which makes
+    ``cagr_pct`` a lump-sum-equivalent rate (as if ``total_invested`` sat at ``capital`` from day
+    one) rather than a true annualized return: with staggered inflows it reads low. The result
+    then also carries ``xirr_pct``, the money-weighted annualized return (Newton-Raphson XIRR
+    over ``capital`` at day one, each inflow, and the final value) that actually reconciles with
+    ``total_return_pct``.
     """
     if not curve:
         raise ValueError("curve_metrics needs at least one point")
@@ -107,13 +169,25 @@ def curve_metrics(
         else 0.0
     )
 
-    return {
+    out = {
         "final_value": values[-1],
         "total_return_pct": total_return_pct,
         "cagr_pct": cagr_pct,
         "max_drawdown_pct": 100 * max_dd,
         "sharpe": sharpe,
     }
+    if cash_inflows:
+        flows = [(first, -capital)]
+        flows += [
+            (k if isinstance(k, dt.date) else dt.date.fromisoformat(str(k)), -float(v))
+            for k, v in cash_inflows.items()
+        ]
+        flows.append((last, values[-1]))
+        flows.sort(key=lambda f: f[0])
+        xirr_pct = _xirr(flows)
+        if xirr_pct is not None:
+            out["xirr_pct"] = xirr_pct
+    return out
 
 
 def exposure_metrics(curve: Sequence[dict[str, Any]], traded_notional: float) -> dict[str, float]:
